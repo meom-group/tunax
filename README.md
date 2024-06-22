@@ -1,2 +1,2 @@
-# Jaxcm
- Differential calibration of vertical turbulent closures of ocean models
+# JaxLondon
+Jax caLibration of ONe Dimenssional vertical OceanN models [temporary name]

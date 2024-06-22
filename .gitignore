@@ -1,0 +1,4 @@
+.venv*
+*.nc
+*.jld2
+obs/*/
