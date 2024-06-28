@@ -2,3 +2,4 @@
 *.nc
 *.jld2
 obs/*/
+__pycache__/

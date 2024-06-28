@@ -42,7 +42,9 @@ def nc_to_obs(nc_filename: str, des_filename: str) -> Obs:
         with the ".nc" extension
     des_filename : str
         path and filename of the description of the netCDF file. It is as
-        .json file which indicates where to find every information in the nc file.
+        .json file which indicates where to find every information in the nc
+        file. The path is from the current directory and with the ".json"
+        extension
 
     Returns
     -------
@@ -73,16 +75,45 @@ def nc_to_obs(nc_filename: str, des_filename: str) -> Obs:
 
     return Obs(variables=norm_variables, parameters=Any, metadatas=None)
 
+
+def jld2_to_obs(jld2_filename: str, des_filename: str) -> Obs:
+    """
+    Create a Obs object from a jld2 file. It reads the file, then it
+    normalizes the vairable names.
+
+    Parameters
+    ----------
+    nc_filename : str
+        path and filename of the jld2 file, from the current directory and
+        with the ".jld2" extension
+    des_filename : str
+        path and filename of the description of the netCDF file. It is as
+        .json file which indicates where to find every information in the jld2
+        file. The path is from the current directory and with the ".json"
+        extension
+
+    Returns
+    -------
+    observation : Obs
+        Obs object created from the netCDF file
+    """
+
+    variables = {}
+    coords = {}
+
+
 def get_nc_var(ds: xr.Dataset, var_name: str, params: Any, shape = None) -> np.ndarray:
     match params['type']:
         case 'copy':
             nc_var_name = params['variable_name']
-            return ds[nc_var_name].values
+            arr = ds[nc_var_name].values
+            return arr.astype(np.float64)
         case 'transormation':
             nc_var_name = params['variable_name']
             mul_factor = params['mul_factor']
             add_factor = params['add_factor']
-            return ds[nc_var_name].values*mul_factor+add_factor
+            arr = ds[nc_var_name].values*mul_factor+add_factor
+            return arr.astype(np.float64)
         case 'create':
             return np.full(shape, params['const_value'])
         case _:
