@@ -78,7 +78,7 @@ class Grid(eqx.Module):
         self.nz = zw.shape[0]
         self.zw = zw
         self.zr = zr
-        self.hz = zr[1:] - zr[:-1]
+        self.hz = zw[1:] - zw[:-1]
 
     @classmethod
     def linear(cls, nz: int, h: int):
