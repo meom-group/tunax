@@ -5,7 +5,6 @@ import equinox as eqx
 import jax.numpy as jnp
 from grid import Grid
 from case import Case
-from optax.losses import l2_loss
 
 class State(eqx.Module):
     """
