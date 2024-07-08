@@ -1,10 +1,13 @@
 """
+Physical model
 """
 
 import equinox as eqx
 import jax.numpy as jnp
 from grid import Grid
 from case import Case
+from typing import Dict
+
 
 class State(eqx.Module):
     """
@@ -13,18 +16,17 @@ class State(eqx.Module):
     grid: Grid
     u: jnp.ndarray
 
-    def closure1(self, case, clo_par):
-        alpha = clo_par[0]
-        u_np1_c = self.u[1:-1] + alpha*case.dt/(self.grid.hz[1:-1]**2) * (self.u[2:]-2*self.u[1:-1]+self.u[:-2])
-        u_np1_l = self.u[0] + alpha*case.dt/(self.grid.hz[0]**2) * (self.u[1]-2*self.u[0])
-        u_np1_d = self.u[-1] + alpha*case.dt/(self.grid.hz[-1]**2) * (-2*self.u[-1]+self.u[-2])
-        u_np1 = jnp.concatenate([jnp.array([u_np1_l]), u_np1_c, jnp.array([u_np1_d])])
-        return State(self.grid, u_np1)
-    
     def cost(self, obs):
         return jnp.sum((self.u-obs.u)**2)
 
-class Experiment(eqx.Module):
+class VerticalPhysics(eqx.Module):
+    alpha: float
+    beta: float
+
+    def __call__(self, state: State):
+        return self.alpha*self.beta
+
+class Model(eqx.Module):
     """
     Define an experiment
     """
@@ -32,10 +34,21 @@ class Experiment(eqx.Module):
     grid: Grid
     state0: State
     case: Case
-    clo_par: jnp.ndarray
+    vertical_physics: VerticalPhysics
 
+    def set_initial_state(self, state: State):
+        self.state0 = state
+
+    def step(self, state: State):
+        diff = self.vertical_physics(state)
+        u_np1_c = state.u[1:-1] + diff*self.case.dt/(state.grid.hz[1:-1]**2) * (state.u[2:]-2*state.u[1:-1]+state.u[:-2])
+        u_np1_l = state.u[0] + diff*self.case.dt/(state.grid.hz[0]**2) * (state.u[1]-2*state.u[0])
+        u_np1_d = state.u[-1] + diff*self.case.dt/(state.grid.hz[-1]**2) * (-2*state.u[-1]+state.u[-2])
+        u_np1 = jnp.concatenate([jnp.array([u_np1_l]), u_np1_c, jnp.array([u_np1_d])])
+        return State(state.grid, u_np1)
+    
     def run(self):
         state = self.state0
         for _ in range(self.nt):
-            state = state.closure1(self.case, self.clo_par)
+            state = self.step(state)
         return state
