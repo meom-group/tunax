@@ -6,7 +6,7 @@ import equinox as eqx
 import jax.numpy as jnp
 from case import Case
 from grid import Grid
-from model import Experience, State, CloCoefs
+from model import Model, State, VerticalPhysics
 from jax import grad
 import matplotlib.pyplot as plt
 from typing import Dict
@@ -42,7 +42,7 @@ class CoefFitParams(eqx.Module):
                 i_x += 1
             else:
                 clo_coef_dico[coef_name] = coef_fit.fixed_val
-        return CloCoefs(clo_coef_dico)
+        return VerticalPhysics(**clo_coef_dico)
     
     def gen_init_val(self):
         x = []
@@ -56,6 +56,7 @@ class Fitter(eqx.Module):
     coef_fit_params: CoefFitParams
     nloop: int
     nt: int
+    dt: float
     grid: Grid
     state0: State
     case: Case
@@ -66,16 +67,17 @@ class Fitter(eqx.Module):
 
     def loss(self, x):
         nt = self.nt
+        dt = self.dt
         g = self.grid
         s0 = self.state0
         case = self.case
-        clo_coefs = self.coef_fit_params.fit_to_closure(x)
-        exp = Experience(nt, g, s0, case, clo_coefs)
+        vertical_physic = self.coef_fit_params.fit_to_closure(x)
+        exp = Model(nt, dt, g, s0, case, vertical_physic)
         sf = exp.run()
         return sf.cost(self.state_obs)
 
      
-    def fit_loop(self):
+    def __call__(self):
         optimizer = optax.adam(self.learning_rate)
         x = self.coef_fit_params.gen_init_val()
         opt_state = optimizer.init(x)
@@ -94,11 +96,11 @@ class Fitter(eqx.Module):
 
     def plot_res(self, xf):
         x0 = self.coef_fit_params.gen_init_val()
-        clo_cloefs_0 = self.coef_fit_params.fit_to_closure(x0)
-        exp0 = Experience(self.nt, self.grid, self.state0, self.case, clo_cloefs_0)
+        vertical_physic_0 = self.coef_fit_params.fit_to_closure(x0)
+        exp0 = Model(self.nt, self.dt, self.grid, self.state0, self.case, vertical_physic_0)
         plt.plot(exp0.run().u, '--', label='u0')
-        clo_cloefs_f = self.coef_fit_params.fit_to_closure(xf)
-        expf = Experience(self.nt, self.grid, self.state0, self.case, clo_cloefs_f)
+        vertical_physic_f = self.coef_fit_params.fit_to_closure(xf)
+        expf = Model(self.nt, self.dt, self.grid, self.state0, self.case, vertical_physic_f)
         plt.plot(expf.run().u, ':', label='uf')
         plt.plot(self.state_obs.u, label='obj')
         plt.legend()
