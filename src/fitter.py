@@ -2,11 +2,12 @@
 Optimizer
 """
 import optax
+import xarray as xr
 import equinox as eqx
 import jax.numpy as jnp
 from case import Case
 from grid import Grid
-from model import Model, State, VerticalPhysics
+from model import Model, State, VerticalPhysics, History
 from jax import grad
 import matplotlib.pyplot as plt
 from typing import Dict
@@ -57,10 +58,11 @@ class Fitter(eqx.Module):
     nloop: int
     nt: int
     dt: float
+    out_dt: float
     grid: Grid
     state0: State
     case: Case
-    state_obs: State
+    obs: History
     learning_rate: float
     verbatim: bool
     
@@ -68,13 +70,14 @@ class Fitter(eqx.Module):
     def loss(self, x):
         nt = self.nt
         dt = self.dt
+        out_dt = self.out_dt
         g = self.grid
         s0 = self.state0
         case = self.case
         vertical_physic = self.coef_fit_params.fit_to_closure(x)
-        exp = Model(nt, dt, g, s0, case, vertical_physic)
-        sf = exp.run()
-        return sf.cost(self.state_obs)
+        model = Model(nt, dt, out_dt, g, s0, case, vertical_physic)
+        history = model()
+        return history.cost(self.obs)
 
      
     def __call__(self):
@@ -95,12 +98,27 @@ class Fitter(eqx.Module):
     
 
     def plot_res(self, xf):
+        n_out = int(self.nt*self.dt/self.out_dt)
         x0 = self.coef_fit_params.gen_init_val()
         vertical_physic_0 = self.coef_fit_params.fit_to_closure(x0)
-        exp0 = Model(self.nt, self.dt, self.grid, self.state0, self.case, vertical_physic_0)
-        plt.plot(exp0.run().u, '--', label='u0')
+        m0 = Model(self.nt, self.dt, self.out_dt, self.grid, self.state0, self.case, vertical_physic_0)
+        h0 = m0()
+        for i in range(n_out):
+            if i == 0:
+                plt.plot(h0.u[i, :], 'k--', label='u0')
+            else:
+                plt.plot(h0.u[i, :], 'k--')
         vertical_physic_f = self.coef_fit_params.fit_to_closure(xf)
-        expf = Model(self.nt, self.dt, self.grid, self.state0, self.case, vertical_physic_f)
-        plt.plot(expf.run().u, ':', label='uf')
-        plt.plot(self.state_obs.u, label='obj')
+        mf = Model(self.nt, self.dt, self.out_dt, self.grid, self.state0, self.case, vertical_physic_f)
+        hf = mf()
+        for i in range(n_out):
+            if i == 0:
+                plt.plot(hf.u[i, :], 'r:', label='uf')
+            else:
+                plt.plot(hf.u[i, :], 'r:')
+        for i in range(n_out):
+            if i == 0:
+                plt.plot(self.obs.u[i, :], 'g', label='obj')
+            else:
+                plt.plot(self.obs.u[i, :], 'g')
         plt.legend()

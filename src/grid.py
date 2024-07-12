@@ -11,7 +11,6 @@ Grid
 import xarray as xr
 import equinox as eqx
 import jax.numpy as jnp
-from typing import Type, TypeVar
 
 
 class Grid(eqx.Module):
@@ -54,7 +53,7 @@ class Grid(eqx.Module):
     zr: jnp.ndarray
     zw: jnp.ndarray
     hz: jnp.ndarray
-    
+
     def __init__(self, zr:jnp.ndarray, zw: jnp.ndarray):
         """
         Creates a grid object from the centers and interfaces of the cells.
@@ -75,7 +74,7 @@ class Grid(eqx.Module):
         grid : Grid
 
         """
-        self.nz = zw.shape[0]
+        self.nz = zr.shape[0]
         self.zw = zw
         self.zr = zr
         self.hz = zw[1:] - zw[:-1]
