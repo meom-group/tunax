@@ -28,6 +28,8 @@ class Grid(eqx.Module):
     ----------
     nz : int
         number of cells
+    h : float
+        depth of the column
     zr : jnp.ndarray, float(nz)
         depths of cell centers from deepest to shallowest [m]
     zw : jnp.ndarray, float(nz+1)
@@ -50,6 +52,7 @@ class Grid(eqx.Module):
     """
 
     nz: int
+    h: float
     zr: jnp.ndarray
     zw: jnp.ndarray
     hz: jnp.ndarray
@@ -58,16 +61,12 @@ class Grid(eqx.Module):
         """
         Creates a grid object from the centers and interfaces of the cells.
 
-        Attributes
+        Parameters
         ----------
-        nz : int
-            number of cells
         zr : jnp.ndarray, float(nz)
             depths of cell centers from deepest to shallowest [m]
         zw : jnp.ndarray, float(nz+1)
             depths of cell interfaces from deepest to shallowest [m]
-        hz : jnp.ndarray, float(nz)
-            thickness of cells from deepest to shallowest [m]
         
         Returns
         -------
@@ -75,9 +74,27 @@ class Grid(eqx.Module):
 
         """
         self.nz = zr.shape[0]
+        self.h = zw[0]
         self.zw = zw
         self.zr = zr
         self.hz = zw[1:] - zw[:-1]
+    
+    def find_index(self, h: float) -> int:
+        """
+        Find the index i so that hmxl is in cell i, which means that
+        zw[i] <= -hxml < zw[i+1], and -1 if -hmxl < zw[0].
+
+        Parameters
+        ----------
+        h : float, positive
+            the depth to search the index
+        
+        Returns
+        -------
+        i : int
+            the index corresponding to the depth h
+        """
+        return int(jnp.searchsorted(self.zw, -h, side='right')) - 1
 
     @classmethod
     def linear(cls, nz: int, h: int):
