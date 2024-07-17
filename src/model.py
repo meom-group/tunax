@@ -10,6 +10,8 @@ from jax import vmap, jit
 from grid import Grid
 from case import Case
 from typing import List
+from scm_oce import lmd_swfrac, tridiag_solve, rho_eos_lin
+from closures.k_eps import compute_shear, compute_tke_eps_bdy, advance_turb_eps, advance_turb_tke, compute_ev_ed_filt
 
 def piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
     """
@@ -166,6 +168,13 @@ class State(eqx.Module):
         maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
         s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
         return eqx.tree_at(lambda t: t.s, self, s_new)
+    
+    def init_all(self):
+        state = self.init_u()
+        state = state.init_v()
+        state = state.init_t()
+        state = state.init_s()
+        return state
 
 
 class History(eqx.Module):
@@ -186,12 +195,95 @@ class History(eqx.Module):
         s_cost = jnp.sum((self.s-obs.s)**2)
         return t_cost
 
-class VerticalPhysics(eqx.Module):
-    alpha: float
-    beta: float
+class KepsState(eqx.Module):
+    grid: Grid
+    akv: jnp.ndarray
+    akt: jnp.ndarray
+    eps: jnp.ndarray
+    tke: jnp.ndarray
+    cmu: jnp.ndarray
+    cmu_prim: jnp.ndarray
 
-    def __call__(self, state: State):
-        return self.alpha*self.beta
+    def __init__(self, grid: Grid, akv_min: float=1e-4, akt_min: float=1e-5,
+                 eps_min: float=1e-12, tke_min: float=1e-6, cmu_min: float=0.1,
+                 cmu_prim_min: float=0.1):
+        self.grid = grid
+        self.akv = jnp.full(grid.nz+1, akv_min)
+        self.akt = jnp.full(grid.nz+1, akt_min)
+        self.eps = jnp.full(grid.nz+1, eps_min)
+        self.tke = jnp.full(grid.nz+1, tke_min)
+        self.cmu = jnp.full(grid.nz+1, cmu_min)
+        self.cmu_prim = jnp.full(grid.nz, cmu_prim_min)
+
+
+class KepsParams(eqx.Module):
+    eos_params: jnp.ndarray
+    pnm: jnp.ndarray
+    betaCoef: jnp.array
+
+    def __init__(self):
+        self.eos_params = jnp.array([1024., 2e-4, 2e-4, 2., 35.]) # [rho0,alpha,beta,Tref,Sref]
+        self.pnm = jnp.array([3., -1., 1.5])
+        self.betaCoef = jnp.array([1.44, 1.92, -0.4, 1.])
+
+    def __call__(self, state: State, keps_state: KepsState, case: Case):
+        # attributes
+        nz = state.grid.nz
+        tke = keps_state.tke
+        akv = keps_state.akv
+        eps = keps_state.eps
+        cmu = keps_state.cmu
+        cmu_prim = keps_state.cmu_prim
+        u = state.u
+        v = state.v
+        zr = state.grid.zr
+        hz = state.grid.hz
+
+        rho, bvf = rho_eos_lin(state.t, state.s, zr, self.eos_params)
+
+        shear2 = compute_shear(u, v, u, v, zr)
+
+        tke1 = 0.5*(tke[nz]+tke[nz-1]) 
+        tke2 = 0.5*(tke[0]+tke[1])
+        tkemin = 1e-6 # CHANGER AVEC tke_min
+        akvmin = 1e-4
+        aktmin = 1e-5
+        epsmin = 1e-12 # CHANGER AVEC eps_min
+        z0b = 1e-14 # CHANGER AVEC eps_min
+        OneOverSig_psi = 1/1.3
+        OneOverSig_k = 1.
+        dt = 10. # CHANGER
+
+        tke_sfc, tke_bot, ftke_sfc, ftke_bot, eps_sfc, eps_bot, feps_sfc, feps_bot = compute_tke_eps_bdy(
+            case.ustr_sfc, case.vstr_sfc, case.ustr_btm, case.vstr_btm, z0b, tke1, hz[-1], tke2, hz[0], OneOverSig_psi, self.pnm, tkemin, epsmin)
+        
+        # CA C'est bien nul il faut changer
+        bdy_tke_sfc = jnp.zeros(2)
+        bdy_tke_bot = jnp.zeros(2)
+        bdy_eps_sfc = jnp.zeros(2)
+        bdy_eps_bot = jnp.zeros(2)
+        if bdy_tke_sfc[0] < 0.5: bdy_tke_sfc = bdy_tke_sfc.at[1].set(tke_sfc)
+        else: bdy_tke_sfc = bdy_tke_sfc.at[1].set(ftke_sfc)
+        if bdy_tke_bot[0] < 0.5: bdy_tke_bot = bdy_tke_bot.at[1].set(tke_bot)
+        else: bdy_tke_bot = bdy_tke_bot.at[1].set(ftke_bot)
+        if bdy_eps_sfc[0] < 0.5: bdy_eps_sfc = bdy_eps_sfc.at[1].set(eps_sfc)
+        else: bdy_eps_sfc = bdy_eps_sfc.at[1].set(feps_sfc)
+        if bdy_eps_bot[0] < 0.5: bdy_eps_bot = bdy_eps_bot.at[1].set(eps_bot)
+        else: bdy_eps_bot = bdy_eps_bot.at[1].set(feps_bot)
+
+
+        tke_new, wtke = advance_turb_tke(tke, bvf, shear2, OneOverSig_k*akv, akv, keps_state.akt, eps, hz, dt, tkemin, bdy_tke_sfc, bdy_tke_bot)
+        eps_new = advance_turb_eps(eps, bvf, shear2, OneOverSig_psi*akv, cmu, cmu_prim, tke, tke_new, hz, dt, self.betaCoef, epsmin, bdy_eps_sfc, bdy_eps_bot)
+        akv_new, akt_new, cmu_new, cmu_prim_new, eps_new = compute_ev_ed_filt(tke_new, eps_new, bvf, shear2 , self.pnm, akvmin, aktmin, epsmin)
+        
+        keps_state = eqx.tree_at(lambda t: t.akv, keps_state, akv_new)
+        keps_state = eqx.tree_at(lambda t: t.akt, keps_state, akt_new)
+        keps_state = eqx.tree_at(lambda t: t.eps, keps_state, eps_new)
+        keps_state = eqx.tree_at(lambda t: t.tke, keps_state, tke_new)
+        keps_state = eqx.tree_at(lambda t: t.cmu, keps_state, cmu_new)
+        keps_state = eqx.tree_at(lambda t: t.cmu_prim, keps_state, cmu_prim_new)
+
+        return keps_state
 
 
 class Model(eqx.Module):
@@ -204,10 +296,10 @@ class Model(eqx.Module):
     grid: Grid
     state0: State
     case: Case
-    vertical_physic: VerticalPhysics
+    keps_params: KepsParams
 
     def __init__(self, nt: int, dt: float, out_dt: float, grid: Grid,
-                 state0: State, case: Case, vertical_physics: VerticalPhysics):
+                 state0: State, case: Case, keps_params: KepsParams):
         n_out = out_dt/dt
         if not n_out.is_integer():
             raise ValueError('out_dt should be a multiple of dt.')
@@ -221,49 +313,47 @@ class Model(eqx.Module):
         self.grid = grid
         self.state0 = state0
         self.case = case
-        self.vertical_physic = vertical_physics
+        self.keps_params = keps_params
 
-    def step(self, state: State):
-        diff = self.vertical_physic(state)
-
-        ## Temperature
+    def step_t(self, state: State, keps_state: KepsState, swr_frac: jnp.ndarray):
         # get attributes
         hz = self.grid.hz
         zw = self.grid.zw
         nz = self.grid.nz
-        dt = dt
+        dt = self.dt
         grav = self.case.grav
         cp = self.case.cp
         alpha = self.case.alpha
         rflx_sfc = self.case.rflx_sfc_max ### CHANGE THE SOLAR FLUX
 
-
-
-        # 1 - Compute fluxes associated with solar penetration and surface boundary
-        # condition
-        # 1.1 - temperature
+        # 1 - Compute fluxes associated with solar penetration and surface
+        # boundary condition
         # surface heat flux (including latent and solar components)
-        fc = fc.at[N].set(self.case.tflx_sfc + rflx_sfc)
+        fc_top = self.case.tflx_sfc + rflx_sfc
         # penetration of solar heat flux
-        fc = fc.at[1:N].set(rflx_sfc * swr_frac[1:N])
+        fc_mid = rflx_sfc * swr_frac[1:nz]
+        fc = jnp.concatenate([jnp.array([0.]), fc_mid, jnp.array([fc_top])])
         # apply flux divergence
         t_new = hz*state.t + dt*(fc[1:] - fc[:-1])
-        cffp = eps[1:] / (cp - alpha * grav * zw[1:])
-        cffm = eps[:-1] / (cp - alpha * grav * zw[:-1])
-        t_new = t_new + dt * 0.5 * hz * (cffp + cffm)
+        cffp = keps_state.eps[1:] / (cp - alpha * grav * zw[1:])
+        cffm = keps_state.eps[:-1] / (cp - alpha * grav * zw[:-1])
+        t_new = t_new + dt*0.5*hz*(cffp + cffm)
 
         # 2 - Implicit integration for vertical diffusion
-        # 1.1 - temperature
         # right hand side for the tridiagonal problem
-        t_new = t_new.at[0].add(-dt * btflx[0])
+        t_new = t_new.at[0].add(-dt * self.case.tflx_btm)
         # solve tridiagonal problem
-        t_new = tridiag_solve(hz, Akt, temp, dt)
-        
+        return tridiag_solve(hz, keps_state.akt, t_new, dt) 
+
+    def step(self, state: State, keps_state: KepsState, swr_frac: jnp.ndarray):
+        keps_state = self.keps_params(state, keps_state, self.case)
+
+        t_new = self.step_t(state, keps_state, swr_frac)
+
         u_new = state.u
         v_new = state.v
-        t_new = state.t
         v_new = state.v
-        return State(state.grid, u_new, v_new, t_new, v_new)
+        return State(state.grid, u_new, v_new, t_new, v_new), keps_state
     
     def gen_history(self, time: jnp.ndarray, states_list: List[State]):
         u_list = [s.u for s in states_list]
@@ -276,85 +366,11 @@ class Model(eqx.Module):
     def __call__(self):
         states_list = []
         state = self.state0
+        keps_state = KepsState(self.grid)
+        swr_frac = lmd_swfrac(self.grid.hz)
         for i_t in range(self.nt):
             if i_t % self.n_out == 0:
                 states_list.append(state)
-            state = self.step(state)
+            state, keps_state = self.step(state, keps_state, swr_frac)
         time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
         return self.gen_history(time, states_list)
-
-
-def step_t():
-
-
-
-@jit
-def tridiag_solve(Hz, Ak, f, dt):
-    """
-    Solve the tridiagonal problem associated with the implicit in time
-    treatment of vertical diffusion/viscosity.
-
-    Parameters
-    ----------
-    Hz : float(N)
-        layer thickness [m]
-    Ak : float(N+1)
-        eddy diffusivity/viscosity [m2/s]
-    f : float(N) [modified]
-        (in: right-hand side) (out:solution of tridiagonal problem)
-    dt : float
-        time-step [s]
-    
-    Returns
-    -------
-    f : float(N) [modified]
-        (in: right-hand side) (out:solution of tridiagonal problem)
-    """
-    # local variables
-    N, = Hz.shape
-    a = jnp.zeros(N)
-    b = jnp.zeros(N)
-    c = jnp.zeros(N)
-    q = jnp.zeros(N)
-     
-    # fill the coefficients for the tridiagonal matrix
-    difA = -2.0 * dt * Ak[1:N-1] / (Hz[:N-2] + Hz[1:N-1])
-    difC = -2.0 * dt * Ak[2:N] / (Hz[2:N] + Hz[1:N-1])
-    a = a.at[1:N-1].set(difA)
-    c = c.at[1:N-1].set(difC)
-    b = b.at[1:N-1].set(Hz[1:N-1] - difA - difC)
-
-    # bottom boundary condition
-    a = a.at[0].set(0.0)
-    difC = -2.0 * dt * Ak[1] / (Hz[1] + Hz[0])
-    c = c.at[0].set(difC)
-    b = b.at[0].set(Hz[0] - difC)
-
-    # surface boundary condition
-    difA = -2.0 * dt * Ak[N-1] / (Hz[N-2] + Hz[N-1])
-    a = a.at[N-1].set(difA)
-    c = c.at[N-1].set(0.0)
-    b = b.at[N-1].set(Hz[N-1] - difA)
-
-    # forward sweep
-    cff = 1.0 / b[0]
-    q = q.at[0].set(-c[0] * cff)
-    f = f.at[0].multiply(cff)
-    
-    def body_fun1(k, x):
-        f = x[0, :]
-        q = x[1, :]
-        cff = 1.0 / (b[k] + a[k] * q[k-1])
-        q = q.at[k].set(-cff * c[k])
-        f = f.at[k].set(cff * (f[k] - a[k] * f[k-1]))
-        return jnp.stack([f, q])
-    f_q = jnp.stack([f, q])
-    f_q = lax.fori_loop(1, N, body_fun1, f_q)
-    f = f_q[0, :]
-    q = f_q[1, :]
-
-    # backward substitution
-    body_fun2 = lambda k, x: x.at[N-2-k].add(q[N-2-k] * x[N-1-k])
-    f = lax.fori_loop(0, N-1, body_fun2, f)
-    
-    return f
