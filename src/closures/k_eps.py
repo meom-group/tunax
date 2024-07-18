@@ -10,57 +10,11 @@ Zosmin = 1.e-2  # min surface roughness length
 Zobmin = 1.e-4  # min bottom roughness length
 z0b = 1.e-14    # bottom roughness length
 
-# CANUTO A stability function (Canuto & al. A 2001)
-c1 = 5.0
-c2 = 0.8
-c3 = 1.968
-c4 = 1.136
-c5 = 0.0
-c6 = 0.4
-cb1 = 5.95
-cb2 = 0.6
-cb3 = 1.0
-cb4 = 0.0
-cb5 = 0.33333
-cbb = 0.72
-a1 = 0.66666666667 - 0.5*c2
-a2 = 1.0 - 0.5*c3
-a3 = 1.0 - 0.5*c4
-a5 = 0.5 - 0.5*c6
-nn = 0.5*c1  # N
-nb = cb1  # Nt
-ab1 = 1.0 - cb2
-ab2 = 1.0 - cb3
-ab3 = 2.0*(1.0 - cb4)
-ab5 = 2.0*cbb*(1.0 - cb5)
-sf_d0 = 36.0*nn*nn*nn*nb*nb  # d0
-sf_d1 = 84.0*a5*ab3*nn*nn*nb + 36.0*ab5*nn*nn*nn*nb  # d1
-sf_d2 = 9.0*(ab2*ab2 - ab1*ab1)*nn*nn*nn - 12.0*(a2*a2 - 3.0*a3*a3)*nn*nb*nb
-sf_d3 = 12.0*a5*ab3*(a2*ab1 - 3.0*a3*ab2)*nn + 12.0*a5*ab3*(a3*a3 - a2*a2)*nb \
-    + 12.0*ab5*(3.0*a3*a3 - a2*a2)*nn*nb
-sf_d4 = 48.0*a5*a5*ab3*ab3*nn + 36.0*a5*ab3*ab5*nn*nn
-sf_d5 = 3.0*(a2*a2 - 3.0*a3*a3)*(ab1*ab1 - ab2*ab2)*nn
-sf_n0 = 36.0*a1*nn*nn*nb*nb
-sf_n1 = -12.0*a5*ab3*(ab1 + ab2)*nn*nn + 8.0*a5*ab3*(6.0*a1 - a2 - 3.0*a3)*nn*\
-    nb + 36.0*a1*ab5*nn*nn*nb
-sf_n2 = 9.0*a1*(ab2*ab2 - ab1*ab1)*nn*nn
-sf_nb0 = 12.0*ab3*nn*nn*nn*nb  # nt0
-sf_nb1 = 12.0*a5*ab3*ab3*nn*nn  # nt1
-sf_nb2 = 9.0*a1*ab3*(ab1 - ab2)*nn*nn + (6.0*a1*(a2 - 3.0*a3) - 4.0*(a2*a2 - \
-    3.0*a3*a3))*ab3*nn*nb  # nt2
-lim_am0 = sf_d0*sf_n0
-lim_am1 = sf_d0*sf_n1 + sf_d1*sf_n0
-lim_am2 = sf_d1*sf_n1 + sf_d4*sf_n0
-lim_am3 = sf_d4*sf_n1
-lim_am4 = sf_d2*sf_n0
-lim_am5 = sf_d2*sf_n1 + sf_d3*sf_n0
-lim_am6 = sf_d3*sf_n1
-
 
 @jit
 def compute_tke_eps_bdy(ustr_sfc, vstr_sfc, ustr_bot, vstr_bot, z0b, tke_n_sfc,
                         Hz_sfc, tke_n_bot, Hz_bot, OneOverSig, pnm, tke_min,
-                        eps_min):
+                        eps_min, keps_params):
     """
     Compute top and bottom boundary conditions for TKE and GLS equation.
 
@@ -112,6 +66,10 @@ def compute_tke_eps_bdy(ustr_sfc, vstr_sfc, ustr_bot, vstr_bot, z0b, tke_n_sfc,
     feps_bot : float
         bottom EPS flux for Neumann condition [m3/s4]
     """
+    a1 = keps_params.a1
+    a2 = keps_params.a2
+    a3 = keps_params.a3
+    nn = keps_params.nn
 
     # Calculate cm0
     cm0 = ((a2**2 - 3.0*a3**2 + 3.0*a1*nn) / (3.0*nn**2))**0.25
@@ -194,7 +152,7 @@ def compute_shear(u_n, v_n, u_np1, v_np1, zr):
 
 
 @jit
-def compute_ev_ed_filt(tke, gls, bvf, shear2, pnm, nuwm, nuws, eps_min):
+def compute_ev_ed_filt(tke, gls, bvf, shear2, pnm, nuwm, nuws, eps_min, keps_params):
     """
     No description.
 
@@ -230,6 +188,30 @@ def compute_ev_ed_filt(tke, gls, bvf, shear2, pnm, nuwm, nuws, eps_min):
     gls : float(N+1) [modified]
         no description
     """
+    a1 = keps_params.a1
+    a2 = keps_params.a2
+    a3 = keps_params.a3
+    nn = keps_params.nn
+    sf_d0 = keps_params.sf_d0
+    sf_d1 = keps_params.sf_d1
+    sf_d2 = keps_params.sf_d2
+    sf_d3 = keps_params.sf_d3
+    sf_d4 = keps_params.sf_d4
+    sf_d5 = keps_params.sf_d5
+    sf_n0 = keps_params.sf_n0
+    sf_n1 = keps_params.sf_n1
+    sf_n2 = keps_params.sf_n2
+    sf_nb0 = keps_params.sf_nb0
+    sf_nb1 = keps_params.sf_nb1
+    sf_nb2 = keps_params.sf_nb2
+    lim_am0 = keps_params.lim_am0
+    lim_am1 = keps_params.lim_am1
+    lim_am2 = keps_params.lim_am2
+    lim_am3 = keps_params.lim_am3
+    lim_am4 = keps_params.lim_am4
+    lim_am5 = keps_params.lim_am5
+    lim_am6 = keps_params.lim_am6
+
     # returned variables
     N = tke.shape[0]-1
     Akv = jnp.zeros(N+1)

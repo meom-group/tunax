@@ -6,8 +6,9 @@ import xarray as xr
 import equinox as eqx
 import jax.numpy as jnp
 from case import Case
+from jax import jit
 from grid import Grid
-from model import Model, State, VerticalPhysics, History
+from model import Model, State, KepsParams, History
 from jax import grad
 import matplotlib.pyplot as plt
 from typing import Dict
@@ -43,7 +44,7 @@ class CoefFitParams(eqx.Module):
                 i_x += 1
             else:
                 clo_coef_dico[coef_name] = coef_fit.fixed_val
-        return VerticalPhysics(**clo_coef_dico)
+        return KepsParams(**clo_coef_dico)
     
     def gen_init_val(self):
         x = []
@@ -66,7 +67,6 @@ class Fitter(eqx.Module):
     learning_rate: float
     verbatim: bool
     
-
     def loss(self, x):
         nt = self.nt
         dt = self.dt
@@ -76,7 +76,7 @@ class Fitter(eqx.Module):
         case = self.case
         vertical_physic = self.coef_fit_params.fit_to_closure(x)
         model = Model(nt, dt, out_dt, g, s0, case, vertical_physic)
-        history = model()
+        history = model() # ETAPE TROP LONGUE
         return history.cost(self.obs)
 
      
@@ -85,7 +85,7 @@ class Fitter(eqx.Module):
         x = self.coef_fit_params.gen_init_val()
         opt_state = optimizer.init(x)
         for i in range(self.nloop):
-            grads = grad(self.loss)(x)
+            grads = grad(self.loss)(x) # ETAPE TROP LONGUE
             updates, opt_state = optimizer.update(grads, opt_state)
             x = optax.apply_updates(x, updates)
             if self.verbatim:
@@ -105,20 +105,20 @@ class Fitter(eqx.Module):
         h0 = m0()
         for i in range(n_out):
             if i == 0:
-                plt.plot(h0.u[i, :], 'k--', label='u0')
+                plt.plot(h0.t[-1, :], self.grid.zr, 'k--', label='u0')
             else:
-                plt.plot(h0.u[i, :], 'k--')
+                plt.plot(h0.u[-1, :], self.grid.zr, 'k--')
         vertical_physic_f = self.coef_fit_params.fit_to_closure(xf)
         mf = Model(self.nt, self.dt, self.out_dt, self.grid, self.state0, self.case, vertical_physic_f)
         hf = mf()
         for i in range(n_out):
             if i == 0:
-                plt.plot(hf.u[i, :], 'r:', label='uf')
+                plt.plot(hf.t[-1, :], self.grid.zr, 'r:', label='uf')
             else:
-                plt.plot(hf.u[i, :], 'r:')
+                plt.plot(hf.t[-1, :], self.grid.zr, 'r:')
         for i in range(n_out):
             if i == 0:
-                plt.plot(self.obs.u[i, :], 'g', label='obj')
+                plt.plot(self.obs.t[-1, :], self.grid.zr, 'g', label='obj')
             else:
-                plt.plot(self.obs.u[i, :], 'g')
+                plt.plot(self.obs.t[-1, :], self.grid.zr, 'g')
         plt.legend()
