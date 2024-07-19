@@ -5,7 +5,7 @@ Physical model
 import warnings
 import equinox as eqx
 import jax.numpy as jnp
-from jax import lax
+import xarray as xr
 from jax import vmap, jit
 from grid import Grid
 from case import Case
@@ -176,25 +176,6 @@ class State(eqx.Module):
         state = state.init_s()
         return state
 
-
-class History(eqx.Module):
-    """
-    Define the history of a simulation.
-    """
-    grid: Grid
-    time: jnp.ndarray
-    u: jnp.ndarray
-    v: jnp.ndarray
-    t: jnp.ndarray
-    s: jnp.ndarray
-
-    def cost(self, obs):
-        u_cost = jnp.sum((self.u-obs.u)**2)
-        v_cost = jnp.sum((self.v-obs.v)**2)
-        t_cost = jnp.sum((self.t-obs.t)**2)
-        s_cost = jnp.sum((self.s-obs.s)**2)
-        return t_cost
-
 class KepsState(eqx.Module):
     grid: Grid
     akv: jnp.ndarray
@@ -214,6 +195,28 @@ class KepsState(eqx.Module):
         self.tke = jnp.full(grid.nz+1, tke_min)
         self.cmu = jnp.full(grid.nz+1, cmu_min)
         self.cmu_prim = jnp.full(grid.nz, cmu_prim_min)
+
+
+class Trajectory(eqx.Module):
+    """
+    Define the history of a simulation.
+    """
+    grid: Grid
+    time: jnp.ndarray
+    u: jnp.ndarray
+    v: jnp.ndarray
+    t: jnp.ndarray
+    s: jnp.ndarray
+    
+    def to_ds(self):
+        variables = {'u': (('time', 'zr'), self.u),
+                     'v': (('time', 'zr'), self.v),
+                     't': (('time', 'zr'), self.t),
+                     's': (('time', 'zr'), self.s)}
+        coords = {'time': self.time,
+                  'zr': self.grid.zr,
+                  'zw': self.grid.zw}
+        return xr.Dataset(variables, coords)
 
 
 class KepsParams(eqx.Module):
@@ -386,10 +389,9 @@ class Model(eqx.Module):
     grid: Grid
     state0: State
     case: Case
-    keps_params: KepsParams
 
     def __init__(self, nt: int, dt: float, out_dt: float, grid: Grid,
-                 state0: State, case: Case, keps_params: KepsParams):
+                 state0: State, case: Case):
         n_out = out_dt/dt
         if not n_out.is_integer():
             raise ValueError('out_dt should be a multiple of dt.')
@@ -403,10 +405,9 @@ class Model(eqx.Module):
         self.grid = grid
         self.state0 = state0
         self.case = case
-        self.keps_params = keps_params
 
-    def step(self, state: State, keps_state: KepsState, swr_frac: jnp.ndarray):
-        keps_state = keps(self.keps_params, state, keps_state, self.case)
+    def step(self, state: State, keps_state: KepsState, swr_frac: jnp.ndarray, keps_params: KepsParams):
+        keps_state = keps(keps_params, state, keps_state, self.case)
 
         rflx_sfc = self.case.rflx_sfc_max # AJOUTER MODULATION
         stflx = jnp.array([self.case.tflx_sfc, self.case.sflx_sfc])
@@ -424,10 +425,10 @@ class Model(eqx.Module):
         v_list = [s.v for s in states_list]
         t_list = [s.t for s in states_list]
         s_list = [state.s for state in states_list]
-        return History(self.grid, time, jnp.vstack(u_list), jnp.vstack(v_list), 
+        return Trajectory(self.grid, time, jnp.vstack(u_list), jnp.vstack(v_list), 
                        jnp.vstack(t_list), jnp.vstack(s_list))
     
-    def __call__(self):
+    def run(self, keps_params: KepsParams):
         states_list = []
         state = self.state0
         keps_state = KepsState(self.grid)
@@ -435,6 +436,6 @@ class Model(eqx.Module):
         for i_t in range(self.nt):
             if i_t % self.n_out == 0:
                 states_list.append(state)
-            state, keps_state = self.step(state, keps_state, swr_frac)
+            state, keps_state = self.step(state, keps_state, swr_frac, keps_params)
         time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
         return self.gen_history(time, states_list)

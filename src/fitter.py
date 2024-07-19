@@ -8,10 +8,11 @@ import jax.numpy as jnp
 from case import Case
 from jax import jit
 from grid import Grid
-from model import Model, State, KepsParams, History
+from model import Model, State, KepsParams, Trajectory
 from jax import grad
+from database import ObsSet
 import matplotlib.pyplot as plt
-from typing import Dict
+from typing import Dict , Callable
 
 class Fittable(eqx.Module):
     do_fit: bool
@@ -57,35 +58,26 @@ class CoefFitParams(eqx.Module):
 class Fitter(eqx.Module):
     coef_fit_params: CoefFitParams
     nloop: int
-    nt: int
-    dt: float
-    out_dt: float
-    grid: Grid
-    state0: State
-    case: Case
-    obs: History
+    model: Model
+    obs_set: ObsSet
     learning_rate: float
     verbatim: bool
-    
-    def loss(self, x):
-        nt = self.nt
-        dt = self.dt
-        out_dt = self.out_dt
-        g = self.grid
-        s0 = self.state0
-        case = self.case
+    loss: Callable[[], Trajectory]
+
+    def loss_wrapped(self, x):
         vertical_physic = self.coef_fit_params.fit_to_closure(x)
-        model = Model(nt, dt, out_dt, g, s0, case, vertical_physic)
-        history = model() # ETAPE TROP LONGUE
-        return history.cost(self.obs)
+        def model_wrapped():
+            return self.model.run(vertical_physic) # ETAPE TROP LONGUE
+        return self.loss(model_wrapped, self.obs_set)
 
      
     def __call__(self):
         optimizer = optax.adam(self.learning_rate)
         x = self.coef_fit_params.gen_init_val()
         opt_state = optimizer.init(x)
+        grad_loss = grad(self.loss_wrapped)
         for i in range(self.nloop):
-            grads = grad(self.loss)(x) # ETAPE TROP LONGUE
+            grads = grad_loss(x) # ETAPE TROP LONGUE
             updates, opt_state = optimizer.update(grads, opt_state)
             x = optax.apply_updates(x, updates)
             if self.verbatim:
@@ -97,28 +89,27 @@ class Fitter(eqx.Module):
         return x
     
 
-    def plot_res(self, xf):
-        n_out = int(self.nt*self.dt/self.out_dt)
-        x0 = self.coef_fit_params.gen_init_val()
-        vertical_physic_0 = self.coef_fit_params.fit_to_closure(x0)
-        m0 = Model(self.nt, self.dt, self.out_dt, self.grid, self.state0, self.case, vertical_physic_0)
-        h0 = m0()
-        for i in range(n_out):
-            if i == 0:
-                plt.plot(h0.t[-1, :], self.grid.zr, 'k--', label='u0')
-            else:
-                plt.plot(h0.u[-1, :], self.grid.zr, 'k--')
-        vertical_physic_f = self.coef_fit_params.fit_to_closure(xf)
-        mf = Model(self.nt, self.dt, self.out_dt, self.grid, self.state0, self.case, vertical_physic_f)
-        hf = mf()
-        for i in range(n_out):
-            if i == 0:
-                plt.plot(hf.t[-1, :], self.grid.zr, 'r:', label='uf')
-            else:
-                plt.plot(hf.t[-1, :], self.grid.zr, 'r:')
-        for i in range(n_out):
-            if i == 0:
-                plt.plot(self.obs.t[-1, :], self.grid.zr, 'g', label='obj')
-            else:
-                plt.plot(self.obs.t[-1, :], self.grid.zr, 'g')
-        plt.legend()
+    # def plot_res(self, xf):
+    #     zr = self.model.grid.zr
+    #     n_out = self.model.n_out
+    #     x0 = self.coef_fit_params.gen_init_val()
+    #     vertical_physic_0 = self.coef_fit_params.fit_to_closure(x0)
+    #     h0 = self.model.run(vertical_physic_0)
+    #     for i in range(n_out):
+    #         if i == 0:
+    #             plt.plot(h0.t[-1, :], zr, 'k--', label='u0')
+    #         else:
+    #             plt.plot(h0.u[-1, :], zr, 'k--')
+    #     vertical_physic_f = self.coef_fit_params.fit_to_closure(xf)
+    #     hf = self.model.run(vertical_physic_f)
+    #     for i in range(n_out):
+    #         if i == 0:
+    #             plt.plot(hf.t[-1, :], zr, 'r:', label='uf')
+    #         else:
+    #             plt.plot(hf.t[-1, :], zr, 'r:')
+    #     for i in range(n_out):
+    #         if i == 0:
+    #             plt.plot(self.obs.t[-1, :], zr, 'g', label='obj')
+    #         else:
+    #             plt.plot(self.obs.t[-1, :], zr, 'g')
+    #     plt.legend()

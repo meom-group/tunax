@@ -27,8 +27,6 @@ class Obs(eqx.Module):
         not described yet
     """
     variables: xr.Dataset
-    parameters: Any
-    metadatas: Any
 
 def nc_to_obs(nc_filename: str, des_filename: str) -> Obs:
     """
@@ -76,32 +74,6 @@ def nc_to_obs(nc_filename: str, des_filename: str) -> Obs:
     return Obs(variables=norm_variables, parameters=Any, metadatas=None)
 
 
-def jld2_to_obs(jld2_filename: str, des_filename: str) -> Obs:
-    """
-    Create a Obs object from a jld2 file. It reads the file, then it
-    normalizes the vairable names.
-
-    Parameters
-    ----------
-    nc_filename : str
-        path and filename of the jld2 file, from the current directory and
-        with the ".jld2" extension
-    des_filename : str
-        path and filename of the description of the netCDF file. It is as
-        .json file which indicates where to find every information in the jld2
-        file. The path is from the current directory and with the ".json"
-        extension
-
-    Returns
-    -------
-    observation : Obs
-        Obs object created from the netCDF file
-    """
-
-    variables = {}
-    coords = {}
-
-
 def get_nc_var(ds: xr.Dataset, var_name: str, params: Any, shape = None) -> np.ndarray:
     match params['type']:
         case 'copy':
@@ -134,4 +106,3 @@ class ObsSet(eqx.Module):
         not described yet
     """
     observations: List[Obs]
-    metadatas: Any
