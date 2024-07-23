@@ -8,13 +8,13 @@ import jax.numpy as jnp
 from case import Case
 from jax import jit
 from grid import Grid
-from model import Model, State, KepsParams, Trajectory
+from model import SingleColumnModel, State, KepsParams, Trajectory
 from jax import grad
 from database import ObsSet
 import matplotlib.pyplot as plt
 from typing import Dict , Callable
 
-class Fittable(eqx.Module):
+class FittableParameter(eqx.Module):
     do_fit: bool
     min_bound: float = 0.
     max_bound: float = 0.
@@ -30,8 +30,8 @@ class Fittable(eqx.Module):
         else:
             self.fixed_val = fixed_val
 
-class CoefFitParams(eqx.Module):
-    coef_fit_dico: Dict[str, Fittable]
+class FittableParametersSet(eqx.Module):
+    coef_fit_dico: Dict[str, FittableParameter]
 
     def fit_to_closure(self, x):
         """
@@ -56,9 +56,9 @@ class CoefFitParams(eqx.Module):
 
 
 class Fitter(eqx.Module):
-    coef_fit_params: CoefFitParams
+    coef_fit_params: FittableParametersSet
     nloop: int
-    model: Model
+    model: SingleColumnModel
     obs_set: ObsSet
     learning_rate: float
     verbatim: bool
@@ -67,7 +67,7 @@ class Fitter(eqx.Module):
     def loss_wrapped(self, x):
         vertical_physic = self.coef_fit_params.fit_to_closure(x)
         def model_wrapped():
-            return self.model.run(vertical_physic) # ETAPE TROP LONGUE
+            return self.model.run(vertical_physic)
         return self.loss(model_wrapped, self.obs_set)
 
      
@@ -77,7 +77,7 @@ class Fitter(eqx.Module):
         opt_state = optimizer.init(x)
         grad_loss = grad(self.loss_wrapped)
         for i in range(self.nloop):
-            grads = grad_loss(x) # ETAPE TROP LONGUE
+            grads = grad_loss(x)
             updates, opt_state = optimizer.update(grads, opt_state)
             x = optax.apply_updates(x, updates)
             if self.verbatim:

@@ -1,7 +1,11 @@
 import jax.numpy as jnp
 from jax import jit, lax
+import equinox as eqx
+import sys
+sys.path.append('..')
+from grid import Grid
 
-# GLS constants
+
 grav = 9.81  # Gravity of Earth
 vkarmn = 0.41  # Von Karman constant
 galp = 0.53  # parameter for Galperin mixing length limitation
@@ -9,6 +13,183 @@ chk = 1400. / grav  # charnock coefficient
 Zosmin = 1.e-2  # min surface roughness length
 Zobmin = 1.e-4  # min bottom roughness length
 z0b = 1.e-14    # bottom roughness length
+
+
+
+
+class KepsState(eqx.Module):
+    grid: Grid
+    tke: jnp.ndarray
+    cmu: jnp.ndarray
+    cmu_prim: jnp.ndarray
+
+    def __init__(self, grid: Grid, tke_min: float=1e-6, cmu_min: float=0.1,
+                 cmu_prim_min: float=0.1):
+        self.grid = grid
+        self.tke = jnp.full(grid.nz+1, tke_min)
+        self.cmu = jnp.full(grid.nz+1, cmu_min)
+        self.cmu_prim = jnp.full(grid.nz, cmu_prim_min)
+
+
+class ParametersValuesKeps(eqx.Module):
+    a1: float
+    a2: float
+    a3: float
+    nn: float
+    sf_d0: float
+    sf_d1: float
+    sf_d2: float
+    sf_d3: float
+    sf_d4: float
+    sf_d5: float
+    sf_n0: float
+    sf_n1: float
+    sf_n2: float
+    sf_nb0: float
+    sf_nb1: float
+    sf_nb2: float
+    lim_am0: float
+    lim_am1: float
+    lim_am2: float
+    lim_am3: float
+    lim_am4: float
+    lim_am5: float
+    lim_am6: float
+
+
+    def __init__(self,
+        c1: float=5.0,
+        c2: float=0.8,
+        c3: float=1.968,
+        c4: float=1.136,
+        c5: float=0.,
+        c6: float=0.4,
+        cb1: float=5.95,
+        cb2: float=0.6,
+        cb3: float=1.,
+        cb4: float=0.,
+        cb5: float=0.33333,
+        cbb: float=0.72
+    ):
+
+        a1 = 0.66666666667 - 0.5*c2
+        a2 = 1.0 - 0.5*c3
+        a3 = 1.0 - 0.5*c4
+        a5 = 0.5 - 0.5*c6
+        nn = 0.5*c1
+        nb = cb1
+        ab1 = 1.0 - cb2
+        ab2 = 1.0 - cb3
+        ab3 = 2.0*(1.0 - cb4)
+        ab5 = 2.0*cbb*(1.0 - cb5)
+        sf_d0 = 36.0*nn*nn*nn*nb*nb
+        sf_d1 = 84.0*a5*ab3*nn*nn*nb + 36.0*ab5*nn*nn*nn*nb
+        sf_d2 = 9.0*(ab2*ab2 - ab1*ab1)*nn*nn*nn - 12.0*(a2*a2 - 3.0*a3*a3)*nn*nb*nb
+        sf_d3 = 12.0*a5*ab3*(a2*ab1 - 3.0*a3*ab2)*nn + 12.0*a5*ab3*(a3*a3 - a2*a2)*nb + 12.0*ab5*(3.0*a3*a3 - a2*a2)*nn*nb
+        sf_d4 = 48.0*a5*a5*ab3*ab3*nn + 36.0*a5*ab3*ab5*nn*nn
+        sf_d5 = 3.0*(a2*a2 - 3.0*a3*a3)*(ab1*ab1 - ab2*ab2)*nn
+        sf_n0 = 36.0*a1*nn*nn*nb*nb
+        sf_n1 = -12.0*a5*ab3*(ab1 + ab2)*nn*nn + 8.0*a5*ab3*(6.0*a1 - a2 - 3.0*a3)*nn*nb + 36.0*a1*ab5*nn*nn*nb
+        sf_n2 = 9.0*a1*(ab2*ab2 - ab1*ab1)*nn*nn
+        sf_nb0 = 12.0*ab3*nn*nn*nn*nb
+        sf_nb1 = 12.0*a5*ab3*ab3*nn*nn
+        sf_nb2 = 9.0*a1*ab3*(ab1 - ab2)*nn*nn + (6.0*a1*(a2 - 3.0*a3) - 4.0*(a2*a2 - 3.0*a3*a3))*ab3*nn*nb
+        lim_am0 = sf_d0*sf_n0
+        lim_am1 = sf_d0*sf_n1 + sf_d1*sf_n0
+        lim_am2 = sf_d1*sf_n1 + sf_d4*sf_n0
+        lim_am3 = sf_d4*sf_n1
+        lim_am4 = sf_d2*sf_n0
+        lim_am5 = sf_d2*sf_n1 + sf_d3*sf_n0
+        lim_am6 = sf_d3*sf_n1
+
+        self.a1 = a1
+        self.a2 = a2
+        self.a3 = a3
+        self.nn = nn
+        self.sf_d0 = sf_d0
+        self.sf_d1 = sf_d1
+        self.sf_d2 = sf_d2
+        self.sf_d3 = sf_d3
+        self.sf_d4 = sf_d4
+        self.sf_d5 = sf_d5
+        self.sf_n0 = sf_n0
+        self.sf_n1 = sf_n1
+        self.sf_n2 = sf_n2
+        self.sf_nb0 = sf_nb0
+        self.sf_nb1 = sf_nb1
+        self.sf_nb2 = sf_nb2
+        self.lim_am0 = lim_am0
+        self.lim_am1 = lim_am1
+        self.lim_am2 = lim_am2
+        self.lim_am3 = lim_am3
+        self.lim_am4 = lim_am4
+        self.lim_am5 = lim_am5
+        self.lim_am6 = lim_am6
+
+
+def keps(keps_params: KepsParams, state: State, keps_state: KepsState, case: Case):
+    # changer ca
+    eos_params = jnp.array([1024., 2e-4, 2e-4, 2., 35.])
+    pnm = jnp.array([3., -1., 1.5])
+    betaCoef = jnp.array([1.44, 1.92, -0.4, 1.])
+
+    # attributes
+    nz = state.grid.nz
+    tke = keps_state.tke
+    akv = keps_state.akv
+    eps = keps_state.eps
+    cmu = keps_state.cmu
+    cmu_prim = keps_state.cmu_prim
+    u = state.u
+    v = state.v
+    zr = state.grid.zr
+    hz = state.grid.hz
+
+    rho, bvf = rho_eos_lin(state.t, state.s, zr, eos_params)
+
+    shear2 = compute_shear(u, v, u, v, zr)
+
+    tke1 = 0.5*(tke[nz]+tke[nz-1]) 
+    tke2 = 0.5*(tke[0]+tke[1])
+    tkemin = 1e-6 # CHANGER AVEC tke_min
+    akvmin = 1e-4
+    aktmin = 1e-5
+    epsmin = 1e-12 # CHANGER AVEC eps_min
+    z0b = 1e-14 # CHANGER AVEC eps_min
+    OneOverSig_psi = 1/1.3
+    OneOverSig_k = 1.
+    dt = 10. # CHANGER
+
+    tke_sfc, tke_bot, ftke_sfc, ftke_bot, eps_sfc, eps_bot, feps_sfc, feps_bot = compute_tke_eps_bdy(
+        case.ustr_sfc, case.vstr_sfc, case.ustr_btm, case.vstr_btm, z0b, tke1, hz[-1], tke2, hz[0], OneOverSig_psi, pnm, tkemin, epsmin, keps_params)
+    
+    # CA C'est bien nul il faut changer
+    bdy_tke_sfc = jnp.zeros(2)
+    bdy_tke_bot = jnp.zeros(2)
+    bdy_eps_sfc = jnp.zeros(2)
+    bdy_eps_bot = jnp.zeros(2)
+    if bdy_tke_sfc[0] < 0.5: bdy_tke_sfc = bdy_tke_sfc.at[1].set(tke_sfc)
+    else: bdy_tke_sfc = bdy_tke_sfc.at[1].set(ftke_sfc)
+    if bdy_tke_bot[0] < 0.5: bdy_tke_bot = bdy_tke_bot.at[1].set(tke_bot)
+    else: bdy_tke_bot = bdy_tke_bot.at[1].set(ftke_bot)
+    if bdy_eps_sfc[0] < 0.5: bdy_eps_sfc = bdy_eps_sfc.at[1].set(eps_sfc)
+    else: bdy_eps_sfc = bdy_eps_sfc.at[1].set(feps_sfc)
+    if bdy_eps_bot[0] < 0.5: bdy_eps_bot = bdy_eps_bot.at[1].set(eps_bot)
+    else: bdy_eps_bot = bdy_eps_bot.at[1].set(feps_bot)
+
+
+    tke_new, wtke = advance_turb_tke(tke, bvf, shear2, OneOverSig_k*akv, akv, keps_state.akt, eps, hz, dt, tkemin, bdy_tke_sfc, bdy_tke_bot)
+    eps_new = advance_turb_eps(eps, bvf, shear2, OneOverSig_psi*akv, cmu, cmu_prim, tke, tke_new, hz, dt, betaCoef, epsmin, bdy_eps_sfc, bdy_eps_bot)
+    akv_new, akt_new, cmu_new, cmu_prim_new, eps_new = compute_ev_ed_filt(tke_new, eps_new, bvf, shear2 , pnm, akvmin, aktmin, epsmin, keps_params)
+    
+    keps_state = eqx.tree_at(lambda t: t.akv, keps_state, akv_new)
+    keps_state = eqx.tree_at(lambda t: t.akt, keps_state, akt_new)
+    keps_state = eqx.tree_at(lambda t: t.eps, keps_state, eps_new)
+    keps_state = eqx.tree_at(lambda t: t.tke, keps_state, tke_new)
+    keps_state = eqx.tree_at(lambda t: t.cmu, keps_state, cmu_new)
+    keps_state = eqx.tree_at(lambda t: t.cmu_prim, keps_state, cmu_prim_new)
+
+
 
 
 @jit
