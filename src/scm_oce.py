@@ -1,5 +1,5 @@
 """
-
+Usefull functions for the single column model
 """
 
 import jax.numpy as jnp

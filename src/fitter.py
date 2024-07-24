@@ -8,7 +8,8 @@ import jax.numpy as jnp
 from case import Case
 from jax import jit
 from grid import Grid
-from model import SingleColumnModel, State, KepsParams, Trajectory
+from state import State
+from model import SingleColumnModel, Trajectory
 from jax import grad
 from database import ObsSet
 import matplotlib.pyplot as plt
