@@ -1,4 +1,5 @@
 """
+Physical parameters of an experience
 """
 
 import equinox as eqx
