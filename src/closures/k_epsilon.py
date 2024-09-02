@@ -6,7 +6,7 @@ sys.path.append('..')
 from grid import Grid
 from model import State
 from case import Case
-from closures_registry import ClosureParametersAbstract, ClosureStateAbstract
+from closure import ClosureParametersAbstract, ClosureStateAbstract
 
 
 grav = 9.81  # Gravity of Earth
