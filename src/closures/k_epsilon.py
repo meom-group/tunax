@@ -4,6 +4,9 @@ import equinox as eqx
 import sys
 sys.path.append('..')
 from grid import Grid
+from model import State
+from case import Case
+from closures_registry import ClosureParametersAbstract, ClosureStateAbstract
 
 
 grav = 9.81  # Gravity of Earth
@@ -15,23 +18,7 @@ Zobmin = 1.e-4  # min bottom roughness length
 z0b = 1.e-14    # bottom roughness length
 
 
-
-
-class KepsState(eqx.Module):
-    grid: Grid
-    tke: jnp.ndarray
-    cmu: jnp.ndarray
-    cmu_prim: jnp.ndarray
-
-    def __init__(self, grid: Grid, tke_min: float=1e-6, cmu_min: float=0.1,
-                 cmu_prim_min: float=0.1):
-        self.grid = grid
-        self.tke = jnp.full(grid.nz+1, tke_min)
-        self.cmu = jnp.full(grid.nz+1, cmu_min)
-        self.cmu_prim = jnp.full(grid.nz, cmu_prim_min)
-
-
-class ParametersValuesKeps(eqx.Module):
+class KepsParameters(ClosureParametersAbstract):
     a1: float
     a2: float
     a3: float
@@ -126,8 +113,21 @@ class ParametersValuesKeps(eqx.Module):
         self.lim_am5 = lim_am5
         self.lim_am6 = lim_am6
 
+class KepsState(ClosureStateAbstract):
+    grid: Grid
+    tke: jnp.ndarray
+    cmu: jnp.ndarray
+    cmu_prim: jnp.ndarray
 
-def keps(keps_params: KepsParams, state: State, keps_state: KepsState, case: Case):
+    def __init__(self, grid: Grid, tke_min: float=1e-6, cmu_min: float=0.1,
+                 cmu_prim_min: float=0.1):
+        self.grid = grid
+        self.tke = jnp.full(grid.nz+1, tke_min)
+        self.cmu = jnp.full(grid.nz+1, cmu_min)
+        self.cmu_prim = jnp.full(grid.nz, cmu_prim_min)
+
+
+def keps_step(state: State, keps_state: KepsState, keps_params: KepsParameters, case: Case):
     # changer ca
     eos_params = jnp.array([1024., 2e-4, 2e-4, 2., 35.])
     pnm = jnp.array([3., -1., 1.5])
