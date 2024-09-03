@@ -19,11 +19,6 @@ CloParType = TypeVar('CloParType', bound=ClosureParametersAbstract)
 class ClosureStateAbstract(eqx.Module, ABC):
     grid: Grid
 
-    @classmethod
-    @abstractmethod
-    def gen_init(cls: Type['ClosureStateAbstract'], grid: Grid) -> 'ClosureStateAbstract':
-        pass
-
 CloStateType = TypeVar('CloStateType', bound=ClosureStateAbstract)
 
 class Closure(eqx.Module, Generic[CloStateType, CloParType]):

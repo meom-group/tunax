@@ -93,11 +93,11 @@ class SingleColumnModel(eqx.Module):
 
         return state, closure_state
     
-    def compute_trajectory_with(self, closure_parameters: ClosureParametersAbstract):
+    def compute_trajectory_with(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
         # initialize the model
         states_list = []
         state = self.init_state
-        closure_state = self.closure.state_class.gen_init(self.grid)
+        closure_state = self.closure.state_class(self.grid)
         swr_frac = lmd_swfrac(self.grid.hz)
 
         # loop the model
@@ -112,7 +112,7 @@ class SingleColumnModel(eqx.Module):
         v_list = [s.v for s in states_list]
         t_list = [s.t for s in states_list]
         s_list = [state.s for state in states_list]
-        history = Trajectory(
+        trajectory = Trajectory(
             self.grid, time, jnp.vstack(u_list), jnp.vstack(v_list),
             jnp.vstack(t_list), jnp.vstack(s_list))
-        return history
+        return trajectory

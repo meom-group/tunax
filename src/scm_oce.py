@@ -306,60 +306,6 @@ def compute_mxl(bvf, rhoc, zr, zref, rhoRef):
 
 
 @jit
-def rho_eos_lin(temp, salt, zr, eos_params):
-    r"""
-    Compute density anomaly and Brunt Vaisala frequency via linear Equation Of
-    State (EOS)
-
-    Parameters
-    ----------
-    temp : float(N)
-        temperature [C]
-    salt : float(N)
-        salinity [psu]
-    zr : float(N)
-        depth at cell centers [m]
-    eos_params : float([nb eos params])
-        no description
-
-    Returns
-    -------
-    bvf : float(N+1)
-        Brunt Vaisala frequency [s-2]
-    rho : float(N)
-        density anomaly [kg/m3]
-
-    Notes
-    -----
-    rho
-    \(   \rho_{k} = \rho_0 \left( 1 - \alpha (\theta - 2) + \beta (S - 35)
-    \right)  \)
-    bvf
-    \(   (N^2)_{k+1/2} = - \frac{g}{\rho_0}  \frac{ \rho_{k+1}-\rho_{k} }
-    {\Delta z_{k+1/2}} \)
-    """
-    # returned variables
-    N, = temp.shape
-    bvf = jnp.zeros(N+1)
-    rho = jnp.zeros(N)
-
-    rhoRef = eos_params[0]
-    alpha = eos_params[1]
-    beta = eos_params[2]
-    t0 = eos_params[3]
-    s0 = eos_params[4]
-    
-    rho = rhoRef * (1.0 - alpha * (temp - t0) + beta * (salt - s0))
-    
-    cff = 1.0 / (zr[1:] - zr[:-1])
-    bvf = bvf.at[1:N].set(-cff * (grav / rhoRef) * (rho[1:] - rho[:-1]))
-    bvf = bvf.at[0].set(0.0)
-    bvf = bvf.at[N].set(bvf[N-1])
-    
-    return rho, bvf
-
-
-@jit
 def rho_eos(temp, salt, zr, zw, rhoRef):
     """Compute density anomaly and Brunt Vaisala frequency via nonlinear
     Equation Of State (EOS).

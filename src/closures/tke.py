@@ -61,6 +61,7 @@ class TkeState(ClosureStateAbstract):
     def __init__(self, grid: Grid, tke_min: float=1e-6, cmu_min: float=0.1,
                  cmu_prim_min: float=0.1):
         self.grid = grid
+        ### PAS FINI LA
         
 
 
@@ -73,7 +74,8 @@ def tke_step(state: State,  tke_state: TkeState, tke_params: TkeParameters, case
     akvmin = 1e-4
     aktmin = 1e-5
     mxlmin = 1.
-    print('aaaaaa')
+
+
     # attributes
     nz = state.grid.nz
     zr = state.grid.zr

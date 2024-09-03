@@ -136,8 +136,8 @@ def keps_step(state: State, keps_state: KepsState, keps_params: KepsParameters, 
     # attributes
     nz = state.grid.nz
     tke = keps_state.tke
-    akv = keps_state.akv
-    eps = keps_state.eps
+    akv = state.akv
+    eps = state.eps
     cmu = keps_state.cmu
     cmu_prim = keps_state.cmu_prim
     u = state.u
@@ -178,18 +178,72 @@ def keps_step(state: State, keps_state: KepsState, keps_params: KepsParameters, 
     else: bdy_eps_bot = bdy_eps_bot.at[1].set(feps_bot)
 
 
-    tke_new, wtke = advance_turb_tke(tke, bvf, shear2, OneOverSig_k*akv, akv, keps_state.akt, eps, hz, dt, tkemin, bdy_tke_sfc, bdy_tke_bot)
+    tke_new, wtke = advance_turb_tke(tke, bvf, shear2, OneOverSig_k*akv, akv, state.akt, eps, hz, dt, tkemin, bdy_tke_sfc, bdy_tke_bot)
     eps_new = advance_turb_eps(eps, bvf, shear2, OneOverSig_psi*akv, cmu, cmu_prim, tke, tke_new, hz, dt, betaCoef, epsmin, bdy_eps_sfc, bdy_eps_bot)
     akv_new, akt_new, cmu_new, cmu_prim_new, eps_new = compute_ev_ed_filt(tke_new, eps_new, bvf, shear2 , pnm, akvmin, aktmin, epsmin, keps_params)
     
-    keps_state = eqx.tree_at(lambda t: t.akv, keps_state, akv_new)
-    keps_state = eqx.tree_at(lambda t: t.akt, keps_state, akt_new)
-    keps_state = eqx.tree_at(lambda t: t.eps, keps_state, eps_new)
+    state = eqx.tree_at(lambda t: t.akv, state, akv_new)
+    state = eqx.tree_at(lambda t: t.akt, state, akt_new)
+    state = eqx.tree_at(lambda t: t.eps, state, eps_new)
     keps_state = eqx.tree_at(lambda t: t.tke, keps_state, tke_new)
     keps_state = eqx.tree_at(lambda t: t.cmu, keps_state, cmu_new)
     keps_state = eqx.tree_at(lambda t: t.cmu_prim, keps_state, cmu_prim_new)
 
+    return state, keps_state
 
+
+@jit
+def rho_eos_lin(temp, salt, zr, eos_params):
+    r"""
+    Compute density anomaly and Brunt Vaisala frequency via linear Equation Of
+    State (EOS)
+
+    Parameters
+    ----------
+    temp : float(N)
+        temperature [C]
+    salt : float(N)
+        salinity [psu]
+    zr : float(N)
+        depth at cell centers [m]
+    eos_params : float([nb eos params])
+        no description
+
+    Returns
+    -------
+    bvf : float(N+1)
+        Brunt Vaisala frequency [s-2]
+    rho : float(N)
+        density anomaly [kg/m3]
+
+    Notes
+    -----
+    rho
+    \(   \rho_{k} = \rho_0 \left( 1 - \alpha (\theta - 2) + \beta (S - 35)
+    \right)  \)
+    bvf
+    \(   (N^2)_{k+1/2} = - \frac{g}{\rho_0}  \frac{ \rho_{k+1}-\rho_{k} }
+    {\Delta z_{k+1/2}} \)
+    """
+    # returned variables
+    N, = temp.shape
+    bvf = jnp.zeros(N+1)
+    rho = jnp.zeros(N)
+
+    rhoRef = eos_params[0]
+    alpha = eos_params[1]
+    beta = eos_params[2]
+    t0 = eos_params[3]
+    s0 = eos_params[4]
+    
+    rho = rhoRef * (1.0 - alpha * (temp - t0) + beta * (salt - s0))
+    
+    cff = 1.0 / (zr[1:] - zr[:-1])
+    bvf = bvf.at[1:N].set(-cff * (grav / rhoRef) * (rho[1:] - rho[:-1]))
+    bvf = bvf.at[0].set(0.0)
+    bvf = bvf.at[N].set(bvf[N-1])
+    
+    return rho, bvf
 
 
 @jit
