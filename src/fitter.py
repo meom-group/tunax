@@ -14,6 +14,8 @@ from jax import grad
 from database import ObsSet
 import matplotlib.pyplot as plt
 from typing import Dict , Callable
+from closure import Closure
+from closures_registry import CLOSURES_REGISTRY
 
 class FittableParameter(eqx.Module):
     do_fit: bool
@@ -33,6 +35,11 @@ class FittableParameter(eqx.Module):
 
 class FittableParametersSet(eqx.Module):
     coef_fit_dico: Dict[str, FittableParameter]
+    closure: Closure
+
+    def __init__(self, coef_fit_dico: Dict[str, FittableParameter], closure_name: str):
+        self.coef_fit_dico = coef_fit_dico
+        self.closure = CLOSURES_REGISTRY[closure_name]
 
     def fit_to_closure(self, x):
         """
@@ -46,7 +53,7 @@ class FittableParametersSet(eqx.Module):
                 i_x += 1
             else:
                 clo_coef_dico[coef_name] = coef_fit.fixed_val
-        return KepsParams(**clo_coef_dico)
+        return self.closure.parameters_class(**clo_coef_dico)
     
     def gen_init_val(self):
         x = []
@@ -66,9 +73,9 @@ class Fitter(eqx.Module):
     loss: Callable[[], Trajectory]
 
     def loss_wrapped(self, x):
-        vertical_physic = self.coef_fit_params.fit_to_closure(x)
+        closure_parameters = self.coef_fit_params.fit_to_closure(x)
         def model_wrapped():
-            return self.model.run(vertical_physic)
+            return self.model.compute_trajectory_with(closure_parameters)
         return self.loss(model_wrapped, self.obs_set)
 
      
