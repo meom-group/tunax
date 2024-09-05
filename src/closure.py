@@ -3,7 +3,7 @@ Abstract classes to define closures
 """
 
 import equinox as eqx
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Callable, Tuple, Type, TypeVar, Generic
 
 from grid import Grid

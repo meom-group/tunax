@@ -2,17 +2,11 @@
 Optimizer
 """
 import optax
-import xarray as xr
 import equinox as eqx
 import jax.numpy as jnp
-from case import Case
-from jax import jit
-from grid import Grid
-from state import State
 from model import SingleColumnModel, Trajectory
 from jax import grad
 from database import ObsSet
-import matplotlib.pyplot as plt
 from typing import Dict , Callable
 from closure import Closure
 from closures_registry import CLOSURES_REGISTRY
@@ -80,12 +74,22 @@ class Fitter(eqx.Module):
 
      
     def __call__(self):
-        optimizer = optax.adam(self.learning_rate)
+        initial_learning_rate = self.learning_rate
+        scheduler = optax.exponential_decay(
+            init_value=initial_learning_rate,
+            transition_steps=5,
+            decay_rate= 0.8
+        )
+        x_history = []
+        grads_history = []
+        optimizer = optax.adam(scheduler)
         x = self.coef_fit_params.gen_init_val()
         opt_state = optimizer.init(x)
         grad_loss = grad(self.loss_wrapped)
         for i in range(self.nloop):
             grads = grad_loss(x)
+            x_history.append(x)
+            grads_history.append(grads)
             updates, opt_state = optimizer.update(grads, opt_state)
             x = optax.apply_updates(x, updates)
             if self.verbatim:
@@ -94,7 +98,7 @@ class Fitter(eqx.Module):
                     x {x}
                     grads {grads}
                 """)
-        return x
+        return x, x_history, grads_history
     
 
     # def plot_res(self, xf):
