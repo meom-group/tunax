@@ -3,93 +3,60 @@ This module reads and transforms the observation data in a python object that
 the module of calibration can understand.
 """
 
+import yaml
 import equinox as eqx
 import xarray as xr
-import json
-from typing import List, Any
-import numpy as np
+import jax.numpy as jnp
+from typing import List, Dict
 
+from state import Trajectory, Grid
+from case import Case
 
 DIM_NAME_LIST = ['t', 'z']
 VAR_NAME_LIST = ['u', 'v', 'temp', 'salt']
 
 class Obs(eqx.Module):
-    """
-    Represent one observation (LES or measures). It corresponds to one file.
-    
-    Attributes
-    ----------
-     : xarray.Dataset
-        represent the normalized variables of the file (normalized in the meaning
-        of the variable names formality)
-    parameters : 
-    metadatas : Any
-        not described yet
-    """
-    variables: xr.Dataset
+    trajectory: Trajectory
+    case: Case
 
-def nc_to_obs(nc_filename: str, des_filename: str) -> Obs:
-    """
-    Create a Obs object from a netCDF file. It reads the file, then it
-    normalizes the vairable names.
-
-    Parameters
-    ----------
-    nc_filename : str
-        path and filename of the netCDF file, from the current directory and
-        with the ".nc" extension
-    des_filename : str
-        path and filename of the description of the netCDF file. It is as
-        .json file which indicates where to find every information in the nc
-        file. The path is from the current directory and with the ".json"
-        extension
-
-    Returns
-    -------
-    observation : Obs
-        Obs object created from the netCDF file
-    """
-    ds = xr.open_dataset(nc_filename)
-
-    variables = {}
-    coords = {}
-
-    description = json.load(open(des_filename, 'r'))
-    for dim_name in DIM_NAME_LIST:
-        params = description[dim_name]
-        type = params['type']
-        if type == 'create':
-            raise ValueError("Can't create a dimension")
+    def __init__(self, nc_path: str, yaml_path: str, var_names: Dict[str, str]):
+        ds = xr.load_dataset(nc_path)
+        # dimensions
+        zr = jnp.array(ds[var_names['zr']].values)
+        zw = jnp.array(ds[var_names['zw']].values)
+        grid = Grid(zr, zw)
+        time = jnp.array(ds[var_names['time']].values)
+        nt, = time.shape
+        nz = grid.nz
+        # variables
+        t_name = var_names['t']
+        if t_name == '':
+            t = jnp.full((nt, nz), 21.)
         else:
-            arr = get_nc_var(ds, dim_name, params)
-            coords[dim_name] = arr
+            t = jnp.array(ds[var_names['t']].values)
+        s_name = var_names['s']
+        if s_name == '':
+            s = jnp.full((nt, nz), 35.)
+        else:
+            s = jnp.array(ds[var_names['s']].values)
+        u_name = var_names['u']
+        if u_name == '':
+            u = jnp.full((nt, nz), 0.)
+        else:
+            u = jnp.array(ds[var_names['u']].values)
+        v_name = var_names['v']
+        if v_name == '':
+            v = jnp.full((nt, nz), 0.)
+        else:
+            v = jnp.array(ds[var_names['v']].values)
+        # writing trajectory
+        self.trajectory = Trajectory(grid, time, u, v, t, s)
 
-    for var_name in VAR_NAME_LIST:
-        params = description[var_name]
-        arr = get_nc_var(ds, var_name, params, (coords['t'].size, coords['z'].size))
-        variables[var_name] = (('t', 'z'), arr)
-    
-    norm_variables = xr.Dataset(variables, coords=coords)
-
-    return Obs(variables=norm_variables, parameters=Any, metadatas=None)
-
-
-def get_nc_var(ds: xr.Dataset, var_name: str, params: Any, shape = None) -> np.ndarray:
-    match params['type']:
-        case 'copy':
-            nc_var_name = params['variable_name']
-            arr = ds[nc_var_name].values
-            return arr.astype(np.float64)
-        case 'transormation':
-            nc_var_name = params['variable_name']
-            mul_factor = params['mul_factor']
-            add_factor = params['add_factor']
-            arr = ds[nc_var_name].values*mul_factor+add_factor
-            return arr.astype(np.float64)
-        case 'create':
-            return np.full(shape, params['const_value'])
-        case _:
-            raise ValueError('Entry "type" should be copy, transformation or create')
+        with open(yaml_path, 't') as f:
+            metadatas = yaml.safe_load(f)
+        
+        self.case = Case()
+        
 
 
 

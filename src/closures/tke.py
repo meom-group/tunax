@@ -9,7 +9,7 @@ from jax import jit, lax
 from functools import partial
 
 sys.path.append('..')
-from grid import Grid
+from state import Grid
 from closure import ClosureParametersAbstract, ClosureStateAbstract
 from state import State
 from case import Case

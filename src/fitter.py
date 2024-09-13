@@ -5,7 +5,7 @@ import optax
 import equinox as eqx
 import jax.numpy as jnp
 from model import SingleColumnModel, Trajectory
-from jax import grad
+from jax import grad, jit
 from database import ObsSet
 from typing import Dict , Callable
 from closure import Closure
@@ -56,7 +56,6 @@ class FittableParametersSet(eqx.Module):
                 x.append(coef_fit.init_val)
         return jnp.array(x)
 
-
 class Fitter(eqx.Module):
     coef_fit_params: FittableParametersSet
     nloop: int
@@ -66,11 +65,63 @@ class Fitter(eqx.Module):
     verbatim: bool
     loss: Callable[[], Trajectory]
 
-    def loss_wrapped(self, x):
+    def loss_wrapped(self, x, state0=None, nt=None):
+        model = self.model
+        if state0 is not None:
+            model = eqx.tree_at(lambda t: t.init_state, model, state0)
+        if nt is not None:
+            model = eqx.tree_at(lambda t: t.nt, model, nt)
         closure_parameters = self.coef_fit_params.fit_to_closure(x)
         def model_wrapped():
-            return self.model.compute_trajectory_with(closure_parameters)
+            return model.compute_trajectory_with(closure_parameters)
         return self.loss(model_wrapped, self.obs_set)
+    
+    def run_cut(self, nt_cut, traj):
+        """temporary test"""
+        initial_learning_rate = self.learning_rate
+        # scheduler = optax.exponential_decay(
+        #     init_value=initial_learning_rate,
+        #     transition_steps=5,
+        #     decay_rate= 0.8
+        # )
+        x_history = []
+        grads_history = []
+        optimizer = optax.adam(learning_rate=self.learning_rate)
+        x = self.coef_fit_params.gen_init_val()
+        opt_state = optimizer.init(x)
+
+        def loss_cut(x):
+            s = 0
+            closure_parameters = self.coef_fit_params.fit_to_closure(x)
+            cut_model = eqx.tree_at(lambda t: t.nt, self.model, nt_cut)
+            for i_cut in range(self.model.nt//nt_cut):
+                i_t_cut = i_cut*nt_cut
+                state0_cut = eqx.tree_at(lambda tree: tree.t, self.model.init_state, traj.t[i_t_cut, :])
+                state0_cut = eqx.tree_at(lambda tree: tree.s, state0_cut, traj.s[i_t_cut, :])
+                state0_cut = eqx.tree_at(lambda tree: tree.u, state0_cut, traj.u[i_t_cut, :])
+                state0_cut = eqx.tree_at(lambda tree: tree.v, state0_cut, traj.v[i_t_cut, :])
+                cut_model = eqx.tree_at(lambda t: t.init_state, cut_model, state0_cut)
+
+                traj_cut = cut_model.compute_trajectory_with(closure_parameters)
+
+                s += jnp.sum((traj_cut.t[-1, :] - traj.t[i_t_cut+nt_cut-1, :])**2)
+            return s
+
+        grad_loss = grad(loss_cut)
+
+        for i in range(self.nloop):
+            grads = grad_loss(x)
+            x_history.append(x)
+            grads_history.append(grads)
+            updates, opt_state = optimizer.update(grads, opt_state)
+            x = optax.apply_updates(x, updates)
+            if self.verbatim:
+                print(f"""
+                    loop {i}
+                    x {x}
+                    grads {grads}
+                """)
+        return x, x_history, grads_history
 
      
     def __call__(self):
@@ -99,29 +150,3 @@ class Fitter(eqx.Module):
                     grads {grads}
                 """)
         return x, x_history, grads_history
-    
-
-    # def plot_res(self, xf):
-    #     zr = self.model.grid.zr
-    #     n_out = self.model.n_out
-    #     x0 = self.coef_fit_params.gen_init_val()
-    #     vertical_physic_0 = self.coef_fit_params.fit_to_closure(x0)
-    #     h0 = self.model.run(vertical_physic_0)
-    #     for i in range(n_out):
-    #         if i == 0:
-    #             plt.plot(h0.t[-1, :], zr, 'k--', label='u0')
-    #         else:
-    #             plt.plot(h0.u[-1, :], zr, 'k--')
-    #     vertical_physic_f = self.coef_fit_params.fit_to_closure(xf)
-    #     hf = self.model.run(vertical_physic_f)
-    #     for i in range(n_out):
-    #         if i == 0:
-    #             plt.plot(hf.t[-1, :], zr, 'r:', label='uf')
-    #         else:
-    #             plt.plot(hf.t[-1, :], zr, 'r:')
-    #     for i in range(n_out):
-    #         if i == 0:
-    #             plt.plot(self.obs.t[-1, :], zr, 'g', label='obj')
-    #         else:
-    #             plt.plot(self.obs.t[-1, :], zr, 'g')
-    #     plt.legend()

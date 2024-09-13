@@ -3,7 +3,7 @@ from jax import jit, lax
 import equinox as eqx
 import sys
 sys.path.append('..')
-from grid import Grid
+from state import Grid
 from model import State
 from case import Case
 from closure import ClosureParametersAbstract, ClosureStateAbstract
@@ -115,16 +115,23 @@ class KepsParameters(ClosureParametersAbstract):
 
 class KepsState(ClosureStateAbstract):
     grid: Grid
+    akt: jnp.ndarray
+    akv: jnp.ndarray
+    eps: jnp.ndarray
     tke: jnp.ndarray
     cmu: jnp.ndarray
     cmu_prim: jnp.ndarray
 
-    def __init__(self, grid: Grid, tke_min: float=1e-6, cmu_min: float=0.1,
-                 cmu_prim_min: float=0.1):
+    def __init__(self, grid: Grid, akt_min=1e-5, akv_min=1e-4, eps_min=1e-12,
+                 tke_min: float=1e-6, cmu_min: float=0.1, cmu_prim_min: float=0.1):
         self.grid = grid
-        self.tke = jnp.full(grid.nz+1, tke_min)
-        self.cmu = jnp.full(grid.nz+1, cmu_min)
-        self.cmu_prim = jnp.full(grid.nz, cmu_prim_min)
+        nz = grid.nz
+        self.akt = jnp.full(nz+1, akt_min)
+        self.akv = jnp.full(nz+1, akv_min)
+        self.eps = jnp.full(nz+1, eps_min)
+        self.tke = jnp.full(nz+1, tke_min)
+        self.cmu = jnp.full(nz+1, cmu_min)
+        self.cmu_prim = jnp.full(nz, cmu_prim_min)
 
 
 def keps_step(state: State, keps_state: KepsState, keps_params: KepsParameters, case: Case):
@@ -136,8 +143,8 @@ def keps_step(state: State, keps_state: KepsState, keps_params: KepsParameters, 
     # attributes
     nz = state.grid.nz
     tke = keps_state.tke
-    akv = state.akv
-    eps = state.eps
+    akv = keps_state.akv
+    eps = keps_state.eps
     cmu = keps_state.cmu
     cmu_prim = keps_state.cmu_prim
     u = state.u
@@ -178,18 +185,18 @@ def keps_step(state: State, keps_state: KepsState, keps_params: KepsParameters, 
     else: bdy_eps_bot = bdy_eps_bot.at[1].set(feps_bot)
 
 
-    tke_new, wtke = advance_turb_tke(tke, bvf, shear2, OneOverSig_k*akv, akv, state.akt, eps, hz, dt, tkemin, bdy_tke_sfc, bdy_tke_bot)
+    tke_new, wtke = advance_turb_tke(tke, bvf, shear2, OneOverSig_k*akv, akv, keps_state.akt, eps, hz, dt, tkemin, bdy_tke_sfc, bdy_tke_bot)
     eps_new = advance_turb_eps(eps, bvf, shear2, OneOverSig_psi*akv, cmu, cmu_prim, tke, tke_new, hz, dt, betaCoef, epsmin, bdy_eps_sfc, bdy_eps_bot)
     akv_new, akt_new, cmu_new, cmu_prim_new, eps_new = compute_ev_ed_filt(tke_new, eps_new, bvf, shear2 , pnm, akvmin, aktmin, epsmin, keps_params)
     
-    state = eqx.tree_at(lambda t: t.akv, state, akv_new)
-    state = eqx.tree_at(lambda t: t.akt, state, akt_new)
-    state = eqx.tree_at(lambda t: t.eps, state, eps_new)
+    keps_state = eqx.tree_at(lambda t: t.akv, keps_state, akv_new)
+    keps_state = eqx.tree_at(lambda t: t.akt, keps_state, akt_new)
+    keps_state = eqx.tree_at(lambda t: t.eps, keps_state, eps_new)
     keps_state = eqx.tree_at(lambda t: t.tke, keps_state, tke_new)
     keps_state = eqx.tree_at(lambda t: t.cmu, keps_state, cmu_new)
     keps_state = eqx.tree_at(lambda t: t.cmu_prim, keps_state, cmu_prim_new)
 
-    return state, keps_state
+    return keps_state
 
 
 @jit
