@@ -5,7 +5,7 @@ Single column model
 import warnings
 import equinox as eqx
 import jax.numpy as jnp
-import xarray as xr
+from jax import jit, lax
 from typing import Tuple, List
 
 from case import Case
@@ -49,14 +49,8 @@ class SingleColumnModel(eqx.Module):
         closure_state = self.closure.step_fun(state, closure_state,
                                               closure_parameters, self.case)
 
-        # ecrire ca mieux par rapport au state
-        rflx_sfc = self.case.rflx_sfc_max
-        stflx = jnp.array([self.case.tflx_sfc, self.case.sflx_sfc])
-        btflx = jnp.array([self.case.tflx_btm, self.case.sflx_btm])
-
-
         t_new, s_new = advance_tra_ed(
-            state.t, state.s, stflx, rflx_sfc,swr_frac, btflx, self.grid.hz,
+            state.t, state.s, stflx, rflx_sfc, swr_frac, btflx, self.grid.hz,
             closure_state.akt, self.grid.zw, closure_state.eps, self.case.alpha,
             self.dt)
 
@@ -97,55 +91,48 @@ class SingleColumnModel(eqx.Module):
         return trajectory
 
 
-"""
-Usefull functions for the single column model
-"""
 
-import jax.numpy as jnp
-from jax import jit, lax
+# grav = 9.81  # Gravity of Earth
+# cp = 3985.0  # Specific heat capacity of saltwater [J/kg K]
 
-grav = 9.81  # Gravity of Earth
-cp = 3985.0  # Specific heat capacity of saltwater [J/kg K]
-
+        # ecrire ca mieux par rapport au state
+        # rflx_sfc = self.case.rflx_sfc_max
+        # stflx = jnp.array([self.case.tflx_sfc, self.case.sflx_sfc])
+        # btflx = jnp.array([self.case.tflx_btm, self.case.sflx_btm])
 @jit
-def advance_tra_ed(t_n, s_n, stflx, srflx, swr_frac, btflx, Hz, Akt, zw, eps, alpha,
-                   dt):
+def advance_tra_ed(t: jnp.ndarray, s: jnp.ndarray, akt: jnp.ndarray,
+                   eps: jnp.ndarray, swr_frac: jnp.ndarray, zw: jnp.ndarray,
+                   hz: jnp.ndarray, dt: float, case: Case):
     r"""
     Integrate vertical diffusion term for tracers.
 
     Parameters
     ----------
-    t_n : float(N, ntra)
-        temperature at time step n
-    s_n : float(N, ntra)
-        salinity at time step n
-    stflx : float(ntra)
-        surface tracer fluxes
-    srflx : float
-        surface radiative flux [W/m2]
-    swr_frac : float(N+1)
+    t : jnp.ndarray, float(nz)
+        temperature at time step n [C]
+    s : jnp.ndarray, float(nz)
+        salinity at time step n [psu]
+    akt : jnp.ndarray, float(nz+1)
+        eddy-diffusivity [m2.s-1]
+    eps : jnp.ndarray, float(nz+1)
+        TKE dissipation [m2.s-3]
+    swr_frac : jnp.ndarray, float(nz+1)
         fraction of solar penetration
-    btflx : float(ntra)
-        surface tracer fluxes
-    Hz : float(N)
-        layer thickness [m]
-    Akt : float(N+1)
-        eddy-diffusivity [m2/s]
-    zw : float(N+1)
-        depth at cell interfaces [m]
-    eps : float(N+1)
-        TKE dissipation [m2/s3]
-    alpha : float
-        thermal expension coefficient [C-1]
+    zw : jnp.ndarray, float(nz+1)
+        depths of cell interfaces from deepest to shallowest [m]
+    hz : jnp.ndarray, float(nz)
+        thickness of cells from deepest to shallowest [m]
     dt : float
         time-step [s]
+    case : Case
+        physical case
 
     Returns
     -------
-    t_np1 : float(N, ntra)
-        temperature at time step n+1
-    s_np1 : float(N, ntra)
-        salinity at time step n+1
+    t : jnp.ndarray, float(nz)
+        temperature at time step n+1 [C]
+    s : jnp.ndarray, float(nz)
+        salinity at time step n+1 [psu]
 
     Notes
     -----
@@ -153,45 +140,45 @@ def advance_tra_ed(t_n, s_n, stflx, srflx, swr_frac, btflx, Hz, Akt, zw, eps, al
     \[ \overline{\phi}^{n+1,*} = \overline{\phi}^n + \Delta t \partial_z \left(
     K_m \partial_z  \overline{\phi}^{n+1,*} \right) \]
     """
-    # returned variables
-    N, = t_n.shape
-    temp = jnp.zeros(N)
-    sal = jnp.zeros(N)
-
-    # local variables
-    fc = jnp.zeros(N+1)
+    nz, = t.shape
+    fc = jnp.zeros(nz+1)
+    cp = case.cp
+    alpha = case.alpha
+    grav = case.grav
 
     # 1 - Compute fluxes associated with solar penetration and surface boundary
     # condition
     # 1.1 - temperature
     # surface heat flux (including latent and solar components)
-    fc = fc.at[N].set(stflx[0] + srflx)
     # penetration of solar heat flux
-    fc = fc.at[1:N].set(srflx * swr_frac[1:N])
+    fc_t = case.rflx_sfc_max * swr_frac
+    # latent component heat flux
+    fc_t = fc_t.at[-1].add(case.tflx_sfc)
+    fc_t = fc_t.at[0].set(0.)
     # apply flux divergence
-    temp = Hz*t_n + dt*(fc[1:] - fc[:-1])
+    t = hz*t + dt*(fc_t[1:] - fc_t[:-1])
     cffp = eps[1:] / (cp - alpha * grav * zw[1:])
     cffm = eps[:-1] / (cp - alpha * grav * zw[:-1])
-    temp = temp + dt * 0.5 * Hz * (cffp + cffm)
+    t = t + dt * 0.5 * hz * (cffp + cffm)
     # 1.2 - salinity
-    fc = fc.at[N].set(stflx[1]) # Salinity (fresh water flux)
-    fc = fc.at[1:N].set(0.0)
+    fc_s = jnp.zeros(nz+1)
+    fc_s.at[-1].set(case.sflx_sfc)
     # apply flux divergence
-    sal = Hz*s_n + dt*(fc[1:] - fc[:-1])
+    s = hz*s + dt*(fc[1:] - fc[:-1])
 
     # 2 - Implicit integration for vertical diffusion
     # 1.1 - temperature
     # right hand side for the tridiagonal problem
-    temp = temp.at[0].add(-dt * btflx[0])
+    t = t.at[0].add(-dt * case.tflx_btm)
     # solve tridiagonal problem
-    temp = tridiag_solve(Hz, Akt, temp, dt)
+    t = tridiag_solve(hz, akt, t, dt)
     # 1.2 - salinity
     # right hand side for the tridiagonal problem
-    sal = sal.at[0].add(-dt * btflx[1])
+    s = s.at[0].add(-dt * case.sflx_btm)
     # solve tridiagonal problem
-    sal = tridiag_solve(Hz, Akt, sal, dt)
+    s = tridiag_solve(hz, akt, s, dt)
 
-    return temp, sal
+    return t, s
 
 
 @jit
