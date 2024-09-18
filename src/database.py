@@ -50,12 +50,19 @@ class Obs(eqx.Module):
         else:
             v = jnp.array(ds[var_names['v']].values)
         # writing trajectory
-        self.trajectory = Trajectory(grid, time, u, v, t, s)
+        self.trajectory = Trajectory(grid, time, t, s, u, v)
 
-        with open(yaml_path, 't') as f:
+        with open(yaml_path, 'r') as f:
             metadatas = yaml.safe_load(f)
         
-        self.case = Case()
+        case = Case()
+        case_attributes = list(vars(case).keys())
+        for att in case_attributes:
+            if att in var_names.keys():
+                case = eqx.tree_at(
+                    lambda t: getattr(t, att), case,
+                    metadatas[var_names[att]])
+        self.case = case
         
 
 

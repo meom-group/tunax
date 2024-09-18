@@ -2,6 +2,7 @@
 Grid, state and trajectory
 """
 from __future__ import annotations
+
 import equinox as eqx
 import xarray as xr
 import jax.numpy as jnp
@@ -10,7 +11,7 @@ from jax import vmap
 
 class Grid(eqx.Module):
     """
-    Abstraction describing a one dimentional spatial grid
+    Spatial grid of a water column.
 
     Parameters
     ----------
@@ -53,21 +54,6 @@ class Grid(eqx.Module):
     hz: jnp.ndarray
 
     def __init__(self, zr:jnp.ndarray, zw: jnp.ndarray):
-        """
-        Creates a grid object from the centers and interfaces of the cells.
-
-        Parameters
-        ----------
-        zr : jnp.ndarray, float(nz)
-            depths of cell centers from deepest to shallowest [m]
-        zw : jnp.ndarray, float(nz+1)
-            depths of cell interfaces from deepest to shallowest [m]
-        
-        Returns
-        -------
-        grid : Grid
-
-        """
         self.nz = zr.shape[0]
         self.h = zw[0]
         self.zw = zw
@@ -257,13 +243,13 @@ class State(eqx.Module):
     grid : Grid
         spatial grid
     u : jnp.ndarray, float(nz)
-        zonal velocity at the next step[m.s-1]
+        zonal velocity [m.s-1]
     v : jnp.ndarray, float(nz)
-        meridional velocity at the next step [m.s-1]
+        meridional velocity [m.s-1]
     t : jnp.ndarray, float(nz)
-        temperature at the next step [C]
+        temperature [C]
     s : jnp.ndarray, float(nz)
-        current salinity [psu]
+        salinity [psu]
 
     Attributes
     ----------
