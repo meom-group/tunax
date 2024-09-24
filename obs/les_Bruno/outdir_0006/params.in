@@ -1,0 +1,47 @@
+#!sh
+# input parameter files
+# each '=' sign must be surrounded by at least one whitespace on each side
+
+# domain size
+N  = 512
+L0 = 1200
+npz = 8
+
+# physical parameters
+#nu = 1e-5
+#kappa = 1e-2
+
+#run 1_v2
+#tau0 = 4e-4
+#N2b = 3e-6
+#B0 = -5e-9
+
+# run 2_v2
+tau0 = 6.25e-4
+N2b = 1e-5
+B0 = -2e-7
+
+# run 3_v2
+#tau0 = 6.25e-4
+#N2b = 8e-7
+#B0 = -2e-7
+
+# run 4_v2
+#tau0 = 2e-3
+#N2b = 1e-6
+#B0 = -5e-8
+
+f0_z = 1e-4
+hm_i = 0
+
+# timestepping
+CFL   = 0.6
+DT    = 100.0
+tend  = 864000
+dtout = 3600
+tel_m = 1e10       # max elapsed time
+NMOUT = 50000
+
+# misc
+tol_b = 5e-4
+tol_u = 2e-1
