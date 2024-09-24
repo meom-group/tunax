@@ -30,7 +30,7 @@ from jax import lax, jit
 from typing import Tuple, List
 from functools import partial
 
-from functions import tridiag_solve, add_boundaries
+from functions import tridiag_solve, add_boundaries, format_to_single_line
 from case import Case
 from state import Grid, State, Trajectory
 from closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
@@ -110,16 +110,20 @@ class SingleColumnModel(eqx.Module):
         if not n_out.is_integer():
             raise ValueError('`out_dt` should be a multiple of `dt`.')
         if not nt % n_out == 0:
-            warnings.warn('The `time_frame`is not proportional to the out \
-                          time-step `out_dt`, the last step will be computed \
-                          a few before the time_frame.')
+            warnings.warn(format_to_single_line("""
+                The `time_frame`is not proportional to the out time-step
+                `out_dt`, the last step will be computed a few before the
+                `time_frame`.
+            """))
         if not nt.is_integer():
-            warnings.warn('The `time_frame`is not proportional to the time-\
-                          step `dt`, the last step will be computed a few \
-                          before the time_frame.')
+            warnings.warn(format_to_single_line("""
+                The `time_frame`is not proportional to the time-step `dt`, the
+                last step will be computed a few before the time_frame.
+            """))
         if not closure_name in CLOSURES_REGISTRY.keys():
-            raise ValueError('`closure_name` not registerd in \
-                             CLOSURES_REGISTRY.')
+            raise ValueError(format_to_single_line("""
+                `closure_name` not registerd in CLOSURES_REGISTRY.
+            """))
 
         # write attributes
         self.nt = int(nt)
@@ -174,7 +178,7 @@ class SingleColumnModel(eqx.Module):
         return trajectory
 
 
-@partial(jit, static_argnames=('dt', 'case', 'closure', 'closure_parameters'))
+@partial(jit, static_argnames=('dt', 'case', 'closure'))
 def step(
         dt: float,
         case: Case,

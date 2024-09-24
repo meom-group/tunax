@@ -335,7 +335,7 @@ class KepsState(ClosureStateAbstract):
         self.c_mu_prim = jnp.full(nz+1, keps_params.c_mu_prim_min)
 
 
-@partial(jit, static_argnames=('keps_params', 'case'))
+@partial(jit, static_argnames=('case'))
 def keps_step(
         state: State,
         keps_state: KepsState,
@@ -407,7 +407,7 @@ def keps_step(
     return keps_state
 
 
-@partial(jit, static_argnames=('case',))
+@partial(jit, static_argnames=('case'))
 def compute_rho_eos(
         t: jnp.ndarray,
         s: jnp.ndarray,
@@ -499,7 +499,7 @@ def compute_shear(
     shear2_in = du + dv
     return add_boundaries(0., shear2_in, 0.)
 
-@partial(jit, static_argnames=('keps_params', 'case'))
+@partial(jit, static_argnames=('case'))
 def compute_tke_eps_bc(
         tke: jnp.ndarray,
         hz: jnp.ndarray,
@@ -581,7 +581,7 @@ def compute_tke_eps_bc(
     return tke_sfc_bc, tke_btm_bc, eps_sfc_bc, eps_btm_bc
 
 
-@partial(jit, static_argnames=('keps_params', 'do_tke'))
+@partial(jit, static_argnames=('do_tke'))
 def advance_turb(
         akt: jnp.ndarray,
         akv: jnp.ndarray,
@@ -712,7 +712,7 @@ def advance_turb(
 
     return vec
 
-@partial(jit, static_argnames=('keps_params',))
+@jit
 def compute_diag(
         tke: jnp.ndarray,
         eps: jnp.ndarray,

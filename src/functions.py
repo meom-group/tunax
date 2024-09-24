@@ -78,3 +78,23 @@ def add_boundaries(
         concatenated vector
     """
     return jnp.concat([jnp.array([vec_btm]), vec_in, jnp.array([vec_sfc])])
+
+
+def format_to_single_line(text: str) -> str:
+    """
+    Transforms a multiple line text in a line string by removing indentations.
+
+    Parameters
+    ----------
+    text : str
+        text on multiple lines to transform
+
+    Returns
+    -------
+    line : str
+        text on a single line removed from indentations
+    """
+    lines = text.splitlines()
+    stripped_lines = [line.strip() for line in lines]
+    single_line = " ".join(stripped_lines)
+    return " ".join(single_line.split())

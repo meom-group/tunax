@@ -1,15 +1,19 @@
 """
 Optimizer
 """
+from __future__ import annotations
 import optax
 import equinox as eqx
 import jax.numpy as jnp
-from model import SingleColumnModel, Trajectory
 from jax import grad, jit
-from database import ObsSet
-from typing import Dict , Callable
+from typing import Dict , Callable, List
+
+from database import Obs, ObsSet
+from model import SingleColumnModel, Trajectory
 from closure import Closure
+from case import Case
 from closures_registry import CLOSURES_REGISTRY
+
 
 class FittableParameter(eqx.Module):
     do_fit: bool
@@ -26,6 +30,7 @@ class FittableParameter(eqx.Module):
             self.init_val = init_val
         else:
             self.fixed_val = fixed_val
+
 
 class FittableParametersSet(eqx.Module):
     coef_fit_dico: Dict[str, FittableParameter]
@@ -56,74 +61,65 @@ class FittableParametersSet(eqx.Module):
                 x.append(coef_fit.init_val)
         return jnp.array(x)
 
+
 class Fitter(eqx.Module):
     coef_fit_params: FittableParametersSet
-    nloop: int
-    model: SingleColumnModel
     obs_set: ObsSet
+    loss: Callable[[List[Trajectory], ObsSet], float]
+    nloop: int
     learning_rate: float
     verbatim: bool
-    loss: Callable[[], Trajectory]
+    model_list: List[SingleColumnModel]
 
-    def loss_wrapped(self, x, state0=None, nt=None):
-        model = self.model
-        if state0 is not None:
-            model = eqx.tree_at(lambda t: t.init_state, model, state0)
-        if nt is not None:
-            model = eqx.tree_at(lambda t: t.nt, model, nt)
+    def __init__(
+            self,
+            coef_fit_params: FittableParametersSet,
+            obs_set: ObsSet,
+            loss: Callable[[List[Trajectory], ObsSet], float],
+            nloop: int,
+            learning_rate: float,
+            verbatim: bool,
+            dt: float,
+            closure_name: str
+        ) -> Fitter:
+        """
+        Built the list of models from initial conditions and physical cases
+        of every observations
+        """
+        # same attributes
+        self.coef_fit_params = coef_fit_params
+        self.obs_set = obs_set
+        self.loss = loss
+        self.nloop = nloop
+        self.learning_rate = learning_rate
+        self.verbatim = verbatim
+        # building models list
+        model_list = []
+        for obs in self.obs_set.observations:
+            traj = obs.trajectory
+            init_state = traj.extract_state(0)
+            time = traj.time
+            out_dt = float(time[1] - time[0])
+            time_frame = float((time[-1] + out_dt)/3600.)
+            model = SingleColumnModel(
+                time_frame, dt, out_dt, traj.grid, init_state, obs.case, closure_name
+            )
+            model_list.append(model)
+        self.model_list = model_list
+
+    def loss_wrapped(self, x):
+        """
+        Run every model (for each observations) for the set of closure
+        parameters corresponding to x, and return the loss function
+        """
         closure_parameters = self.coef_fit_params.fit_to_closure(x)
-        def model_wrapped():
-            return model.compute_trajectory_with(closure_parameters)
-        return self.loss(model_wrapped, self.obs_set)
+        scm_set = []
+        for model in self.model_list:
+            traj = model.compute_trajectory_with(closure_parameters)
+            scm_set.append(traj)
+        return self.loss(scm_set, self.obs_set)
     
-    def run_cut(self, nt_cut, traj):
-        """temporary test"""
-        initial_learning_rate = self.learning_rate
-        # scheduler = optax.exponential_decay(
-        #     init_value=initial_learning_rate,
-        #     transition_steps=5,
-        #     decay_rate= 0.8
-        # )
-        x_history = []
-        grads_history = []
-        optimizer = optax.adam(learning_rate=self.learning_rate)
-        x = self.coef_fit_params.gen_init_val()
-        opt_state = optimizer.init(x)
 
-        def loss_cut(x):
-            s = 0
-            closure_parameters = self.coef_fit_params.fit_to_closure(x)
-            cut_model = eqx.tree_at(lambda t: t.nt, self.model, nt_cut)
-            for i_cut in range(self.model.nt//nt_cut):
-                i_t_cut = i_cut*nt_cut
-                state0_cut = eqx.tree_at(lambda tree: tree.t, self.model.init_state, traj.t[i_t_cut, :])
-                state0_cut = eqx.tree_at(lambda tree: tree.s, state0_cut, traj.s[i_t_cut, :])
-                state0_cut = eqx.tree_at(lambda tree: tree.u, state0_cut, traj.u[i_t_cut, :])
-                state0_cut = eqx.tree_at(lambda tree: tree.v, state0_cut, traj.v[i_t_cut, :])
-                cut_model = eqx.tree_at(lambda t: t.init_state, cut_model, state0_cut)
-
-                traj_cut = cut_model.compute_trajectory_with(closure_parameters)
-
-                s += jnp.sum((traj_cut.t[-1, :] - traj.t[i_t_cut+nt_cut-1, :])**2)
-            return s
-
-        grad_loss = grad(loss_cut)
-
-        for i in range(self.nloop):
-            grads = grad_loss(x)
-            x_history.append(x)
-            grads_history.append(grads)
-            updates, opt_state = optimizer.update(grads, opt_state)
-            x = optax.apply_updates(x, updates)
-            if self.verbatim:
-                print(f"""
-                    loop {i}
-                    x {x}
-                    grads {grads}
-                """)
-        return x, x_history, grads_history
-
-     
     def __call__(self):
         initial_learning_rate = self.learning_rate
         scheduler = optax.exponential_decay(
@@ -150,3 +146,53 @@ class Fitter(eqx.Module):
                     grads {grads}
                 """)
         return x, x_history, grads_history
+    
+
+    
+    # def run_cut(self, nt_cut, traj):
+    #     """temporary test"""
+    #     initial_learning_rate = self.learning_rate
+    #     # scheduler = optax.exponential_decay(
+    #     #     init_value=initial_learning_rate,
+    #     #     transition_steps=5,
+    #     #     decay_rate= 0.8
+    #     # )
+    #     x_history = []
+    #     grads_history = []
+    #     optimizer = optax.adam(learning_rate=self.learning_rate)
+    #     x = self.coef_fit_params.gen_init_val()
+    #     opt_state = optimizer.init(x)
+
+    #     def loss_cut(x):
+    #         s = 0
+    #         closure_parameters = self.coef_fit_params.fit_to_closure(x)
+    #         cut_model = eqx.tree_at(lambda t: t.nt, self.model, nt_cut)
+    #         for i_cut in range(self.model.nt//nt_cut):
+    #             i_t_cut = i_cut*nt_cut
+    #             state0_cut = eqx.tree_at(lambda tree: tree.t, self.model.init_state, traj.t[i_t_cut, :])
+    #             state0_cut = eqx.tree_at(lambda tree: tree.s, state0_cut, traj.s[i_t_cut, :])
+    #             state0_cut = eqx.tree_at(lambda tree: tree.u, state0_cut, traj.u[i_t_cut, :])
+    #             state0_cut = eqx.tree_at(lambda tree: tree.v, state0_cut, traj.v[i_t_cut, :])
+    #             cut_model = eqx.tree_at(lambda t: t.init_state, cut_model, state0_cut)
+
+    #             traj_cut = cut_model.compute_trajectory_with(closure_parameters)
+
+    #             s += jnp.sum((traj_cut.t[-1, :] - traj.t[i_t_cut+nt_cut-1, :])**2)
+    #         return s
+
+    #     grad_loss = grad(loss_cut)
+
+    #     for i in range(self.nloop):
+    #         grads = grad_loss(x)
+    #         x_history.append(x)
+    #         grads_history.append(grads)
+    #         updates, opt_state = optimizer.update(grads, opt_state)
+    #         x = optax.apply_updates(x, updates)
+    #         if self.verbatim:
+    #             print(f"""
+    #                 loop {i}
+    #                 x {x}
+    #                 grads {grads}
+    #             """)
+    #     return x, x_history, grads_history     
+    

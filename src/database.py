@@ -3,6 +3,7 @@ This module reads and transforms the observation data in a python object that
 the module of calibration can understand.
 """
 
+from __future__ import annotations
 import yaml
 import equinox as eqx
 import xarray as xr
@@ -19,7 +20,13 @@ class Obs(eqx.Module):
     trajectory: Trajectory
     case: Case
 
-    def __init__(self, nc_path: str, yaml_path: str, var_names: Dict[str, str]):
+    @classmethod
+    def from_files(
+            cls,
+            nc_path: str,
+            yaml_path: str,
+            var_names: Dict[str, str]
+        ) -> Obs:
         ds = xr.load_dataset(nc_path)
         # dimensions
         zr = jnp.array(ds[var_names['zr']].values)
@@ -50,7 +57,7 @@ class Obs(eqx.Module):
         else:
             v = jnp.array(ds[var_names['v']].values)
         # writing trajectory
-        self.trajectory = Trajectory(grid, time, t, s, u, v)
+        trajectory = Trajectory(grid, time, t, s, u, v)
 
         with open(yaml_path, 'r') as f:
             metadatas = yaml.safe_load(f)
@@ -62,7 +69,8 @@ class Obs(eqx.Module):
                 case = eqx.tree_at(
                     lambda t: getattr(t, att), case,
                     metadatas[var_names[att]])
-        self.case = case
+
+        return cls(trajectory, case)
         
 
 
