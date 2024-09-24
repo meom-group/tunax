@@ -36,11 +36,17 @@ class Case(eqx.Module):
     grav : float, default=9.81
         gravity acceleration [m.s-2]
     cp : float, default=3985.
-        specific heat capacity of saltwater [J.kg-1.C-1]
+        specific heat capacity of saltwater [J.kg-1.K-1]
     alpha : float, default=2e-4
-        thermal expansion coefficient [C-1]
-    beta : float, default=2e-4
+        thermal expansion coefficient [K-1]
+    beta : float, default=8e-4
         salinity expansion coefficient [psu-1]
+    t_rho_ref : float, default=0.
+        reference temperature for the density computation [C]
+    s_rho_ref : float, default=35.
+        reference salinity for the density computation [psu]
+    vkarmn : float, default=0.384
+        Von Kármán constant [dimensionless]
     fcor : float, default=0.
         Coriolis frequency [rad.s-1]
     ustr_sfc : float, default=0.
@@ -61,8 +67,6 @@ class Case(eqx.Module):
         fresh water flux at the bottom [psu.m.s-1]
     rflx_sfc_max : float, default=0.
         maximum solar radiation flux at the surface [K.m.s-1]
-    do_diurnal_cycle : bool, default=False
-        apply a diurnal cycle for the solar radiation flux
     
     Methods
     -------
@@ -91,7 +95,10 @@ class Case(eqx.Module):
     grav: float = 9.81
     cp: float = 3985.
     alpha: float = 2e-4
-    beta: float = 2e-4
+    beta: float = 8e-4
+    t_rho_ref: float = 0.
+    s_rho_ref: float = 35.
+    vkarmn: float = 0.384
     # forcings
     fcor: float = 0.
     ustr_sfc: float = 0.
@@ -103,7 +110,6 @@ class Case(eqx.Module):
     sflx_sfc: float = 0.
     sflx_btm: float = 0.
     rflx_sfc_max: float = 0.
-    do_diurnal_cycle: bool = False
 
     def set_lat(self, lat: float) -> Case:
         """

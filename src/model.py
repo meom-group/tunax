@@ -29,6 +29,7 @@ import jax.numpy as jnp
 from jax import lax, jit
 from typing import Tuple, List
 
+from functions import tridiag_solve, add_boundaries
 from case import Case
 from state import Grid, State, Trajectory
 from closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
@@ -160,7 +161,7 @@ class SingleColumnModel(eqx.Module):
         
         # advance closure state (compute eddy-diffusivity and viscosity)
         closure_state = self.closure.step_fun(
-            state, closure_state, closure_parameters, self.case)
+            state, closure_state, self.dt, closure_parameters, self.case)
 
         # advance tracers
         t_new, s_new = advance_tra_ed(
@@ -199,7 +200,7 @@ class SingleColumnModel(eqx.Module):
         # initialize the model
         states_list: List[State] = []
         state = self.init_state
-        closure_state = self.closure.state_class(self.grid)
+        closure_state = self.closure.state_class(self.grid, closure_parameters)
         swr_frac = lmd_swfrac(self.grid.hz)
 
         # loop the model
@@ -337,10 +338,10 @@ def advance_tra_ed(
     # 2 - Implicit integration for vertical diffusion
     # Temperature
     t = t.at[0].add(-dt * case.tflx_btm)
-    t = tridiag_solve(akt, hz, t, dt)
+    t = diffusion_solver(akt, hz, t, dt)
     # Ssalinity
     s = s.at[0].add(-dt * case.sflx_btm)
-    s = tridiag_solve(akt, hz, s, dt)
+    s = diffusion_solver(akt, hz, s, dt)
 
     return t, s
 
@@ -417,16 +418,14 @@ def advance_dyn_cor_ed(
     v = v.at[0].add(-dt * case.vstr_btm)
 
     # 3 - Implicit integration for vertical viscosity
-    u = tridiag_solve(akv, hz, u, dt)
-    v = tridiag_solve(akv, hz, v, dt)
+    u = diffusion_solver(akv, hz, u, dt)
+    v = diffusion_solver(akv, hz, v, dt)
 
     return u, v
 
 
-
-
 @jit
-def tridiag_solve(
+def diffusion_solver(
         ak: jnp.ndarray,
         hz: jnp.ndarray,
         f: jnp.ndarray,
@@ -451,54 +450,26 @@ def tridiag_solve(
     -------
     f : jnp.ndarray, float(nz)
         solution of tridiagonal problem
-    """
-    # local variables
-    nz, = hz.shape
-    a = jnp.zeros(nz)
-    b = jnp.zeros(nz)
-    c = jnp.zeros(nz)
-    q = jnp.zeros(nz)
-     
+    """     
     # fill the coefficients for the tridiagonal matrix
-    a_mid = -2.0 * dt * ak[1:-2] / (hz[:-2] + hz[1:-1])
-    c_mid = -2.0 * dt * ak[2:-1] / (hz[2:] + hz[1:-1])
-    b_mid = hz[1:-1] - a_mid - c_mid
+    a_in = -2.0 * dt * ak[1:-2] / (hz[:-2] + hz[1:-1])
+    c_in = -2.0 * dt * ak[2:-1] / (hz[2:] + hz[1:-1])
+    b_in = hz[1:-1] - a_in - c_in
 
     # bottom boundary condition
-    a_l = 0.
-    c_l = -2.0 * dt * ak[1] / (hz[1] + hz[0])
-    b_l = hz[0] - c_l
+    c_btm = -2.0 * dt * ak[1] / (hz[1] + hz[0])
+    b_btm = hz[0] - c_btm
 
     # surface boundary condition
-    a_r = -2.0 * dt * ak[-2] / (hz[-2] + hz[-1])
-    c_r = 0.
-    b_r = hz[-1] - a_r
+    a_sfc = -2.0 * dt * ak[-2] / (hz[-2] + hz[-1])
+    b_sfc = hz[-1] - a_sfc
 
     # concatenations
-    a = jnp.concat([jnp.array([a_l]), a_mid, jnp.array([a_r])])
-    b = jnp.concat([jnp.array([b_l]), b_mid, jnp.array([b_r])])
-    c = jnp.concat([jnp.array([c_l]), c_mid, jnp.array([c_r])])
+    a = add_boundaries(0., a_in, a_sfc)
+    b = add_boundaries(b_btm, b_in, b_sfc)
+    c = add_boundaries(c_btm, c_in, 0.)
 
-    # forward sweep
-    cff = 1.0 / b[0]
-    q = q.at[0].set(-c[0] * cff)
-    f = f.at[0].multiply(cff)
-    
-    def body_fun1(k, x):
-        f = x[0, :]
-        q = x[1, :]
-        cff = 1.0 / (b[k] + a[k] * q[k-1])
-        q = q.at[k].set(-cff * c[k])
-        f = f.at[k].set(cff * (f[k] - a[k] * f[k-1]))
-        return jnp.stack([f, q])
-    f_q = jnp.stack([f, q])
-    f_q = lax.fori_loop(1, nz, body_fun1, f_q)
-    f = f_q[0, :]
-    q = f_q[1, :]
-
-    # backward substitution
-    body_fun2 = lambda k, x: x.at[nz-2-k].add(q[nz-2-k] * x[nz-1-k])
-    f = lax.fori_loop(0, nz-1, body_fun2, f)
+    f = tridiag_solve(a, b, c, f)
     
     return f
 

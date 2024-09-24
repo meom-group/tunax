@@ -265,6 +265,7 @@ class State(eqx.Module):
         current salinity [psu]
 
     """
+    
     grid: Grid
     t: jnp.ndarray
     s: jnp.ndarray

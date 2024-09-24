@@ -49,4 +49,4 @@ CloStateType = TypeVar('CloStateType', bound=ClosureStateAbstract)
 class Closure(eqx.Module, Generic[CloStateType, CloParType]):
     parameters_class: Type[ClosureParametersAbstract]
     state_class: Type[ClosureStateAbstract]
-    step_fun: Callable[[State, CloStateType, CloParType, Case], CloStateType]
+    step_fun: Callable[[State, CloStateType, float, CloParType, Case], CloStateType]
