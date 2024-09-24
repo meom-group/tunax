@@ -6,8 +6,7 @@ from typing import Tuple
 
 import sys
 sys.path.append('..')
-from state import Grid
-from model import State
+from state import Grid, State
 from case import Case
 from closure import ClosureParametersAbstract, ClosureStateAbstract
 from functions import tridiag_solve, add_boundaries
@@ -336,6 +335,7 @@ class KepsState(ClosureStateAbstract):
         self.c_mu_prim = jnp.full(nz+1, keps_params.c_mu_prim_min)
 
 
+@partial(jit, static_argnames=('keps_params', 'case'))
 def keps_step(
         state: State,
         keps_state: KepsState,
@@ -712,7 +712,7 @@ def advance_turb(
 
     return vec
 
-@partial(jit, static_argnames=('keps_params'))
+@partial(jit, static_argnames=('keps_params',))
 def compute_diag(
         tke: jnp.ndarray,
         eps: jnp.ndarray,

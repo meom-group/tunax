@@ -12,5 +12,4 @@ from closures.tke import TkeParameters, TkeState, tke_step
 CLOSURES_REGISTRY: Dict[str, Closure] = {
     'k-epsilon': Closure(KepsParameters, KepsState, keps_step),
     'tke': Closure(TkeParameters, TkeState, tke_step)
-
 }

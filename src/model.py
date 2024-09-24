@@ -28,6 +28,7 @@ import equinox as eqx
 import jax.numpy as jnp
 from jax import lax, jit
 from typing import Tuple, List
+from functools import partial
 
 from functions import tridiag_solve, add_boundaries
 from case import Case
@@ -39,23 +40,6 @@ from closures_registry import CLOSURES_REGISTRY
 class SingleColumnModel(eqx.Module):
     """
     Physical model of a water column of the ocean.
-
-    Parameters
-    ----------
-    time_frame : float
-        total time of the simulation [h]
-    dt : float
-        time-step for every iteration [s]
-    out_dt : float
-        time-step for the output [s]
-    grid : Grid
-        spatial grid of a water column
-    init_state : State
-        initial physical state
-    case : Case
-        physical case and forcings
-    closure_name : str
-        name of the turbulent closure that will be used
 
     Attributes
     ----------
@@ -73,6 +57,23 @@ class SingleColumnModel(eqx.Module):
         physical case and forcings
     closure : Closure
         object representing the chosed closure
+
+    Parameters
+    ----------
+    time_frame : float
+        total time of the simulation [h]
+    dt : float
+        time-step for every iteration [s]
+    out_dt : float
+        time-step for the output [s]
+    grid : Grid
+        spatial grid of a water column
+    init_state : State
+        initial physical state
+    case : Case
+        physical case and forcings
+    closure_name : str
+        name of the turbulent closure that will be used
 
     Methods
     -------
@@ -129,57 +130,6 @@ class SingleColumnModel(eqx.Module):
         self.case = case
         self.closure = CLOSURES_REGISTRY[closure_name]
 
-    def step(
-            self,
-            state: State,
-            closure_state: ClosureStateAbstract,
-            closure_parameters: ClosureParametersAbstract,
-            swr_frac: jnp.ndarray
-        ) -> Tuple[State, ClosureStateAbstract]:
-        """
-        Run one time step of the model.
-
-        Parameters
-        ----------
-        state : State
-            curent state of the system
-        closure_state : ClosureStateAbstract
-            curent state of the closure
-        closure_parameters : ClosureParametersAbstract
-            a set of parameters of the used closure
-        swr_frac : jnp.ndarray, float(nz+1)
-            fraction of solar penetration
-
-        Returns
-        -------
-        state : State
-            state of the system at the next step
-        closure_state : ClosureStateAbstract
-            state of the closure at the next step
-        """
-        grid = self.grid
-        
-        # advance closure state (compute eddy-diffusivity and viscosity)
-        closure_state = self.closure.step_fun(
-            state, closure_state, self.dt, closure_parameters, self.case)
-
-        # advance tracers
-        t_new, s_new = advance_tra_ed(
-            state.t, state.s, closure_state.akt, closure_state.eps, swr_frac,
-            grid.zw, grid.hz, self.dt, self.case)
-        
-        # advance velocities
-        u_new, v_new = advance_dyn_cor_ed(
-            state.u, state.v, grid.hz, closure_state.akv, self.dt, self.case)
-
-        # write the new state
-        state = eqx.tree_at(lambda tree: tree.t, state, t_new)
-        state = eqx.tree_at(lambda t: t.s, state, s_new)
-        state = eqx.tree_at(lambda t: t.u, state, u_new)
-        state = eqx.tree_at(lambda t: t.v, state, v_new)
-
-        return state, closure_state
-    
     def compute_trajectory_with(
             self,
             closure_parameters: ClosureParametersAbstract
@@ -207,8 +157,10 @@ class SingleColumnModel(eqx.Module):
         for i_t in range(self.nt):
             if i_t % self.n_out == 0:
                 states_list.append(state)
-            state, closure_state = self.step(state, closure_state,
-                                             closure_parameters, swr_frac)
+            state, closure_state = step(
+                self.dt, self.case, self.closure, state, closure_state,
+                closure_parameters, swr_frac
+            )
         time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
 
         # generate trajectory
@@ -220,6 +172,65 @@ class SingleColumnModel(eqx.Module):
             self.grid, time, jnp.vstack(t_list), jnp.vstack(s_list),
             jnp.vstack(u_list), jnp.vstack(v_list))
         return trajectory
+
+
+@partial(jit, static_argnames=('dt', 'case', 'closure', 'closure_parameters'))
+def step(
+        dt: float,
+        case: Case,
+        closure: Closure,
+        state: State,
+        closure_state: ClosureStateAbstract,
+        closure_parameters: ClosureParametersAbstract,
+        swr_frac: jnp.ndarray
+    ) -> Tuple[State, ClosureStateAbstract]:
+    """
+    Run one time step of the model.
+
+    Parameters
+    ----------
+    dt : float
+        time-step for every iteration [s]
+    case : Case
+        physical case and forcings
+    closure : Closure
+        object representing the chosed closure
+    closure_state : ClosureStateAbstract
+        curent state of the closure
+    closure_parameters : ClosureParametersAbstract
+        a set of parameters of the used closure
+    swr_frac : jnp.ndarray, float(nz+1)
+        fraction of solar penetration
+
+    Returns
+    -------
+    state : State
+        state of the system at the next step
+    closure_state : ClosureStateAbstract
+        state of the closure at the next step
+    """
+    grid = state.grid
+    
+    # advance closure state (compute eddy-diffusivity and viscosity)
+    closure_state = closure.step_fun(
+        state, closure_state, dt, closure_parameters, case)
+
+    # advance tracers
+    t_new, s_new = advance_tra_ed(
+        state.t, state.s, closure_state.akt, closure_state.eps, swr_frac,
+        grid.zw, grid.hz, dt, case)
+    
+    # advance velocities
+    u_new, v_new = advance_dyn_cor_ed(
+        state.u, state.v, grid.hz, closure_state.akv, dt, case)
+
+    # write the new state
+    state = eqx.tree_at(lambda tree: tree.t, state, t_new)
+    state = eqx.tree_at(lambda t: t.s, state, s_new)
+    state = eqx.tree_at(lambda t: t.u, state, u_new)
+    state = eqx.tree_at(lambda t: t.v, state, v_new)
+
+    return state, closure_state
 
 
 @jit
@@ -260,7 +271,7 @@ def lmd_swfrac(hz: jnp.ndarray) -> jnp.ndarray:
     return jnp.concat((swr_frac[::-1], jnp.array([1])))
 
 
-@jit
+@partial(jit, static_argnames=('case',))
 def advance_tra_ed(
         t: jnp.ndarray,
         s: jnp.ndarray,
@@ -346,7 +357,7 @@ def advance_tra_ed(
     return t, s
 
 
-@jit
+@partial(jit, static_argnames=('case',))
 def advance_dyn_cor_ed(
         u: jnp.ndarray,
         v: jnp.ndarray,
