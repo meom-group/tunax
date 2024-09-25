@@ -1,7 +1,7 @@
 .venv*
 
 obs/*
-!obs/horizontally_averaged_LES_data
+!obs/Wagner_LES
 *.nc
 *jld2
 
