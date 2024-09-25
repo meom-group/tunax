@@ -1,6 +1,9 @@
 .venv*
+
+obs/*
+!obs/horizontally_averaged_LES_data
 *.nc
-*.jld2
+*jld2
 
 __pycache__/
 *.DS_Store

@@ -121,15 +121,9 @@ class Fitter(eqx.Module):
     
 
     def __call__(self):
-        initial_learning_rate = self.learning_rate
-        scheduler = optax.exponential_decay(
-            init_value=initial_learning_rate,
-            transition_steps=5,
-            decay_rate= 0.8
-        )
         x_history = []
         grads_history = []
-        optimizer = optax.adam(scheduler)
+        optimizer = optax.adam(self.learning_rate)
         x = self.coef_fit_params.gen_init_val()
         opt_state = optimizer.init(x)
         grad_loss = grad(self.loss_wrapped)
