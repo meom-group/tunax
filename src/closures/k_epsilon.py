@@ -39,7 +39,7 @@ class KepsParameters(ClosureParametersAbstract):
     cb1 : float, default=5.95
         k-epsilon parameter for the dissipation of the corelation tensor
         buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
-    cb2 : float, default=0.6
+    cb2 : float, default=.6
         k-epsilon parameter for the dissipation of the corelation tensor
         buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
     cb3 : float, default=1.
@@ -51,7 +51,7 @@ class KepsParameters(ClosureParametersAbstract):
     cb5 : float, default=0.3333
         k-epsilon parameter for the dissipation of the corelation tensor
         buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
-    cbb : float, default=0.72
+    cbb : float, default=.72
         k-epsilon parameter for the dissipation of the corelation tensor
         buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
     c_mu0 : float, default=0.5477

@@ -7,6 +7,7 @@ import equinox as eqx
 import jax.numpy as jnp
 from jax import grad, jit
 from typing import Dict , Callable, List
+import json
 
 from database import Obs, ObsSet
 from model import SingleColumnModel, Trajectory
@@ -139,6 +140,12 @@ class Fitter(eqx.Module):
                     x {x}
                     grads {grads}
                 """)
+                with open('opti.json', 'r') as f:
+                    data = json.load(f)
+                    data['x'].append([float(c) for c in x])
+                    data['grad'].append([float(c) for c in grads])
+                with open('opti.json', 'w') as f:
+                    json.dump(data, f, indent=4)
         return x, x_history, grads_history
     
 
