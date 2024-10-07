@@ -1,15 +1,56 @@
-import jax.numpy as jnp
-import equinox as eqx
-from functools import partial
-from jax import jit, lax
-from typing import Tuple
+"""
+k-epsilon closure parameters, states and functions.
+
+This module contains the implementation of the k-epsilon closure described as
+a GLS module as in [1]. The parameters of the closure are available in
+the `KepsParameters` class and one can play with them. The function `keps_step`
+compute one time-step of the closure, which means that it computes the eddy-
+diffusivity and viscosity.
+
+Classes
+-------
+KepsParameters
+    concrete class from ClosureParametersAbstract for k-epsilon closure
+KepsState
+    concrete class from ClosureStateAbstract for k-epsilon closure
+
+Functions
+---------
+keps_step (jitted version)
+    main function, run one time-step of the k-epsilon closure
+compute_rho_eos
+    compute density anomaly and Brunt Vaisala frequency via linear EOS
+compute_shear
+    compute shear production term for TKE equation
+compute_tke_eps_bc
+    compute top and bottom boundary conditions for TKE and GLS equation
+advance_turb
+    integrate TKE or epsilon quantities
+compute_diag
+    computes the diagnostic variables of k-epsilon closure
+
+References
+----------
+.. [1] L. Umlauf and H. Burchard. A generic length-scale equation for
+    geophysical turbulence models (2003). Journal of Marine Research 61
+    pp. 235-265. doi : 10.1357/002224003322005087
+    
+"""
+
 
 import sys
+from functools import partial
+from typing import Tuple
+
+import equinox as eqx
+import jax.numpy as jnp
+from jax import jit, lax
+
 sys.path.append('..')
-from state import Grid, State
 from case import Case
-from closure import ClosureParametersAbstract, ClosureStateAbstract
+from state import Grid, State
 from functions import tridiag_solve, add_boundaries
+from closure import ClosureParametersAbstract, ClosureStateAbstract
 
 
 class KepsParameters(ClosureParametersAbstract):
@@ -288,7 +329,7 @@ class KepsParameters(ClosureParametersAbstract):
 
 class KepsState(ClosureStateAbstract):
     """
-    Define the state of the k-epsilon closure at one time step on one grid.
+    Define the state of the k-epsilon closure at one time-step on one grid.
 
     Parameters
     ----------
@@ -335,7 +376,7 @@ class KepsState(ClosureStateAbstract):
         self.c_mu_prim = jnp.full(nz+1, keps_params.c_mu_prim_min)
 
 
-@partial(jit, static_argnames=('case'))
+@partial(jit, static_argnames=('case',))
 def keps_step(
         state: State,
         keps_state: KepsState,
@@ -344,7 +385,7 @@ def keps_step(
         case: Case
     ) -> KepsState:
     """
-    Run one time step of the k-epsilon closure.
+    Run one time-step of the k-epsilon closure.
 
     Parameters
     ----------
@@ -396,7 +437,7 @@ def keps_step(
     akt_new, akv_new, eps_new, c_mu_new, c_mu_prim_new = compute_diag(
         tke_new, eps_new, bvf, shear2, keps_params
     )
-    
+
     keps_state = eqx.tree_at(lambda t: t.akv, keps_state, akv_new)
     keps_state = eqx.tree_at(lambda t: t.akt, keps_state, akt_new)
     keps_state = eqx.tree_at(lambda t: t.tke, keps_state, tke_new)
@@ -407,7 +448,6 @@ def keps_step(
     return keps_state
 
 
-@partial(jit, static_argnames=('case'))
 def compute_rho_eos(
         t: jnp.ndarray,
         s: jnp.ndarray,
@@ -451,11 +491,10 @@ def compute_rho_eos(
     cff = 1./(zr[1:]-zr[:-1])
     bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
     bvf = add_boundaries(0., bvf_in, bvf_in[-1])
-    
+
     return rho, bvf
 
 
-@jit
 def compute_shear(
         u_n: jnp.ndarray,
         v_n: jnp.ndarray,
@@ -499,7 +538,7 @@ def compute_shear(
     shear2_in = du + dv
     return add_boundaries(0., shear2_in, 0.)
 
-@partial(jit, static_argnames=('case'))
+
 def compute_tke_eps_bc(
         tke: jnp.ndarray,
         hz: jnp.ndarray,
@@ -558,7 +597,7 @@ def compute_tke_eps_bc(
     # epsilon surface conditions
     z0_s = jnp.maximum(keps_params.z0s_min, chk*ustar2_sfc)
     lgthsc = vkarmn*(0.5*hz[-1] + z0_s)
-    tke_sfc = 0.5*(tke[-1]+tke[-2]) 
+    tke_sfc = 0.5*(tke[-1]+tke[-2])
     eps_sfc_dir = jnp.maximum(keps_params.eps_min, \
         c_mu0**rp * lgthsc**rn * tke_sfc**rm)
     eps_sfc_neu = -rn*vkarmn/sig_eps * c_mu0**(rp+1) * \
@@ -577,11 +616,10 @@ def compute_tke_eps_bc(
     tke_btm_bc = jnp.where(keps_params.dir_btm, tke_btm_dir, tke_btm_neu)
     eps_sfc_bc = jnp.where(keps_params.dir_sfc, eps_sfc_dir, eps_sfc_neu)
     eps_btm_bc = jnp.where(keps_params.dir_btm, eps_btm_dir, eps_btm_neu)
-    
+
     return tke_sfc_bc, tke_btm_bc, eps_sfc_bc, eps_btm_bc
 
 
-@partial(jit, static_argnames=('do_tke'))
 def advance_turb(
         akt: jnp.ndarray,
         akv: jnp.ndarray,
@@ -681,7 +719,8 @@ def advance_turb(
         cff*(1. + dt*(eps[1:-1] - b_prod)/tke[1:-1]) - a_in - c_in)
     b_eps_in = lax.select((b_prod + s_prod) > 0,
         cff*(1. + dt*keps_params.c_eps2*eps[1:-1]/tke_np1[1:-1]) - a_in - c_in,
-        cff*(1. + dt*keps_params.c_eps2*eps[1:-1]/tke_np1[1:-1] - dt*b_prod/eps[1:-1]) - a_in - c_in)
+        cff*(1. + dt*keps_params.c_eps2*eps[1:-1]/tke_np1[1:-1] - \
+             dt*b_prod/eps[1:-1]) - a_in - c_in)
     b_in = jnp.where(do_tke, b_tke_in, b_eps_in)
 
     # surface boundary condition
@@ -712,7 +751,6 @@ def advance_turb(
 
     return vec
 
-@jit
 def compute_diag(
         tke: jnp.ndarray,
         eps: jnp.ndarray,
@@ -787,7 +825,7 @@ def compute_diag(
     # Galperin limitation : l <= l_li
     l_lim = keps_params.galp*jnp.sqrt(2.0*tke[1:-1] / \
         jnp.maximum(1e-14, bvf[1:-1]))
-    
+
     # limitation on psi (use MAX because rn is negative)
     cff = c_mu0**rp * l_lim**rn * tke[1:-1]**rm
     eps = eps.at[1:-1].set(jnp.maximum(eps[1:-1], cff))
@@ -796,10 +834,10 @@ def compute_diag(
 
     # compute alpha_n and alpha_m
     cff = (tke[1:-1] / epsilon)**2
-    aM = add_boundaries(0., cff*shear2[1:-1], 0.)
-    aN = add_boundaries(0., cff*bvf[1:-1], 0.)
-    alpha_n = aN[1:-1] + filter_cof*(0.5*aN[2:] - aN[1:-1] + 0.5*aN[:-2])
-    alpha_m = aM[1:-1] + filter_cof*(0.5*aM[2:] - aM[1:-1] + 0.5*aM[:-2])
+    am = add_boundaries(0., cff*shear2[1:-1], 0.)
+    an = add_boundaries(0., cff*bvf[1:-1], 0.)
+    alpha_n = an[1:-1] + filter_cof*(0.5*an[2:] - an[1:-1] + 0.5*an[:-2])
+    alpha_m = am[1:-1] + filter_cof*(0.5*am[2:] - am[1:-1] + 0.5*am[:-2])
 
     # limitation of alpha_n and alpha_m
     alpha_n = jnp.minimum(jnp.maximum(0.73*alpha_n_min, alpha_n), 1e10)

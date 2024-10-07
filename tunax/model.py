@@ -1,6 +1,9 @@
 """
 Classes and functions for the single column model.
 
+The Single Column Model (SCM) computes the evolution of a water column of the
+ocean. Model traduced from [1] in Fortran using the work of [2].
+
 Classes
 -------
 SingleColumnModel
@@ -19,23 +22,33 @@ tridiag_solve
     solve the tridiagonal problem associated with the implicit in time
     treatment of vertical diffusion and viscosity
 
+References
+----------
+.. [1] M. Perrot and F. Lemarié. Energetically consistent Eddy-Diffusivity
+    Mass-Flux convective schemes. Part I: Theory and Models (2024).
+    https://hal.science/hal-04439113
+.. [2] A. Zhou, L. Hwkins and P. Gentine. Proof-of-concept: Using ChatGPT to
+    Translate and Modernize an Earth System Model from Fortran to Python/JAX
+    (2024). https://arxiv.org/abs/2405.00018
+
 """
 
-from __future__ import annotations
 
+from __future__ import annotations
 import warnings
-import equinox as eqx
-import jax.numpy as jnp
-from jax import lax, jit
 from typing import Tuple, List
 from functools import partial
 
-from functions import tridiag_solve, add_boundaries, format_to_single_line
+import equinox as eqx
+import jax.numpy as jnp
+from jax import lax, jit
+
 from case import Case
 from state import Grid, State, Trajectory
-from closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
 from closures_registry import CLOSURES_REGISTRY
-    
+from functions import tridiag_solve, add_boundaries, format_to_single_line
+from closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
+
 
 class SingleColumnModel(eqx.Module):
     """
@@ -77,8 +90,8 @@ class SingleColumnModel(eqx.Module):
 
     Methods
     -------
-    step
-        run one time step of the model
+    step (jitted version)
+        run one time-step of the model
     compute_trajectory_with
         run the model with a specific set of closure parameters
         
@@ -120,7 +133,7 @@ class SingleColumnModel(eqx.Module):
                 The `time_frame`is not proportional to the time-step `dt`, the
                 last step will be computed a few before the time_frame.
             """))
-        if not closure_name in CLOSURES_REGISTRY.keys():
+        if not closure_name in CLOSURES_REGISTRY:
             raise ValueError(format_to_single_line("""
                 `closure_name` not registerd in CLOSURES_REGISTRY.
             """))
@@ -189,7 +202,7 @@ def step(
         swr_frac: jnp.ndarray
     ) -> Tuple[State, ClosureStateAbstract]:
     """
-    Run one time step of the model.
+    Run one time-step of the model.
 
     Parameters
     ----------
@@ -214,7 +227,7 @@ def step(
         state of the closure at the next step
     """
     grid = state.grid
-    
+
     # advance closure state (compute eddy-diffusivity and viscosity)
     closure_state = closure.step_fun(
         state, closure_state, dt, closure_parameters, case)
@@ -223,7 +236,7 @@ def step(
     t_new, s_new = advance_tra_ed(
         state.t, state.s, closure_state.akt, closure_state.eps, swr_frac,
         grid.zw, grid.hz, dt, case)
-    
+
     # advance velocities
     u_new, v_new = advance_dyn_cor_ed(
         state.u, state.v, grid.hz, closure_state.akv, dt, case)
@@ -237,7 +250,6 @@ def step(
     return state, closure_state
 
 
-@jit
 def lmd_swfrac(hz: jnp.ndarray) -> jnp.ndarray:
     """
     Compute fraction of solar shortwave flux penetrating to specified depth due
@@ -263,19 +275,18 @@ def lmd_swfrac(hz: jnp.ndarray) -> jnp.ndarray:
     xi1 = attn1 * hz
     xi2 = attn2 * hz
 
-    def step(sdwk, k):
+    def lax_step(sdwk, k):
         sdwk1, sdwk2 = sdwk
         sdwk1 = lax.cond(xi1[nz-k] > -20, lambda x: x*jnp.exp(xi1[nz-k]),
                              lambda x: 0.*x, sdwk1)
         sdwk2 = lax.cond(xi2[nz-k] > -20, lambda x: x*jnp.exp(xi2[nz-k]),
                              lambda x: 0.*x, sdwk2)
         return (sdwk1, sdwk2), sdwk1+sdwk2
-    
-    _, swr_frac = lax.scan(step, (r1, 1.0 - r1), jnp.arange(1, nz+1))
+
+    _, swr_frac = lax.scan(lax_step, (r1, 1.0 - r1), jnp.arange(1, nz+1))
     return jnp.concat((swr_frac[::-1], jnp.array([1])))
 
 
-@partial(jit, static_argnames=('case',))
 def advance_tra_ed(
         t: jnp.ndarray,
         s: jnp.ndarray,
@@ -361,7 +372,6 @@ def advance_tra_ed(
     return t, s
 
 
-@partial(jit, static_argnames=('case',))
 def advance_dyn_cor_ed(
         u: jnp.ndarray,
         v: jnp.ndarray,
@@ -417,14 +427,14 @@ def advance_dyn_cor_ed(
     \partial_z \left(  K_m \partial_z  \mathbf{u}^{n+1,\star \star} \right)  \\
     \end{align*}
     """
-    gamma_Cor = 0.55
+    gamma_cor = 0.55
     fcor = case.fcor
 
     # 1 - Compute Coriolis term
     cff = (dt * fcor) ** 2
-    cff1 = 1 / (1 + gamma_Cor * gamma_Cor * cff)
-    u = cff1 * hz * ((1-gamma_Cor*(1-gamma_Cor)*cff)*u + dt*fcor*v)
-    v = cff1 * hz * ((1-gamma_Cor*(1-gamma_Cor)*cff)*v - dt*fcor*u)
+    cff1 = 1 / (1 + gamma_cor * gamma_cor * cff)
+    u = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*u + dt*fcor*v)
+    v = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*v - dt*fcor*u)
 
     # 2 - Apply surface and bottom forcing
     u = u.at[-1].add(dt * case.ustr_sfc)
@@ -439,7 +449,6 @@ def advance_dyn_cor_ed(
     return u, v
 
 
-@jit
 def diffusion_solver(
         ak: jnp.ndarray,
         hz: jnp.ndarray,
@@ -465,7 +474,7 @@ def diffusion_solver(
     -------
     f : jnp.ndarray, float(nz)
         solution of tridiagonal problem
-    """     
+    """
     # fill the coefficients for the tridiagonal matrix
     a_in = -2.0 * dt * ak[1:-2] / (hz[:-2] + hz[1:-1])
     c_in = -2.0 * dt * ak[2:-1] / (hz[2:] + hz[1:-1])
@@ -485,7 +494,7 @@ def diffusion_solver(
     c = add_boundaries(c_btm, c_in, 0.)
 
     f = tridiag_solve(a, b, c, f)
-    
+
     return f
 
 
@@ -505,7 +514,7 @@ def diffusion_solver(
 #         eddy-diffusivity [m2/s]
 #     AkEvd : float
 #         value of enhanced diffusion [m2/s]
-    
+
 #     Returns
 #     -------
 #     Akv : float(N+1) [modified]
@@ -515,7 +524,7 @@ def diffusion_solver(
 #     """
 #     Akv = jnp.where(bvf<=-1e-12, AkEvd, Akv)
 #     Akt = jnp.where(bvf<=-1e-12, AkEvd, Akt)
-    
+
 #     return Akv, Akt
 
 
@@ -555,7 +564,7 @@ def diffusion_solver(
 #     # initialize at the near bottom value
 #     hmxl = zr[kstart]
 
-   
+
 #     cond_fun2 = lambda val: ((val[0]>0) & (val[1] < bvf_c))
 #     def body_fun2(val):
 #         (k, cff_k, cff_km1, bvf, zr) = val
@@ -571,7 +580,7 @@ def diffusion_solver(
 #     hmxl_new = ((cff_k-bvf_c)*zr[k+1] + (bvf_c-cff_km1)*zr[k]) / \
 #         (cff_k - cff_km1)
 #     hmxl = lax.select(cff_k >= bvf_c, hmxl_new, hmxl)
-        
+
 #     return hmxl
 
 
@@ -642,7 +651,7 @@ def diffusion_solver(
 #     k1 = b00 + temp*(b01 + temp*(b02 + temp*b03)) + \
 #         salt*(b10 + temp*(b11 + temp*b12) + sqrtTs*bs1)
 #     k2 = e00 + temp*(e01 + temp*e02) + salt*(e10 + temp*(e11 + temp*e12))
-    
+
 #     dpth = -zr
 #     cff = k00 - 0.1*dpth
 #     cff1 = k0 + dpth*(k1 + k2*dpth)
@@ -653,9 +662,11 @@ def diffusion_solver(
 
 #     cff = grav / rhoRef
 #     cff1 = -0.1*zw[1:-1]
-#     bvf = -cff*((rho1[1:]-rho1[:-1]) * (k00+K_dw[1:]) * (k00+K_up[:-1]) - cff1*(rhoRef*(K_dw[1:] - K_up[:-1]) + k00*(rho1[1:] - rho1[:-1]) + rho1[1:]*K_dw[1:] - rho1[:-1]*K_up[:-1])) / ((k00 + K_dw[1:] - cff1)*(k00 + K_up[:-1] - cff1)*(zr[1:] - zr[:-1]))
+#     bvf = -cff*((rho1[1:]-rho1[:-1]) * (k00+K_dw[1:]) * (k00+K_up[:-1]) -
+# cff1*(rhoRef*(K_dw[1:] - K_up[:-1]) + k00*(rho1[1:] - rho1[:-1]) +
+# rho1[1:]*K_dw[1:] - rho1[:-1]*K_up[:-1])) / ((k00 + K_dw[1:] - cff1)*(k00 +
+# K_up[:-1] - cff1)*(zr[1:] - zr[:-1]))
 
 #     bvf = jnp.concat((jnp.array([0.]), bvf, jnp.array([0])))
 
 #     return rho, bvf
-

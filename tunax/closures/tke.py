@@ -294,7 +294,7 @@ def advance_tke(tke_n, lup, ldwn, Akv, Akt, Hz, zr, bvf, shear2, wtke, dt,
                 tke_sfc, tke_bot, flux_sfc, dirichlet_bdy_sfc, tke_const,
                 tkemin, tke_params):
     r"""
-    TKE time stepping, advance tke from time step n to n+1.
+    TKE time-stepping, advance tke from time-step n to n+1.
 
     Parameters
     ----------
@@ -635,7 +635,7 @@ def tridiag_solve_tke(Hz, Ak, zr, eps, f, dt, dirichlet_bdy_sfc):
         (in) rhs for tridiagonal problem
         (out) solution of the tridiagonal problem
     dt : float
-        time step [s]
+        time-step [s]
     dirichlet_bdy_sfc : bool
         nature of the TKE boundary condition
 

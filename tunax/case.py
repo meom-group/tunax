@@ -84,6 +84,7 @@ class Case(eqx.Module):
         set the heat flux at bottom from the heat power
     set_rpw_sfc_max
         set the maximum solar radiation from the solar power
+
     Notes
     -----
     To modify the physical constants, it's better to recreate a new instance.

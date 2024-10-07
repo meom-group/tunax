@@ -1,6 +1,27 @@
 """
-Grid, state and trajectory
+Geometry and varaibles of the model.
+
+This module contains the objects that are used in Tunax to put the geometry
+data in `Grid`, the variables of the water column at one time-step in`state`
+and the time-series of the model computation in `Trajectories`.
+
+Classes
+-------
+Grid
+    spatial grid of a water column
+State
+    define the state at one time-step on one grid
+Trajectories
+    define the history of a simulation
+Functions
+---------
+piecewise_linear_ramp
+    mathemacial function used for the state initialisation
+piecewise_linear_flat
+    mathemacial function used for the state initialisation
 """
+
+
 from __future__ import annotations
 
 import equinox as eqx
@@ -40,7 +61,7 @@ class Grid(eqx.Module):
     analytic
         creates a grid of type analytic where the steps are almost constants
         above hc and wider under
-    ORCA75
+    orca75
         reates the ORCA 75 levels grid and extracts the levels between -h and 0
     load
         creates the the grid defined by a dataset of an observation
@@ -59,7 +80,7 @@ class Grid(eqx.Module):
         self.zw = zw
         self.zr = zr
         self.hz = zw[1:] - zw[:-1]
-    
+
     def find_index(self, h: float) -> int:
         """
         Find the index i so that hmxl is in cell i, which means that
@@ -129,7 +150,7 @@ class Grid(eqx.Module):
         return cls(zr, zw)
 
     @classmethod
-    def ORCA75(cls, h: float):
+    def orca75(cls, h: float):
         """
         Creates the ORCA 75 levels grid and extracts the levels between -h and
         0.
@@ -189,6 +210,8 @@ class Grid(eqx.Module):
 
 def piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
     """
+    Mathemacial function used for the state initialisation
+
     Apply to `z` a function linear by part and continuous : the part for
     `z`<`z0` is constantly equal to 0 and the part for `z`>`z0` is a linear
     function which values 0 in `z0` and `f0` in 0.
@@ -236,7 +259,7 @@ def piecewise_linear_flat(z: float, z0: float, f0: float, sl: float) -> float:
 
 class State(eqx.Module):
     """
-    Define the state at one time step on one grid.
+    Define the state at one time-step on one grid.
 
     Parameters
     ----------
@@ -265,7 +288,7 @@ class State(eqx.Module):
         current salinity [psu]
 
     """
-    
+
     grid: Grid
     t: jnp.ndarray
     s: jnp.ndarray
@@ -274,13 +297,13 @@ class State(eqx.Module):
 
 
     def __init__(self, grid: Grid, t=None, s=None, u=None, v=None):
-        if t == None:
+        if t is None:
             t = jnp.zeros(grid.nz)
-        if s == None:
+        if s is None:
             s = jnp.zeros(grid.nz)
-        if u == None:
+        if u is None:
             u = jnp.zeros(grid.nz)
-        if v == None:
+        if v is None:
             v = jnp.zeros(grid.nz)
         self.grid = grid
         self.t = t
@@ -335,8 +358,9 @@ class State(eqx.Module):
         maped_fun = vmap(piecewise_linear_ramp, in_axes=(0, None, None))
         v_new = maped_fun(self.grid.zr, -hmxl, v_sfc)
         return eqx.tree_at(lambda t: t.v, self, v_new)
-    
+
     def init_all(self) -> State:
+        
         state = self.init_t()
         state = state.init_s()
         state = state.init_u()

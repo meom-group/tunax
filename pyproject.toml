@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "tunax"
+version = "0.1.0"
+description = "Differential calibrator of the vertical ocean turbulence closures."
+authors = ["Gabriel Mouttapa <gabriel.mouttapa@univ-grenoble-alpes.fr>"]
+license = ""
+readme = "README.md"
+repository = "https://github.com/meom-group/tunax"
+keywords = ["ocean", "closure", "calibration", "differential", "turbulence"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+jax = "^0.4.34"
+equinox = "^0.11.7"
+optax = "^0.2.3"
+xarray = "^2024.9.0"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.1.1"
+matplotlib = "^3.9.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
