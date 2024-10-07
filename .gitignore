@@ -5,7 +5,9 @@ obs/*
 *.nc
 *jld2
 
+
 __pycache__/
 *.DS_Store
 notebooks/*/
+notebooks/logbook.ipynb
 
