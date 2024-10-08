@@ -1,13 +1,16 @@
-.venv*
-
+# tunax
+notebooks/*/
+notebooks/logbook.ipynb
 obs/*
 !obs/Wagner_LES
 *.nc
 *jld2
 
-
+# general
 __pycache__/
 **.DS_Store
-notebooks/*/
-notebooks/logbook.ipynb
+dist/
 
+# doc
+_build/
+test_doc.py

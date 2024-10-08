@@ -1,17 +1,17 @@
 """
 Physical parameters and forcings of an experience of the model
 
+Classes
+-------
+Case
+    Physical parameters and forcings of an experience of the model
+
 Constants
 ---------
 OMEGA
     angular velocity of earth [rad.s-1]
 RAD_DEG
     ration between radian and degress [rad.degrees-1]
-
-Classes
--------
-Case
-    Physical parameters and forcings of an experience of the model
 
 """
 
@@ -129,7 +129,7 @@ class Case(eqx.Module):
         fcor = 2.*OMEGA*jnp.sin(RAD_DEG*lat)
         case = eqx.tree_at(lambda t: t.fcor, self, fcor)
         return case
-    
+
     def set_u_wind(self, u_wind: float) -> Case:
         """
         Set the zonal wind stress with the zonal wind.
@@ -146,7 +146,7 @@ class Case(eqx.Module):
         """
         case = eqx.tree_at(lambda t: t.ustr_sfc, self, u_wind**2)
         return case
-    
+
     def set_u_cur(self, u_cur: float) -> Case:
         """
         Set the zonal current stress with the zonal current.
@@ -163,7 +163,7 @@ class Case(eqx.Module):
         """
         case = eqx.tree_at(lambda t: t.ustr_btm, self, u_cur**2)
         return case
-    
+
     def set_v_wind(self, v_wind: float) -> Case:
         """
         Set the meridional wind stress with the meridional wind.
@@ -180,7 +180,7 @@ class Case(eqx.Module):
         """
         case = eqx.tree_at(lambda t: t.vstr_sfc, self, v_wind**2)
         return case
-    
+
     def set_v_cur(self, v_cur: float) -> Case:
         """
         Set the meridional current stress with the meridional current.
@@ -197,7 +197,7 @@ class Case(eqx.Module):
         """
         case = eqx.tree_at(lambda t: t.vstr_btm, self, v_cur**2)
         return case
-    
+
     def set_tpw_sfc(self, tpw_sfc: float) -> Case:
         """
         Set the heat flux at surface from the heat power.
@@ -215,7 +215,7 @@ class Case(eqx.Module):
         tflx_sfc = tpw_sfc/(self.rho0*self.cp)
         case = eqx.tree_at(lambda t: t.tflx_sfc, self, tflx_sfc)
         return case
-    
+
     def set_tpw_btm(self, tpw_btm: float) -> Case:
         """
         Set the heat flux at bottom from the heat power.
@@ -233,7 +233,7 @@ class Case(eqx.Module):
         tflx_btm = tpw_btm/(self.rho0*self.cp)
         case = eqx.tree_at(lambda t: t.tflx_btm, self, tflx_btm)
         return case
-    
+
     def set_rpw_sfc_max(self, rpw_sfc_max: float) -> Case:
         """
         Set the maximum solar radiation from the solar power

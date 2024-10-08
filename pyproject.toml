@@ -11,17 +11,26 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
+packages = [
+    { include = "tunax" }
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
-jax = "^0.4.34"
 equinox = "^0.11.7"
 optax = "^0.2.3"
 xarray = "^2024.9.0"
+netcdf4 = "^1.7.1.post2"
+jax = "^0.4.34"
+sphinx = "^8.0.2"
+sphinx-autodoc-typehints = "^2.4.4"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.1.1"
 matplotlib = "^3.9.2"
+sphinx = "^8.0.2"
+sphinx-autodoc-typehints = "^2.4.4"
+sphinx-rtd-theme = "^3.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

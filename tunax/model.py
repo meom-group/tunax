@@ -43,11 +43,11 @@ import equinox as eqx
 import jax.numpy as jnp
 from jax import lax, jit
 
-from case import Case
-from state import Grid, State, Trajectory
-from closures_registry import CLOSURES_REGISTRY
-from functions import tridiag_solve, add_boundaries, format_to_single_line
-from closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
+from .case import Case
+from .state import Grid, State, Trajectory
+from .closures_registry import CLOSURES_REGISTRY
+from .functions import tridiag_solve, add_boundaries, format_to_single_line
+from .closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
 
 
 class SingleColumnModel(eqx.Module):
@@ -87,6 +87,17 @@ class SingleColumnModel(eqx.Module):
         physical case and forcings
     closure_name : str
         name of the turbulent closure that will be used
+    
+    Raises
+    ------
+    ValueError
+        if `out_dt` is not a multiple of `dt`
+        if `closure_name` is not registerd in CLOSURES_REGISTRY
+    
+    Warnings
+    --------
+    if `time_frame` is not proportional to the time-step `dt`
+    if `time_frame` is not proportional to the out time-step `out_dt`
 
     Methods
     -------

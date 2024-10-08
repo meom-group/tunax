@@ -1,5 +1,12 @@
 # Description
-This package is a framework to calibration physical closures of the vertical components of global ocean models. The closures are called by a one dimentional column model (`src/model.py`), the closures are located in `src/closres/`. The parameters of these closures are calibrated using the "observations" in the folder `obs/`, typically the observations are outputs of LES ('Large Eddy Simulations'). The code is written in jax to obtain the differentiability.
+This package is a framework for doing differential calibration of physical closures of the vertical components of global ocean models. To obtain the differentiability, *Tunax* is written in JAX. The parameters of these closures are calibrated using the databases of "obersations" that are typically outputs of LES ('Large Eddy Simulations').
 
-# Example of use
-One can find an example of simple usage of the code in `notebooks/k-epsilon_Kato-Phillips` : this shows the calibration of one parameter of $k-\varepsilon$ with a perfect model based on the idealized case of Kato-Phillips.
+# Package organisation
+The closures are implemented in the folder `tunax/closures/` and they are wrapped by a single vertical column model implemented in `tunax/model.py`. The calibration part is in `tunax/fitter.py`. The folder `obs/` contains examples of databases that can be used for the calibration. The folder `notebooks/` contains example of usage of this framework.
+
+# Installation
+*Tunax* is packaged with *poetry*. To install it and create a virtual environnement with all the dependencies, one have to execute at the root of this repository
+```shell
+poetry install
+```
+*Tunax* is installed by default with JAX on CPU.

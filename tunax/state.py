@@ -1,24 +1,27 @@
 """
-Geometry and varaibles of the model.
+Geometry and variables of the model.
 
-This module contains the objects that are used in Tunax to put the geometry
-data in `Grid`, the variables of the water column at one time-step in`state`
-and the time-series of the model computation in `Trajectories`.
+This module contains the objects that are used in Tunax to describe the
+geometry of the water column in `Grid`, the variables of the water column at
+one time-step in `State` and the time-series of the model computation in
+`Trajectories`.
 
 Classes
 -------
 Grid
-    spatial grid of a water column
+    spatial geometry of a water column
 State
     define the state at one time-step on one grid
 Trajectories
     define the history of a simulation
+
 Functions
 ---------
 piecewise_linear_ramp
     mathemacial function used for the state initialisation
 piecewise_linear_flat
     mathemacial function used for the state initialisation
+
 """
 
 
@@ -32,7 +35,7 @@ from jax import vmap
 
 class Grid(eqx.Module):
     """
-    Spatial grid of a water column.
+    Spatial geometry of a water column.
 
     Parameters
     ----------
@@ -99,7 +102,7 @@ class Grid(eqx.Module):
         return int(jnp.searchsorted(self.zw, -h, side='right')) - 1
 
     @classmethod
-    def linear(cls, nz: int, h: int):
+    def linear(cls, nz: int, h: int) -> Grid:
         """
         Creates a grid with equal thickness cells.
 
@@ -120,7 +123,7 @@ class Grid(eqx.Module):
         return cls(zr, zw)
 
     @classmethod
-    def analytic(cls, nz: int, h: float, hc: float, theta: float=6.5):
+    def analytic(cls, nz: int, h: float, hc: float, theta: float=6.5) -> Grid:
         """
         Creates a grid of type analytic where the steps are almost constants
         above hc and wider under.
@@ -150,7 +153,7 @@ class Grid(eqx.Module):
         return cls(zr, zw)
 
     @classmethod
-    def orca75(cls, h: float):
+    def orca75(cls, h: float) -> Grid:
         """
         Creates the ORCA 75 levels grid and extracts the levels between -h and
         0.
@@ -189,7 +192,7 @@ class Grid(eqx.Module):
         return cls(zr, zw)
 
     @classmethod
-    def load(cls, ds: xr.Dataset):
+    def load(cls, ds: xr.Dataset) -> Grid:
         """
         Creates the the grid defined by a dataset of an observation.
 
@@ -231,6 +234,7 @@ def piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
         the value of the function in `z`
     """
     return f0*(z/-z0+1) * (z>z0)
+
 
 def piecewise_linear_flat(z: float, z0: float, f0: float, sl: float) -> float:
     """
@@ -279,13 +283,24 @@ class State(eqx.Module):
     grid : Grid
         spatial grid
     u : jnp.ndarray, float(nz)
-        zonal velocity at the next step[m.s-1]
+        zonal velocity [m.s-1]
     v : jnp.ndarray, float(nz)
-        meridional velocity at the next step [m.s-1]
+        meridional velocity [m.s-1]
     t : jnp.ndarray, float(nz)
-        temperature at the next step [C]
+        temperature [C]
     s : jnp.ndarray, float(nz)
-        current salinity [psu]
+        salinity [psu]
+
+    Methods
+    -------
+    init_u
+        initialize zonal velocity with a classical wind stratification
+    init_v
+        initialize meridional velocity with a classical wind stratification
+    init_t
+        initialize temperature with a classical stratification
+    init_s
+        initialize salinity with a classical stratification
 
     """
 
@@ -295,91 +310,166 @@ class State(eqx.Module):
     u: jnp.ndarray
     v: jnp.ndarray
 
-
-    def __init__(self, grid: Grid, t=None, s=None, u=None, v=None):
-        if t is None:
-            t = jnp.zeros(grid.nz)
-        if s is None:
-            s = jnp.zeros(grid.nz)
-        if u is None:
-            u = jnp.zeros(grid.nz)
-        if v is None:
-            v = jnp.zeros(grid.nz)
-        self.grid = grid
-        self.t = t
-        self.s = s
-        self.u = u
-        self.v = v
-
-    def init_t(self, hmxl: float=20., t_sfc: float=21., strat_t: float=5.1e-2) -> State:
-        """
-        Return a State object where t is linear by part and continous : linear
-        under -`hmxl` with a slope of `strat_t`, and constant equals to `t_sfc`
-        above -`hmxl`.
-        """
-        if hmxl < 0:
-            raise ValueError('hmxl should be positive')
-        maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
-        t_new = maped_fun(self.grid.zr, -hmxl, t_sfc, strat_t)
-        return eqx.tree_at(lambda tree: tree.t, self, t_new)
-
-    def init_s(self, hmxl: float=20., s_sfc: float=35., strat_s: float=5.1e-2) -> State:
-        """
-        Return a State object where s is linear by part and continous : linear
-        under -`hmxl` with a slope of `strat_s`, and constant equals to `s_sfc`
-        above -`hmxl`.
-        """
-        if hmxl < 0:
-            raise ValueError('hmxl should be positive')
-        maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
-        s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
-        return eqx.tree_at(lambda t: t.s, self, s_new)
-
     def init_u(self, hmxl: float=20., u_sfc: float=0.) -> State:
         """
+        Initialize zonal velocity with a classical wind stratification.
+
         Return a State object where u is continuous and linear by part :
         constant equals to 0 under -`hmxl`, and linear above -`hmxl` with the
         value `u_sfc` at 0.
+
+        Parameters
+        ----------
+        hmxl : float, default=20.
+            mixed layer depth [m]
+        u_sfc : float, default=0.
+            surface zonal velocity [m.s-1]
+        
+        Returns
+        -------
+        state : State
+            the `self` object with the the new initialization of zonal velocity
         """
-        if hmxl < 0:
-            raise ValueError('hmxl should be positive')
         maped_fun = vmap(piecewise_linear_ramp, in_axes=(0, None, None))
         u_new = maped_fun(self.grid.zr, -hmxl, u_sfc)
         return eqx.tree_at(lambda t: t.u, self, u_new)
 
     def init_v(self, hmxl: float=20., v_sfc: float=0.) -> State:
         """
+        Initialize meridional velocity with a classical wind stratification.
+
         Return a State object where u is continuous and linear by part :
         constant equals to 0 under -`hmxl`, and linear above -`hmxl` with the
         value `v_sfc` at 0.
+
+        Parameters
+        ----------
+        hmxl : float, default=20.
+            mixed layer depth [m]
+        v_sfc : float, default=0.
+            surface meridional velocity [m.s-1]
+        
+        Returns
+        -------
+        state : State
+            the `self` object with the the new initialization of meridional
+            velocity
         """
-        if hmxl < 0:
-            raise ValueError('hmxl should be positive')
         maped_fun = vmap(piecewise_linear_ramp, in_axes=(0, None, None))
         v_new = maped_fun(self.grid.zr, -hmxl, v_sfc)
         return eqx.tree_at(lambda t: t.v, self, v_new)
 
-    def init_all(self) -> State:
-        
-        state = self.init_t()
-        state = state.init_s()
-        state = state.init_u()
-        state = state.init_v()
-        return state
+    def init_t(
+            self,
+            hmxl: float=20.,
+            t_sfc: float=21.,
+            strat_t: float=5.1e-2
+        ) -> State:
+        """
+        Initialize temperature with a classical stratification.
+
+        Return a State object where t is linear by part and continous : linear
+        under -`hmxl` with a slope of `strat_t`, and constant equals to `t_sfc`
+        above -`hmxl`.
+
+        Parameters
+        ----------
+        hmxl : float, default=20.
+            mixed layer depth [m]
+        t_sfc : float, default=21.
+            surface temperature [C°]
+        strat_t : float, default=5.1e-2
+            thermal stratification above the mixed layer [K.m-1]
+
+        Returns
+        -------
+        state : State
+            the `self` object with the the new initialization of temperature
+        """
+        maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
+        t_new = maped_fun(self.grid.zr, -hmxl, t_sfc, strat_t)
+        return eqx.tree_at(lambda tree: tree.t, self, t_new)
+
+    def init_s(
+            self,
+            hmxl: float=20.,
+            s_sfc: float=35.,
+            strat_s: float=1.3e-2
+        ) -> State:
+        """
+        Initialize salinity with a classical stratification.
+
+        Return a State object where s is linear by part and continous : linear
+        under -`hmxl` with a slope of `strat_s`, and constant equals to `s_sfc`
+        above -`hmxl`.
+
+        Parameters
+        ----------
+        hmxl : float, default=20.
+            mixed layer depth [m]
+        s_sfc : float, default=21.
+            surface salinity [psu]
+        strat_t : float, default=1.3e-2
+            salinity stratification above the mixed layer [psu.m-1]
+
+        Returns
+        -------
+        state : State
+            the `self` object with the the new initialization of salinity
+        """
+        maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
+        s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
+        return eqx.tree_at(lambda t: t.s, self, s_new)
 
 
 class Trajectory(eqx.Module):
     """
-    Define the history of a simulation.
+    Define the history of a simulation with the time-series of the variables.
+
+    Attributes
+    ----------
+    grid : Grid
+        spatial grid
+    time : jnp.ndarray, float(nt)
+        time at each steps from the begining of the simulation [s]
+    u : jnp.ndarray, float(nt, nz)
+        time-serie of zonal velocity [m.s-1]
+    v : jnp.ndarray, float(nt, nz)
+        time-serie of meridional velocity [m.s-1]
+    t : jnp.ndarray, floatnt, nz)
+        time-serie of temperature [C]
+    s : jnp.ndarray, float(nt, nz)
+        time-serie of salinity [psu]
+
+    Methods
+    -------
+    to_ds
+        exports the trajectory in an xr.Dataset
+    extract_state
+        extracts the water column state at one time index
+
     """
+
     grid: Grid
     time: jnp.ndarray
     t: jnp.ndarray
     s: jnp.ndarray
     u: jnp.ndarray
     v: jnp.ndarray
-    
+
     def to_ds(self) -> xr.Dataset:
+        """
+        Exports the trajectory in an xr.Dataset.
+
+        The dimensions of the dataset are `time`, `grid.zr` and `grid.zw`, the
+        variables are `u`, `v`, `t` and `s`, all defined on the dimensions
+        (`time`, `zr`).
+
+        Returns
+        -------
+        ds : xr.Dataset
+            Dataset of the trajectory
+        """
         variables = {'u': (('time', 'zr'), self.u),
                      'v': (('time', 'zr'), self.v),
                      't': (('time', 'zr'), self.t),
@@ -388,7 +478,20 @@ class Trajectory(eqx.Module):
                   'zr': self.grid.zr,
                   'zw': self.grid.zw}
         return xr.Dataset(variables, coords)
-    
+
     def extract_state(self, i_time: int) -> State:
+        """
+        Etracts the water column state at one time index.
+
+        Parameters
+        ----------
+        i_time : int
+            the time index of the moment to extract the state
+
+        Returns
+        -------
+        state : State
+            the state of the trajectory at the time of index `i_time`
+        """
         return State(self.grid, self.t[i_time, :], self.s[i_time, :],
                      self.u[i_time, :], self.v[i_time, :])

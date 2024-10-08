@@ -38,7 +38,6 @@ References
 """
 
 
-import sys
 from functools import partial
 from typing import Tuple
 
@@ -46,11 +45,10 @@ import equinox as eqx
 import jax.numpy as jnp
 from jax import jit, lax
 
-sys.path.append('..')
-from case import Case
-from state import Grid, State
-from functions import tridiag_solve, add_boundaries
-from closure import ClosureParametersAbstract, ClosureStateAbstract
+from ..case import Case
+from ..state import Grid, State
+from ..functions import tridiag_solve, add_boundaries
+from ..closure import ClosureParametersAbstract, ClosureStateAbstract
 
 
 class KepsParameters(ClosureParametersAbstract):
@@ -153,63 +151,44 @@ class KepsParameters(ClosureParametersAbstract):
         GLS coefficient m to define k-epsilon [dimensionless]
     gls_n : float, default=-1
         GLS coefficient n to define k-epsilon [dimensionless]
-    sf_d0 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_d1 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_d2 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_d3 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_d4 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_d5 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_n0 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_n1 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_n2 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_nb0 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_nb1 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    sf_nb2 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    lim_am0 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    lim_am1 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    lim_am2 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    lim_am3 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    lim_am4 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    lim_am5 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
-    lim_am6 : float
-        limitation coefficient for k-epsilon computed from the parameters (not
-        a parameter for init)
+    sf_d0 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_d1 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_d2 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_d3 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_d4 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_d5 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_n0 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_n1 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_n2 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_nb0 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_nb1 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    sf_nb2 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    lim_am0 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    lim_am1 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    lim_am2 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    lim_am3 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    lim_am4 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    lim_am5 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
+    lim_am6 : float (not a parameter, computed from the above attributes)
+        limitation coefficient for k-epsilon computed from the parameters
     
     """
 
