@@ -3,18 +3,14 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-tunax documentation
-===================
-
-This package is a framework for doing differential calibration of physical closures of the vertical components of global ocean models. To obtain the differentiability, *Tunax* is written in JAX. The parameters of these closures are calibrated using the databases of "obersations" that are typically outputs of LES ('Large Eddy Simulations').
-
+Welcome to tunax's documentation!
+=====================================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   
+   Overvieddw <overview>
 
-
-
-.. automodule:: tunax.test_doc
-   :members:
-   :show-inheritance:
+   `Overview <rst_files/overview>`_.
+   `API <rst_files/api>`_.

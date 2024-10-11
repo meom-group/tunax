@@ -56,18 +56,6 @@ class Grid(eqx.Module):
         depths of cell interfaces from deepest to shallowest [m]
     hz : jnp.ndarray, float(nz)
         thickness of cells from deepest to shallowest [m]
-
-    Class methods
-    -------------
-    linear
-        creates a grid with equal thickness cells
-    analytic
-        creates a grid of type analytic where the steps are almost constants
-        above hc and wider under
-    orca75
-        reates the ORCA 75 levels grid and extracts the levels between -h and 0
-    load
-        creates the the grid defined by a dataset of an observation
         
     """
 
@@ -84,10 +72,14 @@ class Grid(eqx.Module):
         self.zr = zr
         self.hz = zw[1:] - zw[:-1]
 
-    def find_index(self, h: float) -> int:
-        """
-        Find the index i so that hmxl is in cell i, which means that
-        zw[i] <= -hxml < zw[i+1], and -1 if -hmxl < zw[0].
+    def find_index(self, hz: float) -> int:
+        r"""
+        Find the index of a depth.
+
+        Find the index `i` so that `hz` is in cell `i`, which means that
+        :math:`z^w_i = \left\{ \leqslant -h_z < z^w_{i+1}\right.` , and :math:-1 if -`hz` < zw[0].
+
+        L'équation de la somme est donnée par :math:`S = x + y`.
 
         Parameters
         ----------
@@ -99,7 +91,7 @@ class Grid(eqx.Module):
         i : int
             the index corresponding to the depth h
         """
-        return int(jnp.searchsorted(self.zw, -h, side='right')) - 1
+        return int(jnp.searchsorted(self.zw, -hz, side='right')) - 1
 
     @classmethod
     def linear(cls, nz: int, h: int) -> Grid:
@@ -211,287 +203,287 @@ class Grid(eqx.Module):
         return cls(zr, zw)
 
 
-def piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
-    """
-    Mathemacial function used for the state initialisation
+# def piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
+#     """
+#     Mathemacial function used for the state initialisation
 
-    Apply to `z` a function linear by part and continuous : the part for
-    `z`<`z0` is constantly equal to 0 and the part for `z`>`z0` is a linear
-    function which values 0 in `z0` and `f0` in 0.
+#     Apply to `z` a function linear by part and continuous : the part for
+#     `z`<`z0` is constantly equal to 0 and the part for `z`>`z0` is a linear
+#     function which values 0 in `z0` and `f0` in 0.
 
-    Parameters
-    ----------
-    z : float
-        the value where to apply the function
-    z0 : float
-        the point of connexion of the two linear parts of the function
-    f0 : float
-        the value of the function in 0
+#     Parameters
+#     ----------
+#     z : float
+#         the value where to apply the function
+#     z0 : float
+#         the point of connexion of the two linear parts of the function
+#     f0 : float
+#         the value of the function in 0
     
-    Returns
-    -------
-    fz : float
-        the value of the function in `z`
-    """
-    return f0*(z/-z0+1) * (z>z0)
+#     Returns
+#     -------
+#     fz : float
+#         the value of the function in `z`
+#     """
+#     return f0*(z/-z0+1) * (z>z0)
 
 
-def piecewise_linear_flat(z: float, z0: float, f0: float, sl: float) -> float:
-    """
-    Apply to `z` a function linear by part and continuous : the part for
-    `z`<`z0` is linear of slope `sl` and the part for `z`>`z0` is constant
-    equals to `f0`.
+# def piecewise_linear_flat(z: float, z0: float, f0: float, sl: float) -> float:
+#     """
+#     Apply to `z` a function linear by part and continuous : the part for
+#     `z`<`z0` is linear of slope `sl` and the part for `z`>`z0` is constant
+#     equals to `f0`.
 
-    Parameters
-    ----------
-    z : float
-        the value where to apply the function
-    z0 : float
-        the point of connexion of the two linear parts of the function
-    f0 : float
-        the value of the function in 0 and in the right part of the funcion
-    sl : float
-        the slope of the left part of the function
+#     Parameters
+#     ----------
+#     z : float
+#         the value where to apply the function
+#     z0 : float
+#         the point of connexion of the two linear parts of the function
+#     f0 : float
+#         the value of the function in 0 and in the right part of the funcion
+#     sl : float
+#         the slope of the left part of the function
     
-    Returns
-    -------
-    fz : float
-        the value of the function in `z`
-    """
-    return f0 + sl*(z-z0) * (z<z0)
+#     Returns
+#     -------
+#     fz : float
+#         the value of the function in `z`
+#     """
+#     return f0 + sl*(z-z0) * (z<z0)
 
 
-class State(eqx.Module):
-    """
-    Define the state at one time-step on one grid.
+# class State(eqx.Module):
+#     """
+#     Define the state at one time-step on one grid.
 
-    Parameters
-    ----------
-    grid : Grid
-        spatial grid
-    u : jnp.ndarray, float(nz)
-        zonal velocity [m.s-1]
-    v : jnp.ndarray, float(nz)
-        meridional velocity [m.s-1]
-    t : jnp.ndarray, float(nz)
-        temperature [C]
-    s : jnp.ndarray, float(nz)
-        salinity [psu]
+#     Parameters
+#     ----------
+#     grid : Grid
+#         spatial grid
+#     u : jnp.ndarray, float(nz)
+#         zonal velocity [m.s-1]
+#     v : jnp.ndarray, float(nz)
+#         meridional velocity [m.s-1]
+#     t : jnp.ndarray, float(nz)
+#         temperature [C]
+#     s : jnp.ndarray, float(nz)
+#         salinity [psu]
 
-    Attributes
-    ----------
-    grid : Grid
-        spatial grid
-    u : jnp.ndarray, float(nz)
-        zonal velocity [m.s-1]
-    v : jnp.ndarray, float(nz)
-        meridional velocity [m.s-1]
-    t : jnp.ndarray, float(nz)
-        temperature [C]
-    s : jnp.ndarray, float(nz)
-        salinity [psu]
+#     Attributes
+#     ----------
+#     grid : Grid
+#         spatial grid
+#     u : jnp.ndarray, float(nz)
+#         zonal velocity [m.s-1]
+#     v : jnp.ndarray, float(nz)
+#         meridional velocity [m.s-1]
+#     t : jnp.ndarray, float(nz)
+#         temperature [C]
+#     s : jnp.ndarray, float(nz)
+#         salinity [psu]
 
-    Methods
-    -------
-    init_u
-        initialize zonal velocity with a classical wind stratification
-    init_v
-        initialize meridional velocity with a classical wind stratification
-    init_t
-        initialize temperature with a classical stratification
-    init_s
-        initialize salinity with a classical stratification
+#     Methods
+#     -------
+#     init_u
+#         initialize zonal velocity with a classical wind stratification
+#     init_v
+#         initialize meridional velocity with a classical wind stratification
+#     init_t
+#         initialize temperature with a classical stratification
+#     init_s
+#         initialize salinity with a classical stratification
 
-    """
+#     """
 
-    grid: Grid
-    t: jnp.ndarray
-    s: jnp.ndarray
-    u: jnp.ndarray
-    v: jnp.ndarray
+#     grid: Grid
+#     t: jnp.ndarray
+#     s: jnp.ndarray
+#     u: jnp.ndarray
+#     v: jnp.ndarray
 
-    def init_u(self, hmxl: float=20., u_sfc: float=0.) -> State:
-        """
-        Initialize zonal velocity with a classical wind stratification.
+#     def init_u(self, hmxl: float=20., u_sfc: float=0.) -> State:
+#         """
+#         Initialize zonal velocity with a classical wind stratification.
 
-        Return a State object where u is continuous and linear by part :
-        constant equals to 0 under -`hmxl`, and linear above -`hmxl` with the
-        value `u_sfc` at 0.
+#         Return a State object where u is continuous and linear by part :
+#         constant equals to 0 under -`hmxl`, and linear above -`hmxl` with the
+#         value `u_sfc` at 0.
 
-        Parameters
-        ----------
-        hmxl : float, default=20.
-            mixed layer depth [m]
-        u_sfc : float, default=0.
-            surface zonal velocity [m.s-1]
+#         Parameters
+#         ----------
+#         hmxl : float, default=20.
+#             mixed layer depth [m]
+#         u_sfc : float, default=0.
+#             surface zonal velocity [m.s-1]
         
-        Returns
-        -------
-        state : State
-            the `self` object with the the new initialization of zonal velocity
-        """
-        maped_fun = vmap(piecewise_linear_ramp, in_axes=(0, None, None))
-        u_new = maped_fun(self.grid.zr, -hmxl, u_sfc)
-        return eqx.tree_at(lambda t: t.u, self, u_new)
+#         Returns
+#         -------
+#         state : State
+#             the `self` object with the the new initialization of zonal velocity
+#         """
+#         maped_fun = vmap(piecewise_linear_ramp, in_axes=(0, None, None))
+#         u_new = maped_fun(self.grid.zr, -hmxl, u_sfc)
+#         return eqx.tree_at(lambda t: t.u, self, u_new)
 
-    def init_v(self, hmxl: float=20., v_sfc: float=0.) -> State:
-        """
-        Initialize meridional velocity with a classical wind stratification.
+#     def init_v(self, hmxl: float=20., v_sfc: float=0.) -> State:
+#         """
+#         Initialize meridional velocity with a classical wind stratification.
 
-        Return a State object where u is continuous and linear by part :
-        constant equals to 0 under -`hmxl`, and linear above -`hmxl` with the
-        value `v_sfc` at 0.
+#         Return a State object where u is continuous and linear by part :
+#         constant equals to 0 under -`hmxl`, and linear above -`hmxl` with the
+#         value `v_sfc` at 0.
 
-        Parameters
-        ----------
-        hmxl : float, default=20.
-            mixed layer depth [m]
-        v_sfc : float, default=0.
-            surface meridional velocity [m.s-1]
+#         Parameters
+#         ----------
+#         hmxl : float, default=20.
+#             mixed layer depth [m]
+#         v_sfc : float, default=0.
+#             surface meridional velocity [m.s-1]
         
-        Returns
-        -------
-        state : State
-            the `self` object with the the new initialization of meridional
-            velocity
-        """
-        maped_fun = vmap(piecewise_linear_ramp, in_axes=(0, None, None))
-        v_new = maped_fun(self.grid.zr, -hmxl, v_sfc)
-        return eqx.tree_at(lambda t: t.v, self, v_new)
+#         Returns
+#         -------
+#         state : State
+#             the `self` object with the the new initialization of meridional
+#             velocity
+#         """
+#         maped_fun = vmap(piecewise_linear_ramp, in_axes=(0, None, None))
+#         v_new = maped_fun(self.grid.zr, -hmxl, v_sfc)
+#         return eqx.tree_at(lambda t: t.v, self, v_new)
 
-    def init_t(
-            self,
-            hmxl: float=20.,
-            t_sfc: float=21.,
-            strat_t: float=5.1e-2
-        ) -> State:
-        """
-        Initialize temperature with a classical stratification.
+#     def init_t(
+#             self,
+#             hmxl: float=20.,
+#             t_sfc: float=21.,
+#             strat_t: float=5.1e-2
+#         ) -> State:
+#         """
+#         Initialize temperature with a classical stratification.
 
-        Return a State object where t is linear by part and continous : linear
-        under -`hmxl` with a slope of `strat_t`, and constant equals to `t_sfc`
-        above -`hmxl`.
+#         Return a State object where t is linear by part and continous : linear
+#         under -`hmxl` with a slope of `strat_t`, and constant equals to `t_sfc`
+#         above -`hmxl`.
 
-        Parameters
-        ----------
-        hmxl : float, default=20.
-            mixed layer depth [m]
-        t_sfc : float, default=21.
-            surface temperature [C°]
-        strat_t : float, default=5.1e-2
-            thermal stratification above the mixed layer [K.m-1]
+#         Parameters
+#         ----------
+#         hmxl : float, default=20.
+#             mixed layer depth [m]
+#         t_sfc : float, default=21.
+#             surface temperature [C°]
+#         strat_t : float, default=5.1e-2
+#             thermal stratification above the mixed layer [K.m-1]
 
-        Returns
-        -------
-        state : State
-            the `self` object with the the new initialization of temperature
-        """
-        maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
-        t_new = maped_fun(self.grid.zr, -hmxl, t_sfc, strat_t)
-        return eqx.tree_at(lambda tree: tree.t, self, t_new)
+#         Returns
+#         -------
+#         state : State
+#             the `self` object with the the new initialization of temperature
+#         """
+#         maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
+#         t_new = maped_fun(self.grid.zr, -hmxl, t_sfc, strat_t)
+#         return eqx.tree_at(lambda tree: tree.t, self, t_new)
 
-    def init_s(
-            self,
-            hmxl: float=20.,
-            s_sfc: float=35.,
-            strat_s: float=1.3e-2
-        ) -> State:
-        """
-        Initialize salinity with a classical stratification.
+#     def init_s(
+#             self,
+#             hmxl: float=20.,
+#             s_sfc: float=35.,
+#             strat_s: float=1.3e-2
+#         ) -> State:
+#         """
+#         Initialize salinity with a classical stratification.
 
-        Return a State object where s is linear by part and continous : linear
-        under -`hmxl` with a slope of `strat_s`, and constant equals to `s_sfc`
-        above -`hmxl`.
+#         Return a State object where s is linear by part and continous : linear
+#         under -`hmxl` with a slope of `strat_s`, and constant equals to `s_sfc`
+#         above -`hmxl`.
 
-        Parameters
-        ----------
-        hmxl : float, default=20.
-            mixed layer depth [m]
-        s_sfc : float, default=21.
-            surface salinity [psu]
-        strat_t : float, default=1.3e-2
-            salinity stratification above the mixed layer [psu.m-1]
+#         Parameters
+#         ----------
+#         hmxl : float, default=20.
+#             mixed layer depth [m]
+#         s_sfc : float, default=21.
+#             surface salinity [psu]
+#         strat_t : float, default=1.3e-2
+#             salinity stratification above the mixed layer [psu.m-1]
 
-        Returns
-        -------
-        state : State
-            the `self` object with the the new initialization of salinity
-        """
-        maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
-        s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
-        return eqx.tree_at(lambda t: t.s, self, s_new)
+#         Returns
+#         -------
+#         state : State
+#             the `self` object with the the new initialization of salinity
+#         """
+#         maped_fun = vmap(piecewise_linear_flat, in_axes=(0, None, None, None))
+#         s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
+#         return eqx.tree_at(lambda t: t.s, self, s_new)
 
 
-class Trajectory(eqx.Module):
-    """
-    Define the history of a simulation with the time-series of the variables.
+# class Trajectory(eqx.Module):
+#     """
+#     Define the history of a simulation with the time-series of the variables.
 
-    Attributes
-    ----------
-    grid : Grid
-        spatial grid
-    time : jnp.ndarray, float(nt)
-        time at each steps from the begining of the simulation [s]
-    u : jnp.ndarray, float(nt, nz)
-        time-serie of zonal velocity [m.s-1]
-    v : jnp.ndarray, float(nt, nz)
-        time-serie of meridional velocity [m.s-1]
-    t : jnp.ndarray, floatnt, nz)
-        time-serie of temperature [C]
-    s : jnp.ndarray, float(nt, nz)
-        time-serie of salinity [psu]
+#     Attributes
+#     ----------
+#     grid : Grid
+#         spatial grid
+#     time : jnp.ndarray, float(nt)
+#         time at each steps from the begining of the simulation [s]
+#     u : jnp.ndarray, float(nt, nz)
+#         time-serie of zonal velocity [m.s-1]
+#     v : jnp.ndarray, float(nt, nz)
+#         time-serie of meridional velocity [m.s-1]
+#     t : jnp.ndarray, floatnt, nz)
+#         time-serie of temperature [C]
+#     s : jnp.ndarray, float(nt, nz)
+#         time-serie of salinity [psu]
 
-    Methods
-    -------
-    to_ds
-        exports the trajectory in an xr.Dataset
-    extract_state
-        extracts the water column state at one time index
+#     Methods
+#     -------
+#     to_ds
+#         exports the trajectory in an xr.Dataset
+#     extract_state
+#         extracts the water column state at one time index
 
-    """
+#     """
 
-    grid: Grid
-    time: jnp.ndarray
-    t: jnp.ndarray
-    s: jnp.ndarray
-    u: jnp.ndarray
-    v: jnp.ndarray
+#     grid: Grid
+#     time: jnp.ndarray
+#     t: jnp.ndarray
+#     s: jnp.ndarray
+#     u: jnp.ndarray
+#     v: jnp.ndarray
 
-    def to_ds(self) -> xr.Dataset:
-        """
-        Exports the trajectory in an xr.Dataset.
+#     def to_ds(self) -> xr.Dataset:
+#         """
+#         Exports the trajectory in an xr.Dataset.
 
-        The dimensions of the dataset are `time`, `grid.zr` and `grid.zw`, the
-        variables are `u`, `v`, `t` and `s`, all defined on the dimensions
-        (`time`, `zr`).
+#         The dimensions of the dataset are `time`, `grid.zr` and `grid.zw`, the
+#         variables are `u`, `v`, `t` and `s`, all defined on the dimensions
+#         (`time`, `zr`).
 
-        Returns
-        -------
-        ds : xr.Dataset
-            Dataset of the trajectory
-        """
-        variables = {'u': (('time', 'zr'), self.u),
-                     'v': (('time', 'zr'), self.v),
-                     't': (('time', 'zr'), self.t),
-                     's': (('time', 'zr'), self.s)}
-        coords = {'time': self.time,
-                  'zr': self.grid.zr,
-                  'zw': self.grid.zw}
-        return xr.Dataset(variables, coords)
+#         Returns
+#         -------
+#         ds : xr.Dataset
+#             Dataset of the trajectory
+#         """
+#         variables = {'u': (('time', 'zr'), self.u),
+#                      'v': (('time', 'zr'), self.v),
+#                      't': (('time', 'zr'), self.t),
+#                      's': (('time', 'zr'), self.s)}
+#         coords = {'time': self.time,
+#                   'zr': self.grid.zr,
+#                   'zw': self.grid.zw}
+#         return xr.Dataset(variables, coords)
 
-    def extract_state(self, i_time: int) -> State:
-        """
-        Etracts the water column state at one time index.
+#     def extract_state(self, i_time: int) -> State:
+#         """
+#         Etracts the water column state at one time index.
 
-        Parameters
-        ----------
-        i_time : int
-            the time index of the moment to extract the state
+#         Parameters
+#         ----------
+#         i_time : int
+#             the time index of the moment to extract the state
 
-        Returns
-        -------
-        state : State
-            the state of the trajectory at the time of index `i_time`
-        """
-        return State(self.grid, self.t[i_time, :], self.s[i_time, :],
-                     self.u[i_time, :], self.v[i_time, :])
+#         Returns
+#         -------
+#         state : State
+#             the state of the trajectory at the time of index `i_time`
+#         """
+#         return State(self.grid, self.t[i_time, :], self.s[i_time, :],
+#                      self.u[i_time, :], self.v[i_time, :])
