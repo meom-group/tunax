@@ -4,13 +4,10 @@
    contain the root `toctree` directive.
 
 Welcome to tunax's documentation!
-=====================================
+=================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 3
    
-   Overvieddw <overview>
-
-   `Overview <rst_files/overview>`_.
-   `API <rst_files/api>`_.
+   rst_files/overview
+   rst_files/api
