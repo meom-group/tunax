@@ -24,7 +24,7 @@ extensions = [
     "sphinx.ext.autosummary",
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'sphinx_autodoc_typehints',
+    # 'sphinx_autodoc_typehints',
     'sphinx.ext.mathjax',
     "sphinx.ext.duration",
     "myst_parser",
@@ -38,10 +38,15 @@ napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 autodoc_typehints = "description"
 intersphinx_mapping = {
-    'jax': ('https://jax.readthedocs.io/en/latest/', None),
     'python': ('https://docs.python.org/3', None),
-    'xarray': ('https://docs.xarray.dev/en/stable/', None)
+    'jax': ('https://jax.readthedocs.io/en/latest/', None),
+    'equinox': ('https://docs.kidger.site/equinox/', None),
+    'xarray': ('https://docs.xarray.dev/en/stable/', None),
+    'optax': ('https://optax.readthedocs.io/en/latest/', None)
 }
+
+# -- Layout configuration ----------------------------------------------------
+add_module_names = False
 
 # -- Options for markdown files ----------------------------------------------
 myst_enable_extensions = ["dollarmath", "amsmath"]

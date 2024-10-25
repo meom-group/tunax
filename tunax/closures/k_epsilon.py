@@ -45,10 +45,10 @@ import equinox as eqx
 import jax.numpy as jnp
 from jax import jit, lax
 
-from ..case import Case
-from ..state import Grid, State
-from ..functions import tridiag_solve, add_boundaries
-from ..closure import ClosureParametersAbstract, ClosureStateAbstract
+from tunax.case import Case
+from tunax.space import Grid, State
+from tunax.functions import tridiag_solve, add_boundaries
+from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract
 
 
 class KepsParameters(ClosureParametersAbstract):

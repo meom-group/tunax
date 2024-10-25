@@ -5,6 +5,7 @@ obs/*
 !obs/Wagner_LES
 *.nc
 *jld2
+*_archive.py
 
 # general
 __pycache__/
@@ -13,4 +14,3 @@ dist/
 
 # doc
 _build/
-test_doc.py

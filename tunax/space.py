@@ -2,9 +2,10 @@
 Geometry and variables of the model.
 
 This module contains the objects that are used in Tunax to describe the
-geometry of the water column in `Grid`, the variables of the water column at
-one time-step in `State` and the time-series of the model computation in
-`Trajectories`.
+geometry of the water column in :class:`Grid`, the variables of the water
+column at one time-step in :class:`State` and the time-series of the model
+computation in :class:`Trajectories`. These classes can be obtained by the
+prefix :code:`tunax.space.` or directly by :code:`tunax.`.
 
 """
 
@@ -71,10 +72,10 @@ class Grid(eqx.Module):
     r"""
     One dimensional spatial geometry of a water column.
 
-    This mesh is made up of a `nz` cells (`zr`) of potentially varying
-    thickness (`hz`), separated by interface points (`zw`) and extending from
-    the ocean surface at a depth of 0 to the ocean floor at a depth of
-    `hbot`.
+    This mesh is made up of a number of :attr:`nz` of cells (:attr:`zr`) of
+    potentially varying thickness (:attr:`hz`), separated by interface points
+    (:attr:`zw`) and extending from the ocean surface at a depth of :math:`0`
+    to the ocean floor at a depth of :attr:`hbot`.
 
     Parameters
     ----------
@@ -98,16 +99,18 @@ class Grid(eqx.Module):
     
     Note
     ----
-    The centers of the cells `zr` are not necessarly the middle between the
-    interfaces `zw`.
+    The constructor :code:`__init__` takes only :attr:`zr` and :attr:`zw` as
+    as arguments and construct the other attributes from them. The centers of
+    the cells :attr:`zr` are not necessarly the middle between the interfaces
+    :attr:`zw`.
         
     """
 
     nz: int
     hbot: float
-    zr: jnp.ndarray
-    zw: jnp.ndarray
-    hz: jnp.ndarray
+    zr: Float[Array, 'nz']
+    zw: Float[Array, 'nz+1']
+    hz: Float[Array, 'nz']
 
     def __init__(self, zr: Float[Array, 'nz'], zw: Float[Array, 'nz+1']):
         self.nz = zr.shape[0]
@@ -120,9 +123,9 @@ class Grid(eqx.Module):
         r"""
         Find the index of a depth.
 
-        Find the index `i` so that the depth `h` is in cell `i`, which means
-        :math:`z^w_i \leqslant -h \leqslant z^w_{i+1}` if
-        :math:`h \leqslant 0` and :math:`i=-1` if :math:`hz>0`.
+        Find the index :code:`i` so that the depth :code:`h` is in cell
+        :code:`i`, which means :math:`z^w_i \leqslant -h \leqslant z^w_{i+1}`
+        if :math:`h \leqslant 0` and :math:`i=-1` if :math:`h>0`.
 
         Parameters
         ----------
@@ -132,7 +135,7 @@ class Grid(eqx.Module):
         Returns
         -------
         i : int
-            The index corresponding to the depth `h`.
+            The index corresponding to the depth :code:`h`.
         """
         return int(jnp.searchsorted(self.zw, -h, side='right')) - 1
 
@@ -141,8 +144,8 @@ class Grid(eqx.Module):
         r"""
         Creates a grid with equal thickness cells.
 
-        The grid instance will have `nz` cells of equal thickness for a depth
-        of `hbot`.
+        The grid instance will have :attr:`nz` cells of equal thickness for a
+        depth of :attr:`hbot`.
 
         Parameters
         ----------
@@ -166,9 +169,9 @@ class Grid(eqx.Module):
         r"""
         Creates a grid of type analytic.
         
-        The grid instance will have a depth of `hbot` and `nz` cells of
-        thickness almost equals above `hc` and wider under, the strecht
-        parameter being defined by `theta`.
+        The grid instance will have a depth of :attr:`hbot` and :attr:`nz`
+        cells of thickness almost equals above :code:`hc` and wider under, the
+        strecht parameter being defined by :code:`theta`.
 
         Parameters
         ----------
@@ -179,7 +182,8 @@ class Grid(eqx.Module):
         hc : float, positive
             Reference depth :math:`[\text m]`.
         theta : float, default=6.5
-            Stretching parameter toward the surface [dimensionless].
+            Stretching parameter toward the surface
+            :math:`[\text{dimensionless}]`.
         """
         sc_w = jnp.linspace(-1, 0, nz+1)
         sc_r = (sc_w[:-1] + sc_w[1:])/2
@@ -194,8 +198,8 @@ class Grid(eqx.Module):
         r"""
         Creates the ORCA 75 grid from NEMO.
         
-        The whole grid is created then levels between the depth `hbot` and 0
-        are extracted.
+        The whole grid is created then levels between the depth :attr:`hbot`
+        and :math:`0` are extracted.
 
         Parameters
         ----------
@@ -228,10 +232,10 @@ class Grid(eqx.Module):
     @classmethod
     def load(cls, ds: xr.Dataset) -> Grid:
         """
-        Creates the grid defined by a dataset `ds` of an observation.
+        Creates the grid defined by a dataset :code:`ds` of an observation.
 
         The dataset must be formated to have the variables corresponding to
-        `zr` and `zw`.
+        :attr:`zr` and :attr:`zw`.
 
         Parameters
         ----------
@@ -247,9 +251,9 @@ class State(eqx.Module):
     r"""
     System state at one time-step.
 
-    This state is defined on a `grid` describing the geometry, and is composed
-    of the variables of the water column : the values of the momentum and the
-    tracers on this `grid`.
+    This state is defined on a :attr:`grid` describing the geometry, and is
+    composed of the variables of the water column : the values of the momentum
+    and the tracers on this :attr:`grid`.
 
     Parameters
     ----------
@@ -257,11 +261,11 @@ class State(eqx.Module):
         cf. attribute.
     u : Float[jax.Array, 'nz']
         cf. attribute.
-    v : Float[Array, 'nz']
+    v : Float[jax.Array, 'nz']
         cf. attribute.
-    t : Float[Array, 'nz']
+    t : Float[jax.Array, 'nz']
         cf. attribute.
-    s : Float[Array, 'nz']
+    s : Float[jax.Array, 'nz']
         cf. attribute.
 
     Attributes
@@ -271,12 +275,12 @@ class State(eqx.Module):
     u : Float[jax.Array, 'nz']
         Zonal velocity on the center of the cells :math:`\left[\text m \cdot
         \text s^{-1}\right]`.
-    v : Float[Array, 'nz']
+    v : Float[jax.Array, 'nz']
         Meridional velocity on the center of the cells :math:`\left[\text m
         \cdot \text s^{-1}\right]`.
-    t : Float[Array, 'nz']
-        Temperature on the center of the cells :math:`[\text C°]`.
-    s : Float[Array, 'nz']
+    t : Float[jax.Array, 'nz']
+        Temperature on the center of the cells :math:`[° \text C]`.
+    s : Float[jax.Array, 'nz']
         Salinity on the center of the cells :math:`[\text{psu}]`.
 
     """
@@ -291,7 +295,7 @@ class State(eqx.Module):
         r"""
         Initialize zonal velocity with a classical wind stratification.
 
-        Return a State object where `u` is continuous and linear by part :
+        Return a State object where :attr:`u` is continuous and linear by part
         :math:`u(z) = \begin{cases}
         0 & \text{if } z < h_{\text{mxl}}\\
         u_{\text{sfc}} \left( 1 - \dfrac z {h_{\text{mxl}}}\right) &
@@ -308,7 +312,7 @@ class State(eqx.Module):
         Returns
         -------
         state : State
-            The `self` object with the the new value of zonal velocity.
+            The :code:`self` object with the the new value of zonal velocity.
         """
         maped_fun = vmap(_piecewise_linear_ramp, in_axes=(0, None, None))
         u_new = maped_fun(self.grid.zr, -hmxl, u_sfc)
@@ -318,7 +322,7 @@ class State(eqx.Module):
         r"""
         Initialize meridional velocity with a classical wind stratification.
 
-        Return a State object where `v` is continuous and linear by part :
+        Return a State object where :attr:`v` is continuous and linear by part
         :math:`v(z) = \begin{cases}
         0 & \text{if } z < h_{\text{mxl}}\\
         v_{\text{sfc}} \left( 1 - \dfrac z {h_{\text{mxl}}}\right) &
@@ -335,7 +339,8 @@ class State(eqx.Module):
         Returns
         -------
         state : State
-            The `self` object with the the new value of meridional velocity.
+            The :code:`self` object with the the new value of meridional
+            velocity.
         """
         maped_fun = vmap(_piecewise_linear_ramp, in_axes=(0, None, None))
         v_new = maped_fun(self.grid.zr, -hmxl, v_sfc)
@@ -350,7 +355,7 @@ class State(eqx.Module):
         r"""
         Initialize temperature with a classical tracer stratification.
 
-        Return a State object where `t` is linear by part and continous :
+        Return a State object where :attr:`t` is linear by part and continous
         :math:`T(z) = \begin{cases}
         t_{\text{sfc}} + S_T(z-h_{\text{mxl}}) & \text{if } z <
         h_{\text{mxl}}\\
@@ -362,7 +367,7 @@ class State(eqx.Module):
         hmxl : float, default=20.
             Mixed layer depth :math:`[\text m]`.
         t_sfc : float, default=21.
-            Surface temperature :math:`[\text C °]`.
+            Surface temperature :math:`[° \text C]`.
         strat_t : float, default=5.1e-2
             Thermal stratification above the mixed layer noted by :math:`S_T` 
             :math:`[\text K \cdot \text m ^{-1}]`.
@@ -370,7 +375,7 @@ class State(eqx.Module):
         Returns
         -------
         state : State
-            The `self` object with the the new value of temperature.
+            The :code:`self` object with the the new value of temperature.
         """
         maped_fun = vmap(_piecewise_linear_flat, in_axes=(0, None, None, None))
         t_new = maped_fun(self.grid.zr, -hmxl, t_sfc, strat_t)
@@ -385,7 +390,7 @@ class State(eqx.Module):
         r"""
         Initialize salinity with a classical tracer stratification.
 
-        Return a State object where `s` is linear by part and continous :
+        Return a State object where :attr:`s` is linear by part and continous
         :math:`S(z) = \begin{cases}
         s_{\text{sfc}} + S_S(z-h_{\text{mxl}}) & \text{if } z <
         h_{\text{mxl}}\\
@@ -405,7 +410,7 @@ class State(eqx.Module):
         Returns
         -------
         state : State
-            The `self` object with the the new value of temperature.
+            The :code:`self` object with the the new value of temperature.
         """
         maped_fun = vmap(_piecewise_linear_flat, in_axes=(0, None, None, None))
         s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
@@ -417,7 +422,7 @@ class Trajectory(eqx.Module):
     Define the history of a simulation or an observation.
 
     Contains the timeseries of the momentum and the tracers throught the space
-    of the `grid` and the `time`.
+    of the :attr:`grid` and the :attr:`time`.
 
     Parameters
     ----------
@@ -465,9 +470,9 @@ class Trajectory(eqx.Module):
         """
         Exports the trajectory in an xarray.Dataset.
 
-        The dimensions of the dataset are `time`, `grid.zr` and `grid.zw`, the
-        variables are `u`, `v`, `t` and `s`, all defined on the dimensions
-        (`time`, `zr`).
+        The dimensions of the dataset are :attr:`time`, :code:`grid.zr` and
+        :code:`grid.zw`, the variables are :attr:`u`, :attr:`v`, :attr:`t` and
+        :attr:`s`, all defined on the dimensions (:attr:`time`, :code:`zr`).
 
         Returns
         -------
@@ -495,7 +500,7 @@ class Trajectory(eqx.Module):
         Returns
         -------
         state : State
-            The state of the trajectory at the time of index `i_time`.
+            The state of the trajectory at the time of index :code:`i_time`.
         """
         return State(self.grid, self.t[i_time, :], self.s[i_time, :],
                      self.u[i_time, :], self.v[i_time, :])
