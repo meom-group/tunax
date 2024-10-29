@@ -9,8 +9,8 @@ They can be called by the prefix :code:`tunax.functions.` or directly by
 
 
 import jax.numpy as jnp
-from jax import Array, lax, jit
-from jaxtyping import Float
+from jax import lax, jit
+from jaxtyping import Float, Array
 
 
 @jit
@@ -35,18 +35,18 @@ def tridiag_solve(
 
     Parameters
     ----------
-    a : Float[jax.Array, 'n']
+    a : Float[~jax.Array, 'n']
         Left diagonal of :math:`\mathbb M`, the first element is not used.
-    b : Float[jax.Array, 'n']
+    b : Float[~jax.Array, 'n']
         Middle diagonal of :math:`\mathbb M`.
-    c : Float[jax.Array, 'n']
+    c : Float[~jax.Array, 'n']
         Right diagonal of :math:`\mathbb M`, the last element is not used.
-    f : Float[jax.Array, 'n']
+    f : Float[~jax.Array, 'n']
         Right hand of the equation :math:`F`.
     
     Returns
     -------
-    f : Float[jax.Array, 'nz']
+    x : Float[~jax.Array, 'nz']
         Solution :math:`X` of tridiagonal problem.
     """
     n, = a.shape
@@ -71,9 +71,9 @@ def tridiag_solve(
     # backward substitution
     def body_fun2(k: int, x: Float[Array, 'n']):
         return x.at[n-1-k].add(q[n-1-k] * x[n-k])
-    f = lax.fori_loop(1, n, body_fun2, f)
+    x = lax.fori_loop(1, n, body_fun2, f)
 
-    return f
+    return x
 
 
 def add_boundaries(
@@ -91,7 +91,7 @@ def add_boundaries(
     ----------
     vec_btm : float
         Bottom value of the vector.
-    vec_in : Float[jax.Array, 'n-2']
+    vec_in : Float[~jax.Array, 'n-2']
         Middle values of the vector.
     vec_sfc : float
         Surface value of the vector.
@@ -99,7 +99,7 @@ def add_boundaries(
     Returns
     -------
 
-    vec : Float[jax.Array, 'n']
+    vec : Float[~jax.Array, 'n']
         Concatenated vector.
     """
     return jnp.concat([jnp.array([vec_btm]), vec_in, jnp.array([vec_sfc])])

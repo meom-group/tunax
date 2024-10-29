@@ -14,8 +14,8 @@ from __future__ import annotations
 import equinox as eqx
 import xarray as xr
 import jax.numpy as jnp
-from jax import Array, vmap
-from jaxtyping import Float
+from jax import vmap
+from jaxtyping import Float, Array
 
 
 def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
@@ -79,9 +79,9 @@ class Grid(eqx.Module):
 
     Parameters
     ----------
-    zr : Float[jax.Array, 'nz']
+    zr : Float[~jax.Array, 'nz']
         Depths of cell centers from deepest to shallowest :math:`[\text m]`.
-    zw : Float[jax.Array, 'nz+1']
+    zw : Float[~jax.Array, 'nz+1']
         Depths of cell interfaces from deepest to shallowest :math:`[\text m]`.
 
     Attributes
@@ -90,11 +90,11 @@ class Grid(eqx.Module):
         Number of cells.
     hbot : float
         Depth of the water column :math:`[\text m]`.
-    zr : Float[jax.Array, 'nz']
+    zr : Float[~jax.Array, 'nz']
         Depths of cell centers from deepest to shallowest :math:`[\text m]`
-    zw : Float[jax.Array, 'nz+1']
+    zw : Float[~jax.Array, 'nz+1']
         Depths of cell interfaces from deepest to shallowest :math:`[\text m]`.
-    hz : Float[jax.Array, 'nz']
+    hz : Float[~jax.Array, 'nz']
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
     
     Note
@@ -259,28 +259,28 @@ class State(eqx.Module):
     ----------
     grid : Grid
         cf. attribute.
-    u : Float[jax.Array, 'nz']
+    u : Float[~jax.Array, 'nz']
         cf. attribute.
-    v : Float[jax.Array, 'nz']
+    v : Float[~jax.Array, 'nz']
         cf. attribute.
-    t : Float[jax.Array, 'nz']
+    t : Float[~jax.Array, 'nz']
         cf. attribute.
-    s : Float[jax.Array, 'nz']
+    s : Float[~jax.Array, 'nz']
         cf. attribute.
 
     Attributes
     ----------
     grid : Grid
         Geometry of the water column.
-    u : Float[jax.Array, 'nz']
+    u : Float[~jax.Array, 'nz']
         Zonal velocity on the center of the cells :math:`\left[\text m \cdot
         \text s^{-1}\right]`.
-    v : Float[jax.Array, 'nz']
+    v : Float[~jax.Array, 'nz']
         Meridional velocity on the center of the cells :math:`\left[\text m
         \cdot \text s^{-1}\right]`.
-    t : Float[jax.Array, 'nz']
+    t : Float[~jax.Array, 'nz']
         Temperature on the center of the cells :math:`[° \text C]`.
-    s : Float[jax.Array, 'nz']
+    s : Float[~jax.Array, 'nz']
         Salinity on the center of the cells :math:`[\text{psu}]`.
 
     """
@@ -428,33 +428,33 @@ class Trajectory(eqx.Module):
     ----------
     grid : Grid
         cf. attribute.
-    time : Float[jax.Array, 'nt']
+    time : Float[~jax.Array, 'nt']
         cf. attribute.
-    u : Float[jax.Array, 'nt nz']
+    u : Float[~jax.Array, 'nt nz']
         cf. attribute.
-    v : Float[jax.Array, 'nt nz']
+    v : Float[~jax.Array, 'nt nz']
         cf. attribute.
-    t : Float[jax.Array, 'nt nz']
+    t : Float[~jax.Array, 'nt nz']
         cf. attribute.
-    s : Float[jax.Array, 'nt nz']
+    s : Float[~jax.Array, 'nt nz']
         cf. attribute.
 
     Attributes
     ----------
     grid : Grid
         Geometry of the water column.
-    time : Float[jax.Array, 'nt']
+    time : Float[~jax.Array, 'nt']
         Time at each steps of observation from the begining of the simulation
         :math:`[\text s]`.
-    u : Float[jax.Array, 'nt nz']
+    u : Float[~jax.Array, 'nt nz']
         Time-serie of zonal velocity :math:`\left[\text m \cdot \text
         s^{-1}\right]`.
-    v : Float[jax.Array, 'nt nz']
+    v : Float[~jax.Array, 'nt nz']
         Time-serie of meridional velocity :math:`\left[\text m \cdot \text
         s^{-1}\right]`.
-    t : Float[jax.Array, 'nt nz']
+    t : Float[~jax.Array, 'nt nz']
         Time-serie of temperature :math:`[\text C°]`.
-    s : Float[jax.Array, 'nt nz']
+    s : Float[~jax.Array, 'nt nz']
         Time-serie of salinity :math:`[\text{psu}]`.
 
     """

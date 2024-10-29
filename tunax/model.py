@@ -14,7 +14,7 @@ References
 .. [1] M. Perrot and F. Lemarié. Energetically consistent Eddy-Diffusivity
     Mass-Flux convective schemes. Part I: Theory and Models (2024).
     https://hal.science/hal-04439113
-.. [2] A. Zhou, L. Hwkins and P. Gentine. Proof-of-concept: Using ChatGPT to
+.. [2] A. Zhou, L. Hawkins and P. Gentine. Proof-of-concept: Using ChatGPT to
     Translate and Modernize an Earth System Model from Fortran to Python/JAX
     (2024). https://arxiv.org/abs/2405.00018
 
@@ -28,8 +28,8 @@ from functools import partial
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import lax, Array, jit
-from jaxtyping import Float
+from jax import lax, jit
+from jaxtyping import Float, Array
 
 from tunax.case import Case
 from tunax.space import State, Trajectory
@@ -95,7 +95,7 @@ class SingleColumnModel(eqx.Module):
     Raises
     ------
     ValueError
-        If :code:`out_dt` is not proportional to the time step :attr:`dt`
+        If :code:`out_dt` is not proportional to the time step :attr:`dt`.
     ValueError
         If :code:`closure_name` is not registerd in
         :attr:`~closures_registry.CLOSURES_REGISTRY`.
@@ -241,7 +241,7 @@ def step(
         Curent state of the water column for the closure variables.
     closure_parameters : ClosureParametersAbstract
         A set of parameters of the used with the :code:`closure`.
-    swr_frac : Float[jax.Array, 'nz+1']
+    swr_frac : Float[~jax.Array, 'nz+1']
         Fraction of solar penetration throught the water column
         :math:`[\text{dimensionless}]`.
 
@@ -261,8 +261,7 @@ def step(
 
     # advance tracers
     t_new, s_new = advance_tra_ed(
-        state.t, state.s, closure_state.akt, closure_state.eps, swr_frac,
-        grid.zw, grid.hz, dt, case
+        state.t, state.s, closure_state.akt, swr_frac, grid.hz, dt, case
     )
 
     # advance velocities
@@ -289,12 +288,12 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
 
     Parameters
     ----------
-    hz : Float[jax.Array, 'nz']
+    hz : Float[~jax.Array, 'nz']
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
 
     Returns
     -------
-    swr_frac : Float[jax.Array, 'nz+1']
+    swr_frac : Float[~jax.Array, 'nz+1']
         Fraction of solar penetration throught the water column
         :math:`[\text{dimensionless}]`.
     """
@@ -324,9 +323,7 @@ def advance_tra_ed(
         t: Float[Array, 'nz'],
         s: Float[Array, 'nz'],
         akt: Float[Array, 'nz+1'],
-        eps: Float[Array, 'nz+1'],
         swr_frac: Float[Array, 'nz+1'],
-        zw: Float[Array, 'nz+1'],
         hz: Float[Array, 'nz'],
         dt: float,
         case: Case
@@ -334,32 +331,28 @@ def advance_tra_ed(
     r"""
     Integrate vertical diffusion term for tracers.
 
-    First the flux divergencesare computed taking in account surface boundary
-    conditions. Then the tridiagonal system is solved with the values of
-    eddy-diffusivity, returning the new values of tracers. The solved equation
-    is for temperature
+    First the flux divergences are computed taking in account the forcings.
+    Then the diffusion equation of the tracers system is solved, and the
+    tracers at next time-step are returned. The solved equation is for
+    :math:`C` a tracer :
 
-    :math:`T^{n+1} = T^n + \Delta t \partial_z \left(K_m \partial_z  T^{n+1}
-    \right)`
+    :math:`\partial _z ( K_m \partial _z C) + \partial _t C + F = 0`
+
+    where :math:`F` is the representation of the forcings.
 
     Parameters
     ----------
-    t : Float[jax.Array, 'nz']
+    t : Float[~jax.Array, 'nz']
         Current temperature on the center of the cells :math:`[° \text C]`.
-    s : Float[jax.Array, 'nz']
+    s : Float[~jax.Array, 'nz']
         Current salinity on the center of the cells :math:`[\text{psu}]`.
-    akt : Float[jax.Array, 'nz+1']
+    akt : Float[~jax.Array, 'nz+1']
         Current eddy-diffusivity :math:`K_m` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    eps : Float[jax.Array, 'nz+1']
-        Current turbulent kinetic energy dissipation on the interfaces of the
-        cells :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-    swr_frac : Float[jax.Array, 'nz+1']
+    swr_frac : Float[~jax.Array, 'nz+1']
         Fraction of solar penetration throught the water column
         :math:`[\text{dimensionless}]`.
-    zw : Float[jax.Array, 'nz+1']
-        Depths of cell interfaces from deepest to shallowest :math:`[\text m]`.
-    hz : Float[jax.Array, 'nz']
+    hz : Float[~jax.Array, 'nz']
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
     dt : float
         Time-step of the integration step :math:`[\text s]`.
@@ -368,10 +361,10 @@ def advance_tra_ed(
 
     Returns
     -------
-    t : Float[jax.Array, 'nz']
+    t : Float[~jax.Array, 'nz']
         Temperature on the center of the cells at next step
         :math:`[° \text C]`.
-    s : Float[jax.Array, 'nz']
+    s : Float[~jax.Array, 'nz']
         Salinity on the center of the cells at next step :math:`[\text{psu}]`.
     """
     # 1 - Fluxes
@@ -380,148 +373,148 @@ def advance_tra_ed(
     fc_t = fc_t.at[-1].add(case.tflx_sfc)
     fc_t = fc_t.at[0].set(0.)
     # apply flux divergence
-    t = hz*t + dt*(fc_t[1:] - fc_t[:-1])
-    cffp = eps[1:] / (case.cp - case.alpha * case.grav * zw[1:])
-    cffm = eps[:-1] / (case.cp - case.alpha * case.grav * zw[:-1])
-    t = t + dt * 0.5 * hz * (cffp + cffm)
+    dft = hz*t + dt*(fc_t[1:] - fc_t[:-1])
     # Salinity
     fc_s = jnp.zeros(t.shape[0]+1)
     fc_s.at[-1].set(case.sflx_sfc)
     # apply flux divergence
-    s = hz*s + dt*(fc_s[1:] - fc_s[:-1])
+    dfs = hz*s + dt*(fc_s[1:] - fc_s[:-1])
 
     # 2 - Implicit integration for vertical diffusion
     # Temperature
-    t = t.at[0].add(-dt * case.tflx_btm)
-    t = diffusion_solver(akt, hz, t, dt)
+    dft = dft.at[0].add(-dt * case.tflx_btm)
+    t = diffusion_solver(akt, hz, dft, dt)
     # Salinity
-    s = s.at[0].add(-dt * case.sflx_btm)
-    s = diffusion_solver(akt, hz, s, dt)
+    dfs = dfs.at[0].add(-dt * case.sflx_btm)
+    s = diffusion_solver(akt, hz, dfs, dt)
 
     return t, s
 
 
-# def advance_dyn_cor_ed(
-#         u: Float[Array, 'nz'],
-#         v: Float[Array, 'nz'],
-#         hz: Float[Array, 'nz'],
-#         akv: Float[Array, 'nz+1'],
-#         dt: float,
-#         case: Case
-#     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
-#     r"""
-#     Integrate vertical viscosity and Coriolis terms for dynamics.
+def advance_dyn_cor_ed(
+        u: Float[Array, 'nz'],
+        v: Float[Array, 'nz'],
+        hz: Float[Array, 'nz'],
+        akv: Float[Array, 'nz+1'],
+        dt: float,
+        case: Case
+    ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
+    r"""
+    Integrate vertical diffusion and Coriolis terms for momentum.
 
-#     Parameters
-#     ----------
-#     u : Float[jax.Array, 'nz'], float(nz)
-#         current zonal velocity [m.s-1]
-#     v : Float[jax.Array, 'nz'], float(nz)
-#         current meridional velocity [m.s-1]
-#     akv : Float[jax.Array, 'nz+1'], float(nz+1)
-#         eddy-viscosity [m2.s-1]
-#     hz : Float[jax.Array, 'nz'], float(nz)
-#         thickness of cells from deepest to shallowest [m]
-#     dt : float
-#         time-step [s]
-#     case : Case
-#         physical case
+    First the Coriolis term is computed, then the momentum forcings are applied
+    and finally, the diffusion equation is solved. The momentum at next time-
+    step is returned. The equation which is solved is :
 
-#     Returns
-#     -------
-#     u : Float[jax.Array, 'nz'], float(nz)
-#         zonal velocity at the next step [m.s-1]
-#     v : Float[jax.Array, 'nz'], float(nz)
-#         meridional velocity at the next step [m.s-1]
+    :math:`\partial_z (K_v \partial_z U) + F_{\text{cor}}(U) + F = 0`
 
-#     Notes
-#     -----
-#     1 - Compute Coriolis term
-#     if n is even
-#     \begin{align*}
-#     u^{n+1,\star} &= u^n + \Delta t f v^n \\
-#     v^{n+1,\star} &= v^n - \Delta t f u^{n+1,\star}
-#     \end{align*}
-#     if n is odd
-#     \begin{align*}
-#     v^{n+1,\star} &= v^n - \Delta t f u^n \\
-#     u^{n+1,\star} &= u^n + \Delta t f v^{n+1,\star}
-#     \end{align*}
+    where :math:`F_{\text{cor}}` represent the Coriolis effect, and :math:`F`
+    represent the effect of the forcings.
 
-#     2 - Apply surface and bottom forcing
+    Parameters
+    ----------
+    u : Float[~jax.Array, 'nz']
+        Current zonal velocity on the center of the cells
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    v : Float[~jax.Array, 'nz']
+        Current meridional velocity on the center of the cells
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    akv : Float[~jax.Array, 'nz+1']
+        Current eddy-viscosity :math:`K_v` on the interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    hz : Float[~jax.Array, 'nz']
+        Thickness of cells from deepest to shallowest :math:`[\text m]`.
+    dt : float
+        Time-step of the integration step :math:`[\text s]`.
+    case : Case
+        Physical case and forcings of the experiment.
 
-#     3 - Implicit integration for vertical viscosity
-#     \begin{align*}
-#     \mathbf{u}^{n+1,\star \star} &= \mathbf{u}^{n+1,\star} + \Delta t
-#     \partial_z \left(  K_m \partial_z  \mathbf{u}^{n+1,\star \star} \right)  \\
-#     \end{align*}
-#     """
-#     gamma_cor = 0.55
-#     fcor = case.fcor
+    Returns
+    -------
+    u : Float[~jax.Array, 'nz']
+        Zonal velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    v : Float[~jax.Array, 'nz']
+        Meridional velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    """
+    gamma_cor = 0.55
+    fcor = case.fcor
 
-#     # 1 - Compute Coriolis term
-#     cff = (dt * fcor) ** 2
-#     cff1 = 1 / (1 + gamma_cor * gamma_cor * cff)
-#     u = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*u + dt*fcor*v)
-#     v = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*v - dt*fcor*u)
+    # 1 - Compute Coriolis term
+    cff = (dt * fcor) ** 2
+    cff1 = 1 / (1 + gamma_cor * gamma_cor * cff)
+    fu = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*u + dt*fcor*v)
+    fv = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*v - dt*fcor*u)
 
-#     # 2 - Apply surface and bottom forcing
-#     u = u.at[-1].add(dt * case.ustr_sfc)
-#     v = v.at[-1].add(dt * case.vstr_sfc)
-#     u = u.at[0].add(-dt * case.ustr_btm)
-#     v = v.at[0].add(-dt * case.vstr_btm)
+    # 2 - Apply surface and bottom forcing
+    fu = fu.at[-1].add(dt * case.ustr_sfc)
+    fv = fv.at[-1].add(dt * case.vstr_sfc)
+    fu = fu.at[0].add(-dt * case.ustr_btm)
+    fv = fv.at[0].add(-dt * case.vstr_btm)
 
-#     # 3 - Implicit integration for vertical viscosity
-#     u = diffusion_solver(akv, hz, u, dt)
-#     v = diffusion_solver(akv, hz, v, dt)
+    # 3 - Implicit integration for vertical viscosity
+    u = diffusion_solver(akv, hz, fu, dt)
+    v = diffusion_solver(akv, hz, fv, dt)
 
-#     return u, v
+    return u, v
 
 
-# def diffusion_solver(
-#         ak: Float[Array, 'nz+1'],
-#         hz: Float[Array, 'nz'],
-#         f: Float[Array, 'nz'],
-#         dt: float
-#     ) -> Float[Array, 'nz']:
-#     """
-#     Solve the tridiagonal problem associated with the implicit in time
-#     treatment of vertical diffusion and viscosity.
+def diffusion_solver(
+        ak: Float[Array, 'nz+1'],
+        hz: Float[Array, 'nz'],
+        f: Float[Array, 'nz'],
+        dt: float
+    ) -> Float[Array, 'nz']:
+    r"""
+    Solve a diffusion problem with finite volumes.
 
-#     Parameters
-#     ----------
-#     ak : Float[jax.Array, 'nz+1'], float(nz+1)
-#         eddy-diffusivity or eddy-viscosity [m2.s-1]
-#     hz : Float[jax.Array, 'nz'], float(nz)
-#         thickness of cells from deepest to shallowest [m]
-#     f : Float[jax.Array, 'nz'], float(nz)
-#         right-hand side
-#     dt : float
-#         time-step [s]
+    The diffusion problems can be written
+
+    :math:`\partial _z (K \partial _z X) + \dfrac f {\Delta t \Delta x} = 0`
+
+    where we are searching for :math:`X` and where :math:`f` represents the
+    temporal derivative and forcings. This function transforms this problem in
+    a tridiagonal system and then solve it.
+
+    Parameters
+    ----------
+    ak : Float[~jax.Array, 'nz+1']
+        Diffusion at the cell interfaces :math:`K` in
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    hz : Float[~jax.Array, 'nz']
+        Thickness of cells from deepest to shallowest
+        :math:`\left[\text m\right]`.
+    f : Float[~jax.Array, 'nz']
+        Right-hand flux of the equation :math:`f` in
+        :math:`[[X] \cdot \text m ]`.
+    dt : float
+        Time-step of discretisation :math:`[\text s]`.
     
-#     Returns
-#     -------
-#     f : Float[jax.Array, 'nz'], float(nz)
-#         solution of tridiagonal problem
-#     """
-#     # fill the coefficients for the tridiagonal matrix
-#     a_in = -2.0 * dt * ak[1:-2] / (hz[:-2] + hz[1:-1])
-#     c_in = -2.0 * dt * ak[2:-1] / (hz[2:] + hz[1:-1])
-#     b_in = hz[1:-1] - a_in - c_in
+    Returns
+    -------
+    x : Float[~jax.Array, 'nz']
+        Solution of the diffusion problem
+        :math:`X` in :math:`\left[[X]\right]`.
+    """
+    # fill the coefficients for the tridiagonal matrix
+    a_in = -2.0 * dt * ak[1:-2] / (hz[:-2] + hz[1:-1])
+    c_in = -2.0 * dt * ak[2:-1] / (hz[2:] + hz[1:-1])
+    b_in = hz[1:-1] - a_in - c_in
 
-#     # bottom boundary condition
-#     c_btm = -2.0 * dt * ak[1] / (hz[1] + hz[0])
-#     b_btm = hz[0] - c_btm
+    # bottom boundary condition
+    c_btm = -2.0 * dt * ak[1] / (hz[1] + hz[0])
+    b_btm = hz[0] - c_btm
 
-#     # surface boundary condition
-#     a_sfc = -2.0 * dt * ak[-2] / (hz[-2] + hz[-1])
-#     b_sfc = hz[-1] - a_sfc
+    # surface boundary condition
+    a_sfc = -2.0 * dt * ak[-2] / (hz[-2] + hz[-1])
+    b_sfc = hz[-1] - a_sfc
 
-#     # concatenations
-#     a = add_boundaries(0., a_in, a_sfc)
-#     b = add_boundaries(b_btm, b_in, b_sfc)
-#     c = add_boundaries(c_btm, c_in, 0.)
+    # concatenations
+    a = add_boundaries(0., a_in, a_sfc)
+    b = add_boundaries(b_btm, b_in, b_sfc)
+    c = add_boundaries(c_btm, c_in, 0.)
 
-#     f = tridiag_solve(a, b, c, f)
+    x = tridiag_solve(a, b, c, f)
 
-#     return f
+    return x

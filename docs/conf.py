@@ -24,7 +24,7 @@ extensions = [
     "sphinx.ext.autosummary",
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    # 'sphinx_autodoc_typehints',
+    'sphinx_autodoc_typehints',
     'sphinx.ext.mathjax',
     "sphinx.ext.duration",
     "myst_parser",
@@ -40,7 +40,6 @@ autodoc_typehints = "description"
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'jax': ('https://jax.readthedocs.io/en/latest/', None),
-    'equinox': ('https://docs.kidger.site/equinox/', None),
     'xarray': ('https://docs.xarray.dev/en/stable/', None),
     'optax': ('https://optax.readthedocs.io/en/latest/', None)
 }

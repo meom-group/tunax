@@ -8,9 +8,10 @@ directly by :code:`tunax.`.
 Attributes
 ==========
 CLOSURES_REGISTRY : Dict[str, Closure]
-    This variable is a dictionnary whose keys are the name of the closures,
-    and whose values are the corresponding :class:`~closure.Closure` instance
-    of the closure. The closure can be used by the forward model and the fitter
+    This variable is a dictionnary whose keys are the name of the closures
+    (they must be exaclty the same than :attr:`~closure.Closure.name`), and
+    whose values are the corresponding :class:`~closure.Closure` instance of
+    the closure. The closure can be used by the forward model and the fitter
     thanks to this constant. When the user add a the code for a closure in
     :code:`closures/` they must
 
@@ -37,5 +38,5 @@ from tunax.closures.k_epsilon import KepsParameters, KepsState, keps_step
 
 
 CLOSURES_REGISTRY: Dict[str, Closure] = {
-    'k-epsilon': Closure(KepsParameters, KepsState, keps_step)
+    'k-epsilon': Closure('k-epsilon', KepsParameters, KepsState, keps_step)
 }

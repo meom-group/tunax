@@ -15,8 +15,7 @@ from abc import ABC
 from typing import Callable, Type, TypeVar, Generic
 
 import equinox as eqx
-from jax import Array
-from jaxtyping import Float
+from jaxtyping import Float, Array
 
 from tunax.case import Case
 from tunax.space import Grid, State
@@ -65,11 +64,9 @@ class ClosureStateAbstract(eqx.Module, ABC):
     ----------
     grid : Grid
         cf. attribute.
-    akt : Float[jax.Array, 'nz+1']
+    akt : Float[~jax.Array, 'nz+1']
         cf. attribute.
-    akv : Float[jax.Array, 'nz+1']
-        cf. attribute.
-    eps : Float[jax.Array, 'nz+1']
+    akv : Float[~jax.Array, 'nz+1']
         cf. attribute.
 
     Attributes
@@ -77,22 +74,18 @@ class ClosureStateAbstract(eqx.Module, ABC):
     grid : Grid
         Geometry of the water column, should be the same than for the
         :class:`~space.State` instance used in the model.
-    akt : Float[jax.Array, 'nz+1']
+    akt : Float[~jax.Array, 'nz+1']
         Eddy-diffusivity on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    akv : Float[jax.Array, 'nz+1']
+    akv : Float[~jax.Array, 'nz+1']
         Eddy-viscosity on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    eps : Float[jax.Array, 'nz+1']
-        Turbulent kinetic energy dissipation on the interfaces of the cells
-        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
 
     """
 
     grid: Grid
     akt: Float[Array, 'nz+1']
     akv: Float[Array, 'nz+1']
-    eps: Float[Array, 'nz+1']
 
 
 # variable that represent a type which contains ClosureStateAbstract and
@@ -114,6 +107,8 @@ class Closure(eqx.Module, Generic[CloStateT, CloParT]):
 
     Parameters
     ----------
+    name : str
+        cf. attribute.
     parameters_class : Type[ClosureParametersAbstract]
         cf. attribute.
     state_class : Type[ClosureStateAbstract]
@@ -123,6 +118,8 @@ class Closure(eqx.Module, Generic[CloStateT, CloParT]):
 
     Attributes
     ----------
+    name : str
+        The name of the closure.
     parameters_class : Type[ClosureParametersAbstract]
         A child class of :class:`~ClosureParametersAbstract` that defines the
         constant parameters used in the computation done by the closure, it
@@ -163,6 +160,7 @@ class Closure(eqx.Module, Generic[CloStateT, CloParT]):
 
     """
 
+    name : str
     parameters_class: Type[ClosureParametersAbstract]
     state_class: Type[ClosureStateAbstract]
     step_fun: Callable[[State, CloStateT, float, CloParT, Case], CloStateT]

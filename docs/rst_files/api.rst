@@ -4,9 +4,12 @@ API
 .. toctree::
    :maxdepth: 2
 
-   space
-   case
-   functions
-   closure
-   closures_registry
-   model
+   api/space
+   api/case
+   api/functions
+   api/closure
+   api/closures_registry
+   api/model
+   api/database
+   api/fitter
+   api/closures
