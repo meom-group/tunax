@@ -10,7 +10,6 @@ classes required to define a closure, which is done in the folder
 
 """
 
-
 from abc import ABC
 from typing import Callable, Type, TypeVar, Generic
 

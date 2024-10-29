@@ -1,5 +1,5 @@
 """
-Importation of classes and functions for shortcuts.
+Importation of Tunax classes and functions for shortcuts.
 """
 
 

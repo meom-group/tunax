@@ -6,7 +6,7 @@ obs/*
 *.nc
 *jld2
 *_archive.py
-*tke.py
+tke.py
 
 # general
 __pycache__/

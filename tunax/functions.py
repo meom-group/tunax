@@ -7,7 +7,6 @@ They can be called by the prefix :code:`tunax.functions.` or directly by
 
 """
 
-
 import jax.numpy as jnp
 from jax import lax, jit
 from jaxtyping import Float, Array

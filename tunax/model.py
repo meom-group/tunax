@@ -4,22 +4,22 @@ Single column forward model core.
 This module contains the main class :class:`SingleColumnModel` which is the
 core of Tunax for implementing computing the evolution of a water column of the
 ocean. It also contains functions that are used in this computation. The model
-was traduced from Frotran to JAX from the work of Florian Lemarié and Manolis
+was traduced from Frotran to JAX with the work of Florian Lemarié and Manolis
 Perrot [1]_, the translation was done in part using the work of Anthony Zhou,
-Linnia Hawkins and Pierre Gentine [2]_. These class and these functions can be
+Linnia Hawkins and Pierre Gentine [2]_. this class and these functions can be
 obtained by the prefix :code:`tunax.model.` or directly by :code:`tunax.`.
 
 References
 ----------
 .. [1] M. Perrot and F. Lemarié. Energetically consistent Eddy-Diffusivity
-    Mass-Flux convective schemes. Part I: Theory and Models (2024).
-    https://hal.science/hal-04439113
+    Mass-Flux convective schemes. Part I: Theory and Models (2024). url :
+    `hal.science/hal-04439113 <https://hal.science/hal-04439113>`_.
 .. [2] A. Zhou, L. Hawkins and P. Gentine. Proof-of-concept: Using ChatGPT to
     Translate and Modernize an Earth System Model from Fortran to Python/JAX
-    (2024). https://arxiv.org/abs/2405.00018
+    (2024). url : `arxiv.org/abs/2405.00018
+    <https://arxiv.org/abs/2405.00018>`_.
 
 """
-
 
 from __future__ import annotations
 import warnings
@@ -224,8 +224,7 @@ def step(
     This functions first call the closure to compute the eddy-diffusivity and
     viscosity, and then integrate the equations of tracers and momentum. It
     modifies the :code:`state` with these new values and then returns the new
-    :code:`state` and :code:`closure_state`. This function is jitted with jax
-    to make the forward model faster.
+    :code:`state` and :code:`closure_state`.
 
     Parameters
     ----------
@@ -251,6 +250,11 @@ def step(
         State of the water column at next time-step.
     closure_state : ClosureStateAbstract
         State of the water column at next time-step for the closure variables.
+
+    Note
+    ----
+    This function is jitted with JAX, it should make it faster, but the
+    :func:`~jax.jit` decorator can be removed.
     """
     grid = state.grid
 
@@ -361,10 +365,10 @@ def advance_tra_ed(
 
     Returns
     -------
-    t : Float[~jax.Array, 'nz']
+    t : Float[Array, 'nz']
         Temperature on the center of the cells at next step
         :math:`[° \text C]`.
-    s : Float[~jax.Array, 'nz']
+    s : Float[Array, 'nz']
         Salinity on the center of the cells at next step :math:`[\text{psu}]`.
     """
     # 1 - Fluxes
@@ -431,10 +435,10 @@ def advance_dyn_cor_ed(
 
     Returns
     -------
-    u : Float[~jax.Array, 'nz']
+    u : Float[Array, 'nz']
         Zonal velocity on the center of the cells at the next time step
         :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v : Float[~jax.Array, 'nz']
+    v : Float[Array, 'nz']
         Meridional velocity on the center of the cells at the next time step
         :math:`\left[\text m \cdot \text s^{-1}\right]`.
     """

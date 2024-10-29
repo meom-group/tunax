@@ -29,7 +29,6 @@ CLOSURES_REGISTRY : Dict[str, Closure]
 
 """
 
-
 from typing import Dict
 
 from tunax.closure import Closure

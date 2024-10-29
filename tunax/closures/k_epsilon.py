@@ -1,49 +1,44 @@
-"""
-k-epsilon closure parameters, states and functions.
+r"""
+:math:`k-\varepsilon` closure parameters, states and computation functions.
 
-This module contains the implementation of the k-epsilon closure described as
-a GLS module as in [1]. The parameters of the closure are available in
-the `KepsParameters` class and one can play with them. The function `keps_step`
-compute one time-step of the closure, which means that it computes the eddy-
-diffusivity and viscosity.
-
-Classes
--------
-KepsParameters
-    concrete class from ClosureParametersAbstract for k-epsilon closure
-KepsState
-    concrete class from ClosureStateAbstract for k-epsilon closure
-
-Functions
----------
-keps_step (jitted version)
-    main function, run one time-step of the k-epsilon closure
-compute_rho_eos
-    compute density anomaly and Brunt Vaisala frequency via linear EOS
-compute_shear
-    compute shear production term for TKE equation
-compute_tke_eps_bc
-    compute top and bottom boundary conditions for TKE and GLS equation
-advance_turb
-    integrate TKE or epsilon quantities
-compute_diag
-    computes the diagnostic variables of k-epsilon closure
+This module contains the implementation of the :math:`k-\varepsilon` model
+described as a GLS case as in [1]_ as a :class:`~closure.Closure` instance. The
+model was traduced from Frotran to JAX with the work of Florian Lemarié and
+Manolis Perrot [2]_, the translation was done in part using the work of Anthony
+Zhou, Linnia Hawkins and Pierre Gentine [3]_. The parameters of the closure are
+available in the :class:`KepsParameters` class, the closure state in
+:class:`KepsState` class. The function :attr:`keps_step` compute one time-step
+of the closure, which means that it computes the eddy-diffusivity and
+viscosity. The module contains other functions that are used by this main one.
+These classes and the function step can be obtained by the prefix
+:code:`tunax.closures.k_epsilon` or directly by :code:`tunax.closures`.
 
 References
 ----------
 .. [1] L. Umlauf and H. Burchard. A generic length-scale equation for
     geophysical turbulence models (2003). Journal of Marine Research 61
-    pp. 235-265. doi : 10.1357/002224003322005087
+    pp. 235-265. doi : `10.1357/002224003322005087 <https://www.semanticscholar
+    .org/paper/A-generic-length-scale-equation-for-geophysical-Umlauf-Burchard/
+    24fd6403615fc7a6c5d9b6156e4f1e8d4d280af2>`_.
+.. [2] M. Perrot and F. Lemarié. Energetically consistent Eddy-Diffusivity
+    Mass-Flux convective schemes. Part I: Theory and Models (2024). url :
+    `hal.science/hal-04439113 <https://hal.science/hal-04439113>`_.
+.. [3] A. Zhou, L. Hawkins and P. Gentine. Proof-of-concept: Using ChatGPT to
+    Translate and Modernize an Earth System Model from Fortran to Python/JAX
+    (2024). url : `arxiv.org/abs/2405.00018
+    <https://arxiv.org/abs/2405.00018>`_.
     
 """
 
 
+from __future__ import annotations
 from functools import partial
 from typing import Tuple
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import jit, lax
+from jax import lax, jit
+from jaxtyping import Float, Array
 
 from tunax.case import Case
 from tunax.space import Grid, State
@@ -52,143 +47,267 @@ from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract
 
 
 class KepsParameters(ClosureParametersAbstract):
-    """
-    Set of the physical constants and coefficients used in k-epsilon closure.
+    r"""
+    Parameters and constants for :math:`k-\varepsilon`.
+
+    The first 17 attributes are the parameters of :math:`k-\varepsilon` that
+    may be calibrated. This class also contains some physical constants used
+    in the closure computing. The last 19 attributes are the one for the
+    stability function that are computed from the parameters of
+    :math:`k-\varepsilon`.
+
+    Parameters
+    ----------
+    c1 : float, default=5.
+        cf. attribute.
+    c2 : float, default=0.8
+        cf. attribute.
+    c3 : float, default=1.968
+        cf. attribute.
+    c4 : float, default=1.136
+        cf. attribute.
+    c5 : float, default=0.
+        cf. attribute.
+    c6 : float, default=0.4
+        cf. attribute.
+    cb1 : float, default=5.95
+        cf. attribute.
+    cb2 : float, default=.6
+        cf. attribute.
+    cb3 : float, default=1.
+        cf. attribute.
+    cb4 : float, default=0.
+        cf. attribute.
+    cb5 : float, default=0.3333
+        cf. attribute.
+    cbb : float, default=.72
+        cf. attribute.
+    c_mu0 : float, default=0.5477
+        cf. attribute.
+    sig_k : float, default=1.
+        cf. attribute.
+    sig_eps : float, default=1.3
+        cf. attribute.
+    c_eps1 : float, default=1.44
+        cf. attribute.
+    c_eps2 : float, default=1.92
+        cf. attribute.
+    c_eps3m : float, default=-0.4
+        cf. attribute.
+    c_eps3p : float, default=1.
+        cf. attribute.
+    chk_grav : float, default=1400.
+        cf. attribute.
+    galp: float, default=0.53
+        cf. attribute.
+    z0s_min : float, default=1e-2
+        cf. attribute.
+    z0b_min : float, default=1e-4
+        cf. attribute.
+    z0b : float, default=1e-14
+        cf. attribute.
+    akt_min : float, default=1e-5
+        cf. attribute.
+    akt_min : float, default=1e-4
+        cf. attribute.
+    tke_min : float, default=1e-6
+        cf. attribute.
+    eps_min : float, default=1e-12
+        cf. attribute.
+    c_mu_min : float, default=0.1
+        cf. attribute.
+    c_mu_prim_min : float, default=0.1
+        cf. attribute.
+    dir_sfc: bool, default=False
+        cf. attribute.
+    dir_btm: bool, default=True
+        cf. attribute.
+    gls_p : float, default=3
+        cf. attribute.
+    gls_m : float, default=1.5
+        cf. attribute.
+    gls_n : float, default=-1
+        cf. attribute.
 
     Attributes
     ----------
     c1 : float, default=5.
-        k-epsilon parameter for the dissipation of the corelation tensor
-        pressure/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_1` for the dissipation of the
+        corelation tensor pressure/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c2 : float, default=0.8
-        k-epsilon parameter for the dissipation of the corelation tensor
-        pressure/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_2` for the dissipation of the
+        corelation tensor pressure/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c3 : float, default=1.968
-        k-epsilon parameter for the dissipation of the corelation tensor
-        pressure/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_3` for the dissipation of the
+        corelation tensor pressure/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c4 : float, default=1.136
-        k-epsilon parameter for the dissipation of the corelation tensor
-        pressure/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_4` for the dissipation of the
+        corelation tensor pressure/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c5 : float, default=0.
-        k-epsilon parameter for the dissipation of the corelation tensor
-        pressure/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_5` for the dissipation of the
+        corelation tensor pressure/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c6 : float, default=0.4
-        k-epsilon parameter for the dissipation of the corelation tensor
-        pressure/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_6` for the dissipation of the
+        corelation tensor pressure/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     cb1 : float, default=5.95
-        k-epsilon parameter for the dissipation of the corelation tensor
-        buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{b1}` for the dissipation of
+        the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     cb2 : float, default=.6
-        k-epsilon parameter for the dissipation of the corelation tensor
-        buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{b2}` for the dissipation of
+        the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     cb3 : float, default=1.
-        k-epsilon parameter for the dissipation of the corelation tensor
-        buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{b3}` for the dissipation of
+        the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     cb4 : float, default=0.
-        k-epsilon parameter for the dissipation of the corelation tensor
-        buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{b4}` for the dissipation of
+        the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     cb5 : float, default=0.3333
-        k-epsilon parameter for the dissipation of the corelation tensor
-        buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{b5}` for the dissipation of
+        the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     cbb : float, default=.72
-        k-epsilon parameter for the dissipation of the corelation tensor
-        buoyancy/velocity (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{b}` for the dissipation of
+        the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c_mu0 : float, default=0.5477
-        k-epsilon parameter which links the mixing length to the dissipation
-        (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_\mu^0` which links the mixing
+        length to the dissipation (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     sig_k : float, default=1.
-        k-epsilon parameter Schmit number for the dissipation of TKE (Umlauf
-        and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`\sigma_k` Schmit number for the
+        dissipation of TKE (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     sig_eps : float, default=1.3
-        k-epsilon parameter Schmit number for the dissipation of epsilon
-        (Umlauf and Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`\sigma_\varepsilon` Schmit
+        number for the dissipation of :math:`\varepsilon` (Umlauf and Burchard
+        notations) :math:`[\text{dimensionless}]`.
     c_eps1 : float, default=1.44
-        k-epsilon parameter correction of the epsilon equation (Umlauf and
-        Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{\varepsilon 1}` correction of
+        the :math:`\varepsilon` equation (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c_eps2 : float, default=1.92
-        k-epsilon parameter correction of the epsilon equation (Umlauf and
-        Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{\varepsilon 2}` correction of
+        the :math:`\varepsilon` equation (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c_eps3m : float, default=-0.4
-        k-epsilon parameter correction of the epsilon equation (Umlauf and
-        Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{\varepsilon 3}^-` correction
+        of the :math:`\varepsilon` equation (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     c_eps3p : float, default=1.
-        k-epsilon parameter correction of the epsilon equation (Umlauf and
-        Burchard notations) [dimensionless]
+        :math:`k-\varepsilon` parameter :math:`c_{\varepsilon 3}^+` correction
+        of the :math:`\varepsilon` equation (Umlauf and Burchard notations)
+        :math:`[\text{dimensionless}]`.
     chk_grav : float, default=1400.
-        charnock coefficient times gravity [dimensionless]
+        Charnock coefficient times gravity :math:`[\text{dimensionless}]`.
     galp: float, default=0.53
-        parameter for Galperin mixing length limitation [dimensionless]
+        Parameter for Galperin mixing length limitation
+        :math:`[\text{dimensionless}]`.
     z0s_min : float, default=1e-2
-        minimal surface roughness length [m]
+        Minimal surface roughness length :math:`[\text m]`.
     z0b_min : float, default=1e-4
-        minimal bottom roughness length [m]
+        Minimal bottom roughness length :math:`[\text m]`.
     z0b : float, default=1e-14
-        bottom roughness length [m]
+        Bottom roughness length :math:`[\text m]`.
     akt_min : float, default=1e-5
-        minimal and initialization value of eddy-diffusivity [m2.s-1]
-    akt_min : float, default=1e-4
-        minimal and initialization value of eddy-viscosity [m2.s-1]
+        Minimal and initialization value of eddy-diffusivity
+        :math:`\left[\text m^2 \cdot \text s^{-1} \right]`.
+    akv_min : float, default=1e-4
+        Minimal and initialization value of eddy-viscosity
+        :math:`\left[\text m^2 \cdot \text s^{-1} \right]`.
     tke_min : float, default=1e-6
-        minimal and initialization value of turbulent kinetic energy (TKE)
-        [m3.s-2]
+        Minimal and initialization value of turbulent kinetic energy (TKE)
+        :math:`\left[\text m^3 \cdot \text s^{-2} \right]`.
     eps_min : float, default=1e-12
-        minimal and initialization value of TKE dissipation [m2.s-3]
+        Minimal and initialization value of TKE dissipation
+        :math:`\left[\text m^2 \cdot \text s^{-3} \right]`.
     c_mu_min : float, default=0.1
-        minimal and initialization value of c_mu in GLS formalisim
-        [dimensionless]
+        Minimal and initialization value of :math:`c_\mu` in GLS formalisim
+        :math:`[\text{dimensionless}]`.
     c_mu_prim_min : float, default=0.1
-        minimal and initialization value of c_mu' in GLS formalisim
-        [dimensionless]
+        Minimal and initialization value of `c_\mu'` in GLS formalisim
+        :math:`[\text{dimensionless}]`.
     dir_sfc: bool, default=False
-        apply a Dirichlet boundary condition at the surface for TKE, else
-        apply a Neumann boundary condition
+        Apply a Dirichlet boundary condition at the surface for TKE, else
+        apply a Neumann boundary condition.
     dir_btm: bool, default=True
-        apply a Dirichlet boundary condition at the bottom for TKE, else
-        apply a Neumann boundary condition
+        Apply a Dirichlet boundary condition at the bottom for TKE, else
+        apply a Neumann boundary condition.
     gls_p : float, default=3
-        GLS coefficient p to define k-epsilon [dimensionless]
+        GLS coefficient :math:`p` to define :math:`k-\varepsilon`
+        :math:`[\text{dimensionless}]`.
     gls_m : float, default=1.5
-        GLS coefficient m to define k-epsilon [dimensionless]
+        GLS coefficient :math:`m` to define :math:`k-\varepsilon`
+        :math:`[\text{dimensionless}]`.
     gls_n : float, default=-1
-        GLS coefficient n to define k-epsilon [dimensionless]
+        GLS coefficient :math:`n` to define :math:`k-\varepsilon`
+        :math:`[\text{dimensionless}]`.
     sf_d0 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_d1 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_d2 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_d3 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_d4 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_d5 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_n0 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_n1 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_n2 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_nb0 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_nb1 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     sf_nb2 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     lim_am0 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     lim_am1 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     lim_am2 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     lim_am3 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     lim_am4 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     lim_am5 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     lim_am6 : float (not a parameter, computed from the above attributes)
-        limitation coefficient for k-epsilon computed from the parameters
+        Limitation coefficient for :math:`k-\varepsilon` computed from the
+        parameters :math:`[\text{dimensionless}]`.
     
     """
 
@@ -253,6 +372,7 @@ class KepsParameters(ClosureParametersAbstract):
     lim_am6: float = eqx.field(init=False)
 
     def __post_init__(self):
+        # stability function coefficients
         a1 = .66666666667 - .5*self.c2
         a2 = 1 - .5*self.c3
         a3 = 1 - .5*self.c4
@@ -307,42 +427,52 @@ class KepsParameters(ClosureParametersAbstract):
 
 
 class KepsState(ClosureStateAbstract):
-    """
-    Define the state of the k-epsilon closure at one time-step on one grid.
+    r"""
+    Define the state of the water column for the :math:`k-\varepsilon` model.
+
+    The first initilisation is done from the minimal values of the different
+    variables given in an instance of :class:'KepsParameters`.
 
     Parameters
     ----------
     grid : Grid
-        spatial grid
+        cf. attribute.
     keps_params : KepsParameters
-        define the initialization values of the variables
+        Used to define the initialization values of the variables.
 
     Attributes
     ----------
     grid : Grid
-        spatial grid
-    akt : jnp.ndarray, float(nz+1)
-        eddy-diffusivity [m2.s-1]
-    akv : jnp.ndarray, float(nz+1)
-        eddy-viscosity [m2.s-1]
-    tke : jnp.ndarray, float(nz+1)
-        turbulent kinetic energy (TKE) [m2.s-2]
-    eps : jnp.ndarray, float(nz+1)
-        TKE dissipation [m2.s-3]
-    c_mu : jnp.ndarray, float(nz+1)
-        c_mu in GLS formalisim [dimensionless]
-    c_mu_prim : jnp.ndarray, float(nz+1)
-        c_mu' in GLS formalisim [dimensionless]
+        Geometry of the water column, should be the same than for the
+        :class:`~space.State` instance used in the model.
+    akt : Float[~jax.Array, 'nz+1']
+        Eddy-diffusivity on the interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    akv : Float[~jax.Array, 'nz+1']
+        Eddy-viscosity on the interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    tke :  Float[~jax.Array, 'nz+1']
+        Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of
+        the cells :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
+    eps :  Float[~jax.Array, 'nz+1']
+        TKE dissipation denoted :math:`\varepsilon` on the interfaces of the
+        cells :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    c_mu :  Float[~jax.Array, 'nz+1']
+        :math:`c_\mu` in GLS formalisim on the interfaces of the cells
+        :math:`[\text{dimensionless}]`.
+    c_mu_prim :  Float[~jax.Array, 'nz+1']
+        :math:`c_\mu'` in GLS formalisim on the interfaces of the cells
+        :math:`[\text{dimensionless}]`.
 
     """
 
     grid: Grid
-    akt: jnp.ndarray
-    akv: jnp.ndarray
-    tke: jnp.ndarray
-    eps: jnp.ndarray
-    c_mu: jnp.ndarray
-    c_mu_prim: jnp.ndarray
+    akt: Float[Array, 'nz+1']
+    akv: Float[Array, 'nz+1']
+    tke: Float[Array, 'nz+1']
+    eps: Float[Array, 'nz+1']
+    c_mu: Float[Array, 'nz+1']
+    c_mu_prim: Float[Array, 'nz+1']
 
     def __init__(self, grid: Grid, keps_params: KepsParameters):
         self.grid = grid
@@ -363,26 +493,44 @@ def keps_step(
         keps_params: KepsParameters,
         case: Case
     ) -> KepsState:
-    """
-    Run one time-step of the k-epsilon closure.
+    r"""
+    Run one time-step of the :math:`k-\varepsilon` closure.
+
+    The purpose of this function is to get the eddy-diffusivity and
+    eddy-viscosity at the next time-step. It works in 3 steps
+
+    1. The Brunt–Väisälä frequency and the shear is computed from the
+       :code:`state` and the boundary conditions are computed.
+    2. The equations on :math:`k` and :math:`\varepsilon` are solved and their
+       values are computed for the next time step.
+    3. The eddy-diffusivity and viscosity are computed as diagnostic variables
+       and the :math:`keps_state` is updated.
 
     Parameters
     ----------
     state : State
-        curent state of the system
+        Current state of the water column.
     keps_state : KepsState
-        curent state of k-epsilon
+        Current state of the water column for the variables used by
+        :math:`k-\varepsilon`.
     dt : float
-        time-step for every iteration [s]
+        Time-step of the forward model :math:`[\text s]`.
     keps_params: KepsParameters
-        k-epsilon parameters
+        Values of the parameters used by :math:`k-\varepsilon` (time-
+        independant).
     case : Case
-        physical case
+        Physical parameters and forcings of the model run.
     
     Returns
     -------
     keps_state : KepsState
-        state of k-epsilon at the next iteration
+            State of the water column for the variables used by
+            :math:`k-\varepsilon` at the next time-step.
+
+    Note
+    ----
+    This function is jitted with JAX, it should make it faster, but the
+    :func:`~jax.jit` decorator can be removed.
     """
     akt = keps_state.akt
     akv = keps_state.akv
@@ -428,41 +576,39 @@ def keps_step(
 
 
 def compute_rho_eos(
-        t: jnp.ndarray,
-        s: jnp.ndarray,
-        zr: jnp.ndarray,
+        t: Float[Array, 'nz'],
+        s: Float[Array, 'nz'],
+        zr: Float[Array, 'nz'],
         case: Case
-    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    ) -> Tuple[Float[Array, 'nz+1'], Float[Array, 'nz']]:
     r"""
-    Compute density anomaly and Brunt Vaisala frequency via linear Equation Of
-    State (EOS).
+    Compute density anomaly and Brunt–Väisälä frequency.
+    
+    Prognostic computation via linear Equation Of State (EOS) :
+
+    :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
+
+    :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
 
     Parameters
     ----------
-    t : jnp.ndarray float(nz)
-        temperature [C]
-    s : jnp.ndarray float(nz)
-        salinity [psu]
-    zr : jnp.ndarray, float(nz)
-        depths of cell centers from deepest to shallowest [m]
+    t : Float[~jax.Array, 'nz']
+        Temperature on the center of the cells :math:`[° \text C]`.
+    s : Float[~jax.Array, 'nz']
+        Salinity on the center of the cells :math:`[\text{psu}]`.
+    zr : Float[~jax.Array, 'nz']
+        Depths of cell centers from deepest to shallowest :math:`[\text m]`
     case : Case
-        physical case and forcings
+        Physical parameters and forcings of the model run.
 
     Returns
     -------
-    bvf : float(nz+1)
-        Brunt Vaisala frequency [s-2]
-    rho : float(nz)
-        density anomaly [kg.m-3]
-
-    Notes
-    -----
-    rho
-    \(   \rho_{k} = \rho_0 \left( 1 - \alpha (\theta - 2) + \beta (S - 35)
-    \right)  \)
-    bvf
-    \(   (nz^2)_{k+1/2} = - \frac{g}{\rho_0}  \frac{ \rho_{k+1}-\rho_{k} }
-    {\Delta z_{k+1/2}} \)
+    bvf : Float[Array, 'nz+1']
+        Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
+        :math:`\left[\text s^{-2}\right]`.
+    rho : Float[Array, 'nz']
+        Density anomaly :math:`\rho` on cell interfaces 
+        :math:`\left[\text {kg} \cdot \text m^{-3}\right]`
     """
     rho0 = case.rho0
     rho = rho0 * (1. - case.alpha*(t-case.t_rho_ref) + \
@@ -475,39 +621,45 @@ def compute_rho_eos(
 
 
 def compute_shear(
-        u_n: jnp.ndarray,
-        v_n: jnp.ndarray,
-        u_np1: jnp.ndarray,
-        v_np1: jnp.ndarray,
-        zr: jnp.ndarray
-    ) -> jnp.ndarray:
+        u_n: Float[Array, 'nz'],
+        v_n: Float[Array, 'nz'],
+        u_np1: Float[Array, 'nz'],
+        v_np1: Float[Array, 'nz'],
+        zr: Float[Array, 'nz']
+    ) -> Float[Array, 'nz+1']:
     r"""
     Compute shear production term for TKE equation.
+
+    The prognostic equations are
+
+    :math:`S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}`
+
+    where :math:`U^{n+1/2}` is the mean between :math:`U^n` and
+    :math:`U^{n+1}`.
     
     Parameters
     ----------
-    u_n : jnp.ndarray, float(nz)
-        current zonal velocity [m.s-1]
-    v_n : jnp.ndarray, float(nz)
-        current meridional velocity [m.s-1]
-    u_np1 : jnp.ndarray, float(nz)
-        zonal velocity at the next step [m.s-1]
-    v_np1 : jnp.ndarray, float(nz)
-        meridional velocity at the next step [m.s-1]
-    zr : jnp.ndarray, float(nz)
-        depths of cell centers from deepest to shallowest [m]
+    u_n : Float[~jax.Array, 'nz']
+        Current zonal velocity on the center of the cells
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    v_n : Float[~jax.Array, 'nz']
+        Current meridional velocity on the center of the cells
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    u_np1 : Float[~jax.Array, 'nz']
+        Zonal velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    v_np1 : Float[~jax.Array, 'nz']
+        Meridional velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    zr : Float[~jax.Array, 'nz']
+        Depths of cell centers from deepest to shallowest :math:`[\text m]`
         
 
     Returns
     -------
-    shear2 : jnp.ndarray, float(nz+1)
-        shear production term [m2.s-3]
-
-    Notes
-    -----
-    Shear production term using discretization from Burchard (2002)
-    \( {\rm Sh}_{k+1/2} = \frac{ 1 }{ \Delta z_{k+1/2}^2 } ( u_{k+1}^n -
-    u_{k}^n ) ( u_{k+1}^{n+1/2} - u_{k}^{n+1/2} )  \)
+    shear2 : Float[~jax.Array, 'nz+1']
+        Shear production squared :math:`S_h^2` on cell interfaces
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
     """
     cff = 1.0 / (zr[1:] - zr[:-1])**2
     du = 0.5*cff * (u_np1[1:]-u_np1[:-1]) * \
@@ -519,39 +671,49 @@ def compute_shear(
 
 
 def compute_tke_eps_bc(
-        tke: jnp.ndarray,
-        hz: jnp.ndarray,
+        tke: Float[Array, 'nz+1'],
+        hz: Float[Array, 'nz'],
         keps_params: KepsParameters,
         case: Case
-    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-    """
-    Compute top and bottom boundary conditions for TKE and GLS equation.
+    ) -> Tuple[float, float, float, float]:
+    r"""
+    Compute top and bottom boundary conditions for TKE and :math:`\varepsilon`.
 
     Parameters
     ----------
-    tke : jnp.ndarray, float(nz+1)
-        turbulent kinetic energy (TKE) [m3.s-2]
-    hz : jnp.ndarray, float(nz)
-        thickness of cells from deepest to shallowest [m]
-    keps_params: KepsParameters
-        k-epsilon parameters
+    tke : Float[~jax.Array, 'nz+1']
+        Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of
+        the cells :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
+    hz : Float[~jax.Array, 'nz']
+        Thickness of cells from deepest to shallowest :math:`[\text m]`.
+    keps_params : KepsParameters
+        Values of the parameters used by :math:`k-\varepsilon`.
     case : Case
-        physical case
+        Physical parameters and forcings of the model run.
 
     Returns
     -------
     tke_sfc_bc : float
-        TKE value for surface boundary condition (Dirichlet [m2.s-2] or Neumann
-        [m3.s-3])
+        TKE value for surface boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-3}\right]`).
     tke_btm_bc : float
-        TKE value for bottom boundary condition (Dirichlet [m2.s-2] or Neumann
-        [m3.s-3])
+        TKE value for bottom boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-3}\right]`).
     eps_sfc_bc : float
-        epsilon value for surface boundary condition (Dirichlet [m2.s-3] or
-        Neumann [m3.s-4])
+        :math:`\varepsilon` value for surface boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-4}\right]`).
     eps_btm_bc : float
-        epsilon value for surface boundary condition (Dirichlet [m2.s-3] or
-        Neumann [m3.s-4])
+        :math:`\varepsilon` value for surface boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-4}\right]`).
+
+    Note
+    ----
+    The kind of boundary conditions between Neumann and Dirichlet are register
+    in the parameters :code:`keps_params`.
     """
     # constants
     rp, rm, rn = keps_params.gls_p, keps_params.gls_m, keps_params.gls_n
@@ -600,16 +762,16 @@ def compute_tke_eps_bc(
 
 
 def advance_turb(
-        akt: jnp.ndarray,
-        akv: jnp.ndarray,
-        tke: jnp.ndarray,
-        tke_np1: jnp.ndarray,
-        eps: jnp.ndarray,
-        c_mu: jnp.ndarray,
-        c_mu_prim: jnp.ndarray,
-        bvf: jnp.ndarray,
-        shear2: jnp.ndarray,
-        hz: jnp.ndarray,
+        akt: Float[Array, 'nz+1'],
+        akv: Float[Array, 'nz+1'],
+        tke: Float[Array, 'nz+1'],
+        tke_np1: Float[Array, 'nz+1'],
+        eps: Float[Array, 'nz+1'],
+        c_mu: Float[Array, 'nz+1'],
+        c_mu_prim: Float[Array, 'nz+1'],
+        bvf: Float[Array, 'nz+1'],
+        shear2: Float[Array, 'nz+1'],
+        hz: Float[Array, 'nz'],
         dt: float,
         tke_sfc_bc: float,
         tke_btm_bc: float,
@@ -617,56 +779,75 @@ def advance_turb(
         eps_btm_bc: float,
         keps_params: KepsParameters,
         do_tke: bool
-    ) -> jnp.ndarray:
-    """
-    Integrate TKE or epsilon quantities.
+    ) -> Float[Array, 'nz+1']:
+    r"""
+    Integrate TKE or :math:`\varepsilon` quantities.
+
+    First the shear and buoyancy production are computed, then they are used in
+    the building of the tridiagonal problem, the boundary conditions are then
+    added and finally the tridiagonal problem is solved.
 
     Parameters
     ----------
-    akt : jnp.ndarray, float(nz+1)
-        current eddy-diffusivity [m2.s-1]
-    akv : jnp.ndarray, float(nz+1)
-        current eddy-viscosity [m2.s-1]
-    tke : jnp.ndarray, float(nz+1)
-        current turbulent kinetic energy (TKE) [m2.s-2]
-    tke : jnp.ndarray, float(nz+1)
-        turbulent kinetic energy (TKE) at next step (usefull only for epsilon
-        integration) [m2.s-2]
-    eps : jnp.ndarray, float(nz+1)
-        current TKE dissipation [m2.s-3]
-    c_mu : jnp.ndarray, float(nz+1)
-        current c_mu in GLS formalisim [dimensionless]
-    c_mu_prim : jnp.ndarray, float(nz+1)
-        current c_mu' in GLS formalisim [dimensionless]
+    akt : Float[~jax.Array, 'nz+1']
+        Current eddy-diffusivity on the interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    akv : Float[~jax.Array, 'nz+1']
+        Current eddy-viscosity on the interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    tke : Float[~jax.Array, 'nz+1']
+        Current turbulent kinetic energy (TKE) denoted :math:`k` on the
+        interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
+    tke_np1 : Float[~jax.Array, 'nz+1']
+        Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of
+        the cells at next step (usefull only for :math:`\varepsilon`
+        integration) :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
+    eps : Float[~jax.Array, 'nz+1']
+        Current TKE dissipation denoted :math:`\varepsilon` on the interfaces
+        of the cells :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    c_mu : Float[~jax.Array, 'nz+1']
+        Current :math:`c_\mu` in GLS formalisim on the interfaces of the cells
+        :math:`[\text{dimensionless}]`.
+    c_mu_prim : Float[~jax.Array, 'nz+1']
+        Current :math:`c_\mu'` in GLS formalisim on the interfaces of the cells
+        :math:`[\text{dimensionless}]`.
     bvf : float(nz+1)
-        current Brunt Vaisala frequency [s-2]
-    shear2 : jnp.ndarray, float(nz+1)
-        current shear production term [m2.s-3]
-    hz : jnp.ndarray, float(nz)
-        thickness of cells from deepest to shallowest [m]
+        Current Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
+        :math:`\left[\text s^{-2}\right]`.
+    shear2 : Float[~jax.Array, 'nz+1']
+        Current shear production squared :math:`S_h^2` on cell interfaces
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    hz : Float[~jax.Array, 'nz']
+        Thickness of cells from deepest to shallowest :math:`[\text m]`.
     dt : float
-        time-step [s]
+        Time-step of the forward model :math:`[\text s]`.
     tke_sfc_bc : float
-        TKE value for surface boundary condition (Dirichlet [m2.s-2] or Neumann
-        [m3.s-3])
+        TKE value for surface boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-3}\right]`).
     tke_btm_bc : float
-        TKE value for bottom boundary condition (Dirichlet [m2.s-2] or Neumann
-        [m3.s-3])
+        TKE value for bottom boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-3}\right]`).
     eps_sfc_bc : float
-        epsilon value for surface boundary condition (Dirichlet [m2.s-3] or
-        Neumann [m3.s-4])
+        :math:`\varepsilon` value for surface boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-4}\right]`).
     eps_btm_bc : float
-        epsilon value for surface boundary condition (Dirichlet [m2.s-3] or
-        Neumann [m3.s-4])
-    keps_params: KepsParameters
-        k-epsilon parameters
+        :math:`\varepsilon` value for surface boundary condition (Dirichlet
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]` or Neumann
+        :math:`\left[\text m ^3 \cdot \text s ^{-4}\right]`).
+    keps_params : KepsParameters
+        Values of the parameters used by :math:`k-\varepsilon`.
     do_tke : bool
-        integrate TKE if True and epsilon if False
+        If :code:`True` solve the equation for TKE, else for
+        :math:`\varepsilon`.
 
     Returns
     -------
-    vec : jnp.ndarray, float(nz+1)
-        TKE or epsilon at next step (depending on `do_tke`)
+    vec : Float[~jax.Array, 'nz+1']
+        TKE or :math:`\varepsilon` at next step (depending on :code:`do_tke`).
     """
     # fill the matrix off-diagonal terms for the tridiagonal problem
     cff = -0.5*dt
@@ -730,42 +911,59 @@ def advance_turb(
 
     return vec
 
+
 def compute_diag(
-        tke: jnp.ndarray,
-        eps: jnp.ndarray,
-        bvf: jnp.ndarray,
-        shear2: jnp.ndarray,
+        tke: Float[Array, 'nz+1'],
+        eps: Float[Array, 'nz+1'],
+        bvf: Float[Array, 'nz+1'],
+        shear2: Float[Array, 'nz+1'],
         keps_params: KepsParameters
-    ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, \
-               jnp.ndarray]:
-    """
-    Computes the diagnostic variables of k-epsilon closure.
+    ) -> Tuple[Float[Array, 'nz+1'], Float[Array, 'nz+1'],
+               Float[Array, 'nz+1'], Float[Array, 'nz+1'],
+               Float[Array, 'nz+1']]:
+    r"""
+    Computes the diagnostic variables of :math:`k-\varepsilon` closure.
+
+    This function first apply the Galperin limitation, then it computes
+    :math:`c_\mu'` and :math:`c_\mu` with the stability function, and finally
+    it computes the eddy-diffusivity and viscosity with these variables.
 
     Parameters
     ----------
-    tke : jnp.ndarray, float(nz+1)
-        turbulent kinetic energy (TKE) at next step [m2.s-2]
-    eps : jnp.ndarray, float(nz+1)
-        TKE dissipation at next step [m2.s-3]
-    bvf : float(-1+1)
-        current Brunt Vaisala frequency [s-2]
-    shear2 : jnp.ndarray, float(nz+1)
-        current shear production term [m2.s-3]
-    keps_params: KepsParameters
-        k-epsilon parameters
+    tke : Float[~jax.Array, 'nz+1']
+        Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of
+        the cells at next step
+        :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
+    eps : Float[~jax.Array, 'nz+1']
+        TKE dissipation denoted :math:`\varepsilon` on the interfaces of the
+        cells at next step :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    bvf : Float[~jax.Array, 'nz+1']
+        Current Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
+        :math:`\left[\text s^{-2}\right]`.
+    shear2 : Float[~jax.Array, 'nz+1']
+        Current shear production squared :math:`S_h^2` on cell interfaces
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    keps_params : KepsParameters
+        Values of the parameters used by :math:`k-\varepsilon`.
 
     Returns
     -------
-    akt : jnp.ndarray, float(nz+1)
-        eddy-diffusivity at next step [m2.s-1]
-    akv : jnp.ndarray, float(nz+1)
-        eddy-viscosity at next step [m2.s-1]
-    eps : jnp.ndarray, float(nz+1)
-        TKE dissipation at next step [m2.s-3]
-    c_mu : jnp.ndarray, float(nz+1)
-        c_mu in GLS formalisim at next step [dimensionless]
-    c_mu_prim : jnp.ndarray, float(nz)
-        c_mu' in GLS formalisim at next step [dimensionless]
+    akt : Float[Array, 'nz+1']
+        Eddy-diffusivity on the interfaces of the cells at next step
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    akv : Float[Array, 'nz+1']
+        Eddy-viscosity on the interfaces of the cells at next step
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    eps : Float[Array, 'nz+1']
+        TKE dissipation denoted :math:`\varepsilon` on the interfaces
+        of the cells at next step
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    c_mu : Float[Array, 'nz+1']
+        :math:`c_\mu` in GLS formalisim on the interfaces of the cells at next
+        step :math:`[\text{dimensionless}]`.
+    c_mu_prim : Float[Array, 'nz+1']
+        :math:`c_\mu'` in GLS formalisim on the interfaces of the cells at next
+        step :math:`[\text{dimensionless}]`.
     """
     # parameters
     akv_min = keps_params.akv_min
@@ -795,7 +993,6 @@ def compute_diag(
     e1 = 3 + rp/rn
     e2 = 1.5 + rm/rn
     e3 = -1/rn
-    filter_cof = .5
 
     # minimum value of alpha_n to ensure that alpha_m is positive
     alpha_n_min = 0.5*(- (sf_d1 + sf_nb0) + jnp.sqrt((sf_d1 + sf_nb0)**2 - \
@@ -805,7 +1002,7 @@ def compute_diag(
     l_lim = keps_params.galp*jnp.sqrt(2.0*tke[1:-1] / \
         jnp.maximum(1e-14, bvf[1:-1]))
 
-    # limitation on psi (use MAX because rn is negative)
+    # limitation (use MAX because rn is negative)
     cff = c_mu0**rp * l_lim**rn * tke[1:-1]**rm
     eps = eps.at[1:-1].set(jnp.maximum(eps[1:-1], cff))
     epsilon = c_mu0**e1 * tke[1:-1]**e2 * eps[1:-1]**e3
@@ -813,10 +1010,8 @@ def compute_diag(
 
     # compute alpha_n and alpha_m
     cff = (tke[1:-1] / epsilon)**2
-    am = add_boundaries(0., cff*shear2[1:-1], 0.)
-    an = add_boundaries(0., cff*bvf[1:-1], 0.)
-    alpha_n = an[1:-1] + filter_cof*(0.5*an[2:] - an[1:-1] + 0.5*an[:-2])
-    alpha_m = am[1:-1] + filter_cof*(0.5*am[2:] - am[1:-1] + 0.5*am[:-2])
+    alpha_m = add_boundaries(0., cff*shear2[1:-1], 0.)
+    alpha_n = add_boundaries(0., cff*bvf[1:-1], 0.)
 
     # limitation of alpha_n and alpha_m
     alpha_n = jnp.minimum(jnp.maximum(0.73*alpha_n_min, alpha_n), 1e10)

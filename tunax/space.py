@@ -80,9 +80,9 @@ class Grid(eqx.Module):
     Parameters
     ----------
     zr : Float[~jax.Array, 'nz']
-        Depths of cell centers from deepest to shallowest :math:`[\text m]`.
+        cf. attribute.
     zw : Float[~jax.Array, 'nz+1']
-        Depths of cell interfaces from deepest to shallowest :math:`[\text m]`.
+        cf. attribute.
 
     Attributes
     ----------
@@ -249,7 +249,7 @@ class Grid(eqx.Module):
 
 class State(eqx.Module):
     r"""
-    System state at one time-step.
+    Water column state at one time-step.
 
     This state is defined on a :attr:`grid` describing the geometry, and is
     composed of the variables of the water column : the values of the momentum
