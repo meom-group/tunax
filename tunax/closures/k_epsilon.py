@@ -1010,8 +1010,8 @@ def compute_diag(
 
     # compute alpha_n and alpha_m
     cff = (tke[1:-1] / epsilon)**2
-    alpha_m = add_boundaries(0., cff*shear2[1:-1], 0.)
-    alpha_n = add_boundaries(0., cff*bvf[1:-1], 0.)
+    alpha_m = cff*shear2[1:-1]
+    alpha_n = cff*bvf[1:-1]
 
     # limitation of alpha_n and alpha_m
     alpha_n = jnp.minimum(jnp.maximum(0.73*alpha_n_min, alpha_n), 1e10)

@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import equinox as eqx
 import jax.numpy as jnp
+from jax import device_get
 
 
 _OMEGA = 7.292116e-05
 """float: Rotation rate of the Earth [rad.s-1]."""
-_RAD_DEG = jnp.pi/180
+_RAD_DEG = jnp.pi/180.
 """float: Measure of one degree in radiant [rad.°-1]."""
 
 
@@ -149,7 +150,9 @@ class Case(eqx.Module):
         case : Case
             The :code:`self` object with the the new value of :attr:`fcor`.
         """
-        fcor = 2.*_OMEGA*jnp.sin(_RAD_DEG*lat)
+        fcor = float(device_get(2.*_OMEGA*jnp.sin(_RAD_DEG*lat)))
+        print(type(fcor))
+        print(fcor)
         case = eqx.tree_at(lambda t: t.fcor, self, fcor)
         return case
 

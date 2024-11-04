@@ -9,5 +9,4 @@ Welcome to tunax's documentation!
 .. toctree::
    :maxdepth: 3
    
-   rst_files/overview
-   rst_files/api
+   /Users/admin-mouttaga/Codes/tunax/notebooks/logbook.ipynb

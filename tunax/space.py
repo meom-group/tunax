@@ -33,7 +33,7 @@ def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
         The point of connexion of the two linear parts of the function.
     f0 : float
         The value of the function in 0.
-    
+
     Returns
     -------
     fz : float
@@ -59,7 +59,7 @@ def _piecewise_linear_flat(z: float, zm: float, f0: float, sl: float) -> float:
         funcion.
     sl : float
         The slope of the left part of the function.
-    
+
     Returns
     -------
     fz : float
@@ -96,14 +96,14 @@ class Grid(eqx.Module):
         Depths of cell interfaces from deepest to shallowest :math:`[\text m]`.
     hz : Float[~jax.Array, 'nz']
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
-    
+
     Note
     ----
     The constructor :code:`__init__` takes only :attr:`zr` and :attr:`zw` as
     as arguments and construct the other attributes from them. The centers of
     the cells :attr:`zr` are not necessarly the middle between the interfaces
     :attr:`zw`.
-        
+
     """
 
     nz: int
@@ -131,7 +131,7 @@ class Grid(eqx.Module):
         ----------
         h : float, positive
             The depth to search the index :math:`[\text m]`.
-        
+
         Returns
         -------
         i : int
@@ -168,7 +168,7 @@ class Grid(eqx.Module):
         ) -> Grid:
         r"""
         Creates a grid of type analytic.
-        
+
         The grid instance will have a depth of :attr:`hbot` and :attr:`nz`
         cells of thickness almost equals above :code:`hc` and wider under, the
         strecht parameter being defined by :code:`theta`.
@@ -197,7 +197,7 @@ class Grid(eqx.Module):
     def orca75(cls, hbot: float) -> Grid:
         r"""
         Creates the ORCA 75 grid from NEMO.
-        
+
         The whole grid is created then levels between the depth :attr:`hbot`
         and :math:`0` are extracted.
 
@@ -253,19 +253,12 @@ class State(eqx.Module):
 
     This state is defined on a :attr:`grid` describing the geometry, and is
     composed of the variables of the water column : the values of the momentum
-    and the tracers on this :attr:`grid`.
+    and the tracers on this :attr:`grid`. The call of the constructor build a
+    state on the :attr:`grid` with all the variables set to :math:`0`.
 
     Parameters
     ----------
     grid : Grid
-        cf. attribute.
-    u : Float[~jax.Array, 'nz']
-        cf. attribute.
-    v : Float[~jax.Array, 'nz']
-        cf. attribute.
-    t : Float[~jax.Array, 'nz']
-        cf. attribute.
-    s : Float[~jax.Array, 'nz']
         cf. attribute.
 
     Attributes
@@ -286,10 +279,31 @@ class State(eqx.Module):
     """
 
     grid: Grid
-    t: Float[Array, 'nz']
-    s: Float[Array, 'nz']
     u: Float[Array, 'nz']
     v: Float[Array, 'nz']
+    t: Float[Array, 'nz']
+    s: Float[Array, 'nz']
+
+    @classmethod
+    def zeros(cls, grid: Grid) -> State:
+        """
+        Initialize an instance with all variables equals to zero from a grid.
+
+        Parameters
+        ----------
+        grid : Grid
+            Geometry of the water column.
+
+        Returns
+        -------
+        state : State
+            An instance defined on the grid with all variables set to 0.        
+        """
+        u = jnp.zeros(grid.nz)
+        v = jnp.zeros(grid.nz)
+        t = jnp.zeros(grid.nz)
+        s = jnp.zeros(grid.nz)
+        return State(grid, u, v, t, s)
 
     def init_u(self, hmxl: float=20., u_sfc: float=0.) -> State:
         r"""
@@ -308,7 +322,7 @@ class State(eqx.Module):
         u_sfc : float, default=0.
             Surface zonal velocity :math:`\left[\text m \cdot \text
             s^{-1}\right]`.
-        
+
         Returns
         -------
         state : State
@@ -335,7 +349,7 @@ class State(eqx.Module):
         u_sfc : float, default=0.
             Surface meridional velocity :math:`\left[\text m \cdot \text
             s^{-1}\right]`.
-        
+
         Returns
         -------
         state : State
@@ -369,7 +383,7 @@ class State(eqx.Module):
         t_sfc : float, default=21.
             Surface temperature :math:`[° \text C]`.
         strat_t : float, default=5.1e-2
-            Thermal stratification above the mixed layer noted by :math:`S_T` 
+            Thermal stratification above the mixed layer noted by :math:`S_T`
             :math:`[\text K \cdot \text m ^{-1}]`.
 
         Returns
@@ -404,7 +418,7 @@ class State(eqx.Module):
         s_sfc : float, default=21.
             Surface salinity :math:`[\text{psu}]`.
         strat_t : float, default=5.1e-2
-            Salinity stratification above the mixed layer noted by :math:`S_T` 
+            Salinity stratification above the mixed layer noted by :math:`S_T`
             :math:`[\text{psu} \cdot \text m ^{-1}]`.
 
         Returns
@@ -502,5 +516,7 @@ class Trajectory(eqx.Module):
         state : State
             The state of the trajectory at the time of index :code:`i_time`.
         """
-        return State(self.grid, self.t[i_time, :], self.s[i_time, :],
-                     self.u[i_time, :], self.v[i_time, :])
+        return State(
+            self.grid, self.u[i_time, :], self.v[i_time, :], self.t[i_time, :],
+            self.s[i_time, :],
+        )

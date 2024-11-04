@@ -11,7 +11,7 @@ can be obtained by the prefix :code:`tunax.fitter.` or directly by
 """
 
 from __future__ import annotations
-from typing import Dict , Callable, List
+from typing import Callable, Optional, List, Dict
 
 import optax
 import equinox as eqx
@@ -98,7 +98,7 @@ class FittableParametersSet(eqx.Module):
         self.closure = CLOSURES_REGISTRY[closure_name]
 
     @property
-    def n_calib(self):
+    def n_calib(self) -> int:
         """
         Number of variables that are calibrated.
 
@@ -111,6 +111,7 @@ class FittableParametersSet(eqx.Module):
         for coef_fit in self.coef_fit_dict.values():
             if coef_fit.do_fit:
                 nc += 1
+        return nc
 
     def fit_to_closure(
             self,
@@ -173,7 +174,7 @@ class Fitter(eqx.Module):
     Reprensentation of a complete calibration configuration.
 
     A fitter is a link between the calibrated parameters configuration
-    :attr:`coef_fit_params:, a :attr:`database` of observations to fit the
+    :attr:`coef_fit_params`, a :attr:`database` of observations to fit the
     model on, a loss function :attr:`loss` and some optimizer parameters. An
     instance can be call (with no parameters) to run the calibration. The
     :code:`__init__` method build a set of models corresponding to the given
@@ -194,11 +195,13 @@ class Fitter(eqx.Module):
         cf. attribute.
     nloop : int, default=100
         cf. attribute.
+    nit_loss : int, default = -1
+        cf. attribute.
     learning_rate : float, default=0.001
         cf. attribute.
     verbatim : bool, default = True
         cf. attribute.
-    write_evolution : bool, default = True
+    output_path : Optional[str], default = '.'
         cf. attribute.
 
     Attributes
@@ -237,14 +240,39 @@ class Fitter(eqx.Module):
 
     nloop : int
         Maximum number of calibration loops.
+    nit_loss : int, default = -1
+        Number of iterations of every computation of the loss function in the
+        output for diagnostic. Set to -1 to never compute it. Useless if
+        :attr:`output_path` is :code:`None`.
     learning_rate : float, default=0.001
         Learning rate of the optimizer algorithm : how much it is fast at each
         step.
     verbatim : bool, default = True
         Print in the terminal the evolution of the calibration.
-    write_evolution : bool, default = True
-        Write in numpy files the evolution of the calibration. The files are
-        :code:`x.npy` and :code:`grads.npy` in the current directory.
+    output_path : Optional[str], default = '.'
+        If :code:`None`, don't write the evolution on numpy files ; else must
+        finishes by :code:`.npz` : in this file the compressed numpy output
+        will be written.
+
+    Note
+    ----
+    - During the calibration the gradient of the loss function is computed at
+      every iterations, but not the loss function itself. The set of
+      :attr:`nit_loss` increase the cost of the iteration if the value of the
+      cost funtion is computed too often.
+    
+    - The output is written at every step so its readable by another python
+      kernel during the calibration. To access to this data, one have to read
+      the :code:`.npz` file with the :func:`numpy.load` function (with
+      :code:`allow_pickle` set one :code:`True`), and then access to the
+      evolutions of the calibrated vector (the closures paramters that are
+      calibrated) with :code:`['x']`, to their gradients with :code:`['grads']`
+      these are 2 dimensional arrays, the first dimension being the calibration
+      iterations and the second one the parameters list. If :attr:`nit_loss` is
+      not equal to -1, one can access to the evolution of the loss function
+      with :code:`['loss_it']` which records the indexes of the iterations
+      where the loss function is computed and :code:`['loss_values']` the
+      corresponding values of the loss function.
 
     """
 
@@ -253,9 +281,10 @@ class Fitter(eqx.Module):
     model_list: List[SingleColumnModel]
     loss: Callable[[List[Trajectory], Database], float]
     nloop: int = 100
+    nit_loss: int = -1
     learning_rate: float = 0.001
     verbatim: bool = True
-    write_evolution: bool = True
+    output_path: Optional[str] = eqx.field(default='.')
 
     def __init__(
             self,
@@ -264,18 +293,20 @@ class Fitter(eqx.Module):
             dt: float,
             loss: Callable[[List[Trajectory], Database], float],
             nloop: int = 100,
+            nit_loss: int = -1,
             learning_rate: float = 0.001,
             verbatim: bool = True,
-            write_evolution: bool = True
+            output_path: Optional[str] = './'
         ) -> Fitter:
         # same attributes
         self.coef_fit_params = coef_fit_params
         self.database = database
         self.loss = loss
         self.nloop = nloop
+        self.nit_loss = nit_loss
         self.learning_rate = learning_rate
         self.verbatim = verbatim
-        self.write_evolution = write_evolution
+        self.output_path = output_path
         # building models list
         model_list = []
         for obs in self.database.observations:
@@ -292,10 +323,14 @@ class Fitter(eqx.Module):
             model_list.append(model)
         self.model_list = model_list
         # write the initialized values
-        if write_evolution:
+        if output_path is not None:
             nc = coef_fit_params.n_calib
-            np.save('x.npy', np.array([[] for _ in range(nc)]))
-            np.save('grads.npy', np.array([[] for _ in range(nc)]))
+            empty_arr_2d = np.array([[] for _ in range(nc)])
+            empty_arr_1d = np.array([])
+            np.savez(
+                output_path, x=empty_arr_2d, grads=empty_arr_2d,
+                loss_it=empty_arr_1d, loss_values=empty_arr_1d
+            )
 
     def loss_wrapped(self, x: Float[Array, 'nc']):
         """
@@ -329,11 +364,11 @@ class Fitter(eqx.Module):
         """
         Execute the callibration.
 
-        First the optimizer is selected and parametrized with Optax and the
+        First the optimizer is selected and parametrized with optax and the
         gradient function of the loss is computed. Then in the calibration
         loop, the gradient is evaluated on the currents values of the closure
-        parameters, the eventual output are computed and the Optax optimizer
-        is updated.
+        parameters, the eventual output are computed and the optax optimizer
+        is updated. The optmizer used is :func:`optax.adam`.
 
         Returns
         -------
@@ -356,13 +391,21 @@ class Fitter(eqx.Module):
                     grads {grads}
                 """)
             # write evolution
-            if self.write_evolution:
-                x_ev = np.load('x.npy')
-                grads_ev = np.load('grads.npy')
+            if self.output_path is not None:
+                data = np.load(self.output_path, allow_pickle=True)
+                x_ev = data['x']
+                grads_ev = data['grads']
+                loss_it = data['loss_it']
+                loss_values = data['loss_values']
                 x_ev = np.hstack([x_ev, x.reshape(-1, 1)])
                 grads_ev = np.hstack([grads_ev, grads.reshape(-1, 1)])
-                np.save('x.npy', x_ev)
-                np.save('grads.npy', grads_ev)
+                if self.nit_loss != -1 and i%self.nit_loss == 0:
+                    loss_it = np.append(loss_it, i)
+                    loss_values = np.append(loss_values, self.loss_wrapped(x))
+                np.savez(
+                    self.output_path, x=x_ev, grads=grads_ev, loss_it=loss_it,
+                    loss_values=loss_values
+                )
             # update the optimizer
             updates, opt_state = optimizer.update(grads, opt_state)
             x = optax.apply_updates(x, updates)

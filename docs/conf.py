@@ -6,6 +6,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join('..', 'tunax')))
+sys.path.insert(0, os.path.abspath(os.path.join('..', 'notebooks')))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -29,6 +30,7 @@ extensions = [
     "sphinx.ext.duration",
     "myst_parser",
     'sphinx.ext.intersphinx',
+    'nbsphinx'
 ]
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
@@ -41,7 +43,8 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'jax': ('https://jax.readthedocs.io/en/latest/', None),
     'xarray': ('https://docs.xarray.dev/en/stable/', None),
-    'optax': ('https://optax.readthedocs.io/en/latest/', None)
+    'optax': ('https://optax.readthedocs.io/en/latest/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None)
 }
 
 # -- Layout configuration ----------------------------------------------------

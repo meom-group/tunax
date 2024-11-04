@@ -1,0 +1,5 @@
+Blabla
+======
+
+.. include:: ../../notebooks/logbook.ipynb
+   :parser: myst_parser.sphinx_

@@ -78,7 +78,7 @@ class SingleColumnModel(eqx.Module):
     dt : float
         Time-step of integration for every iteration :math:`[\text s]`.
     n_out : int
-        Number of output steps.
+        Number of of time-steps between every output.
     init_state : State
         Initial physical state of the water column.
     case : Case
