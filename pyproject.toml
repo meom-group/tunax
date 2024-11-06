@@ -2,8 +2,8 @@
 name = "tunax"
 version = "0.1.0"
 description = "Differential calibrator of the vertical ocean turbulence closures."
-authors = ["Gabriel Mouttapa <gabriel.mouttapa@univ-grenoble-alpes.fr>"]
-license = ""
+authors = ["Gabriel Mouttapa <gabriel.mouttapa@univ-grenoble-alpes.fr>", "Julien Le Sommer <julien.lesommer@univ-grenoble-alpes.fr>"]
+license = "LICENSE"
 readme = "README.md"
 repository = "https://github.com/meom-group/tunax"
 keywords = ["ocean", "closure", "calibration", "differential", "turbulence"]
