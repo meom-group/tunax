@@ -1,3 +1,5 @@
+[![Documentation Status](https://readthedocs.org/projects/tunax/badge/?version=latest)](https://tunax.readthedocs.io/en/latest/?badge=latest)
+
 # Description
 This package is a framework for doing differential calibration of physical closures of the vertical components of global ocean models. To obtain the differentiability, *Tunax* is written in JAX. The parameters of these closures are calibrated using the databases of "obersations" that are typically outputs of LES ('Large Eddy Simulations').
 
