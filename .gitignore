@@ -1,6 +1,7 @@
 # tunax
 notebooks/*/
 notebooks/logbook.ipynb
+notebooks/fit_wagner.ipynb
 obs/*
 !obs/Wagner_LES
 *.nc
@@ -14,4 +15,4 @@ __pycache__/
 dist/
 
 # doc
-_build/
+# _build/

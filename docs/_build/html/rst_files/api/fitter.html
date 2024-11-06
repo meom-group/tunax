@@ -1,0 +1,531 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fitter &mdash; tunax 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Closures implementations" href="closures.html" />
+    <link rel="prev" title="database" href="database.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            tunax
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="space.html">space</a></li>
+<li class="toctree-l2"><a class="reference internal" href="case.html">case</a></li>
+<li class="toctree-l2"><a class="reference internal" href="functions.html">functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="closure.html">closure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="closures_registry.html">closures_registry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model.html">model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database.html">database</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">fitter</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fitter.FittableParameter"><code class="docutils literal notranslate"><span class="pre">FittableParameter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.FittableParameter.do_fit"><code class="docutils literal notranslate"><span class="pre">FittableParameter.do_fit</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.FittableParameter.val"><code class="docutils literal notranslate"><span class="pre">FittableParameter.val</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#fitter.FittableParametersSet"><code class="docutils literal notranslate"><span class="pre">FittableParametersSet</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.FittableParametersSet.coef_fit_dico"><code class="docutils literal notranslate"><span class="pre">FittableParametersSet.coef_fit_dico</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.FittableParametersSet.closure"><code class="docutils literal notranslate"><span class="pre">FittableParametersSet.closure</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.FittableParametersSet.n_calib"><code class="docutils literal notranslate"><span class="pre">FittableParametersSet.n_calib</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.FittableParametersSet.fit_to_closure"><code class="docutils literal notranslate"><span class="pre">FittableParametersSet.fit_to_closure()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.FittableParametersSet.gen_init_val"><code class="docutils literal notranslate"><span class="pre">FittableParametersSet.gen_init_val()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#fitter.Fitter"><code class="docutils literal notranslate"><span class="pre">Fitter</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.coef_fit_params"><code class="docutils literal notranslate"><span class="pre">Fitter.coef_fit_params</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.database"><code class="docutils literal notranslate"><span class="pre">Fitter.database</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.model_list"><code class="docutils literal notranslate"><span class="pre">Fitter.model_list</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.loss"><code class="docutils literal notranslate"><span class="pre">Fitter.loss</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.nloop"><code class="docutils literal notranslate"><span class="pre">Fitter.nloop</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.nit_loss"><code class="docutils literal notranslate"><span class="pre">Fitter.nit_loss</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.learning_rate"><code class="docutils literal notranslate"><span class="pre">Fitter.learning_rate</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.verbatim"><code class="docutils literal notranslate"><span class="pre">Fitter.verbatim</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.output_path"><code class="docutils literal notranslate"><span class="pre">Fitter.output_path</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.loss_wrapped"><code class="docutils literal notranslate"><span class="pre">Fitter.loss_wrapped()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fitter.Fitter.__call__"><code class="docutils literal notranslate"><span class="pre">Fitter.__call__()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="closures.html">Closures implementations</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">tunax</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">API</a></li>
+      <li class="breadcrumb-item active">fitter</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/rst_files/api/fitter.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-fitter">
+<span id="fitter"></span><h1>fitter<a class="headerlink" href="#module-fitter" title="Link to this heading"></a></h1>
+<p>Abstraction for the calibration kernel.</p>
+<p>This module contain the main class <a class="reference internal" href="#fitter.Fitter" title="fitter.Fitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Fitter</span></code></a> which is the code of Tunax
+for the calibration of the closure parts. The classes
+<a class="reference internal" href="#fitter.FittableParameter" title="fitter.FittableParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">FittableParameter</span></code></a> and <a class="reference internal" href="#fitter.FittableParametersSet" title="fitter.FittableParametersSet"><code class="xref py py-class docutils literal notranslate"><span class="pre">FittableParametersSet</span></code></a> are used to make
+a link between the optimization part and the closures structures. These class
+can be obtained by the prefix <code class="code docutils literal notranslate"><span class="pre">tunax.fitter.</span></code> or directly by
+<code class="code docutils literal notranslate"><span class="pre">tunax.</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="fitter.FittableParameter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FittableParameter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">do_fit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fitter.html#FittableParameter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fitter.FittableParameter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Calibration configuration for one parameter.</p>
+<p>An instance of this class must be created for every parameter of the
+closure that will be calibrated and for every not default values during
+calibration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>do_fit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – cf. attribute.</p></li>
+<li><p><strong>val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.</em>) – cf. attribute.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.FittableParameter.do_fit">
+<span class="sig-name descname"><span class="pre">do_fit</span></span><a class="headerlink" href="#fitter.FittableParameter.do_fit" title="Link to this definition"></a></dt>
+<dd><p>The parameter will be calibrated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.FittableParameter.val">
+<span class="sig-name descname"><span class="pre">val</span></span><a class="headerlink" href="#fitter.FittableParameter.val" title="Link to this definition"></a></dt>
+<dd><p>If <a class="reference internal" href="#fitter.FittableParameter.do_fit" title="fitter.FittableParameter.do_fit"><code class="xref py py-attr docutils literal notranslate"><span class="pre">do_fit</span></code></a> : the initial value for calibration (at the first
+step of the calibration) ; if <a class="reference internal" href="#fitter.FittableParameter.do_fit" title="fitter.FittableParameter.do_fit"><code class="xref py py-attr docutils literal notranslate"><span class="pre">do_fit</span></code></a> is false : the constant
+value to take for this parameter if it’s not the default one in the
+closure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fitter.FittableParametersSet">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FittableParametersSet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coef_fit_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">closure_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fitter.html#FittableParametersSet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fitter.FittableParametersSet" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Complete closure calibration parameters.</p>
+<p>This class is the set of all the configurations on the closure parameters
+for the calibration. It makes the link between the array on which the
+optimizer works and the closure parameters class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coef_fit_dict</strong> (<em>Dict</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>, </em><a class="reference internal" href="#fitter.FittableParameter" title="fitter.FittableParameter"><em>FittableParameter</em></a><em>]</em>) – cf. attribute.</p></li>
+<li><p><strong>closure_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>) – Name of the chosen closure, must be a key of
+<a class="reference internal" href="closures_registry.html#closures_registry.CLOSURES_REGISTRY" title="closures_registry.CLOSURES_REGISTRY"><code class="xref py py-attr docutils literal notranslate"><span class="pre">CLOSURES_REGISTRY</span></code></a>, see its documentation
+for the available closures.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fitter.FittableParametersSet" title="fitter.FittableParametersSet">FittableParametersSet</a></p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.FittableParametersSet.coef_fit_dico">
+<span class="sig-name descname"><span class="pre">coef_fit_dico</span></span><a class="headerlink" href="#fitter.FittableParametersSet.coef_fit_dico" title="Link to this definition"></a></dt>
+<dd><p>The set of all the configurations of all the parameters that will be
+calibrated and the one constants but not with the default value of the
+closure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)">str</a>, <a class="reference internal" href="#fitter.FittableParameter" title="fitter.FittableParameter">FittableParameter</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.FittableParametersSet.closure">
+<span class="sig-name descname"><span class="pre">closure</span></span><a class="headerlink" href="#fitter.FittableParametersSet.closure" title="Link to this definition"></a></dt>
+<dd><p>The abstraction that represent the used closure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="closure.html#closure.Closure" title="closure.Closure">Closure</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="fitter.FittableParametersSet.n_calib">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">n_calib</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#fitter.FittableParametersSet.n_calib" title="Link to this definition"></a></dt>
+<dd><p>Number of variables that are calibrated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nc</strong> – Number of variables that are calibrated.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fitter.FittableParametersSet.fit_to_closure">
+<span class="sig-name descname"><span class="pre">fit_to_closure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fitter.html#FittableParametersSet.fit_to_closure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fitter.FittableParametersSet.fit_to_closure" title="Link to this definition"></a></dt>
+<dd><p>Transforms an fitted array in a set of closure parameters.</p>
+<p>This method copy the fixed non-default values of <code class="xref py py-attr docutils literal notranslate"><span class="pre">coef_fit_dict</span></code>
+and copy the calibrated values from <code class="code docutils literal notranslate"><span class="pre">x</span></code>. Which is simply the
+parameters values in the order that is indicated by
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">coef_fit_dict</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nc'</em><em>]</em>) – The array on which the optimize works to find the best values. It
+is the array of the parameters that are calibrated.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>clo_params</strong> – The instance of the closure parameters class (child class of
+<a class="reference internal" href="closure.html#closure.ClosureParametersAbstract" title="closure.ClosureParametersAbstract"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClosureParametersAbstract</span></code></a>) with the modifications
+of the calibration step.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="closure.html#closure.ClosureParametersAbstract" title="closure.ClosureParametersAbstract">ClosureParametersAbstract</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fitter.FittableParametersSet.gen_init_val">
+<span class="sig-name descname"><span class="pre">gen_init_val</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fitter.html#FittableParametersSet.gen_init_val"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fitter.FittableParametersSet.gen_init_val" title="Link to this definition"></a></dt>
+<dd><p>Produce the fitted array for the first calibration step.</p>
+<p>This method simply copy the initial values of the calibrated
+coefficients in an array <code class="code docutils literal notranslate"><span class="pre">x</span></code> which will be used as the first
+calibration step for the optimizer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – The initial vector for the optimizer at the first step of
+calibration.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nc’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="fitter.Fitter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Fitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coef_fit_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">loss</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nloop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nit_loss</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">learning_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbatim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'./'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fitter.html#Fitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fitter.Fitter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Reprensentation of a complete calibration configuration.</p>
+<p>A fitter is a link between the calibrated parameters configuration
+<a class="reference internal" href="#fitter.Fitter.coef_fit_params" title="fitter.Fitter.coef_fit_params"><code class="xref py py-attr docutils literal notranslate"><span class="pre">coef_fit_params</span></code></a>, a <a class="reference internal" href="database.html#module-database" title="database"><code class="xref py py-attr docutils literal notranslate"><span class="pre">database</span></code></a> of observations to fit the
+model on, a loss function <a class="reference internal" href="#fitter.Fitter.loss" title="fitter.Fitter.loss"><code class="xref py py-attr docutils literal notranslate"><span class="pre">loss</span></code></a> and some optimizer parameters. An
+instance can be call (with no parameters) to run the calibration. The
+<code class="code docutils literal notranslate"><span class="pre">__init__</span></code> method build a set of models corresponding to the given
+time-step <code class="code docutils literal notranslate"><span class="pre">dt</span></code> , the given closure <code class="code docutils literal notranslate"><span class="pre">closure_name</span></code> and the
+different initial states and physical cases extracted from the
+<a class="reference internal" href="database.html#module-database" title="database"><code class="xref py py-attr docutils literal notranslate"><span class="pre">database</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coef_fit_params</strong> (<a class="reference internal" href="#fitter.FittableParametersSet" title="fitter.FittableParametersSet"><em>FittableParametersSet</em></a>) – cf. attribute.</p></li>
+<li><p><strong>database</strong> (<a class="reference internal" href="database.html#database.Database" title="database.Database"><em>Database</em></a>) – cf. attribute.</p></li>
+<li><p><strong>dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – The time-step used for defininf the forward model that will be
+calibrated <span class="math notranslate nohighlight">\([\text s]\)</span>.</p></li>
+<li><p><strong>loss</strong> (<em>Callable</em><em>[</em><em>[</em><em>List</em><em>[</em><a class="reference internal" href="space.html#space.Trajectory" title="space.Trajectory"><em>Trajectory</em></a><em>]</em><em>, </em><a class="reference internal" href="database.html#database.Database" title="database.Database"><em>Database</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>]</em>) – cf. attribute.</p></li>
+<li><p><strong>nloop</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><em>default=100</em>) – cf. attribute.</p></li>
+<li><p><strong>nit_loss</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a><em>, </em><em>default = -1</em>) – cf. attribute.</p></li>
+<li><p><strong>learning_rate</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.001</em>) – cf. attribute.</p></li>
+<li><p><strong>verbatim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>, </em><em>default = True</em>) – cf. attribute.</p></li>
+<li><p><strong>output_path</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>, </em><em>default = '.'</em>) – cf. attribute.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#fitter.Fitter" title="fitter.Fitter">Fitter</a></p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.coef_fit_params">
+<span class="sig-name descname"><span class="pre">coef_fit_params</span></span><a class="headerlink" href="#fitter.Fitter.coef_fit_params" title="Link to this definition"></a></dt>
+<dd><p>Parametrization of the closure parameters that must be calibrated and
+the one which are fixed with non-default values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fitter.FittableParametersSet" title="fitter.FittableParametersSet">FittableParametersSet</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.database">
+<span class="sig-name descname"><span class="pre">database</span></span><a class="headerlink" href="#fitter.Fitter.database" title="Link to this definition"></a></dt>
+<dd><p>Database of <em>observation</em> used for calibration, the optimizer will
+make the model fit to them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="database.html#database.Database" title="database.Database">Database</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.model_list">
+<span class="sig-name descname"><span class="pre">model_list</span></span><a class="headerlink" href="#fitter.Fitter.model_list" title="Link to this definition"></a></dt>
+<dd><p>List of model instances that represent the physical case and the
+initial condition for every <em>observation</em> in the database. At each
+calibration step, they will be call to compute the loss function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[<a class="reference internal" href="model.html#model.SingleColumnModel" title="model.SingleColumnModel">SingleColumnModel</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.loss">
+<span class="sig-name descname"><span class="pre">loss</span></span><a class="headerlink" href="#fitter.Fitter.loss" title="Link to this definition"></a></dt>
+<dd><p>Abstraction that the user create to describe its own loss function
+which will be minimized by the fitter. The function should represent
+how much the model with its closure fits to the <a class="reference internal" href="database.html#module-database" title="database"><code class="xref py py-attr docutils literal notranslate"><span class="pre">database</span></code></a></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>trajectories</strong> (<em>List</em><em>[</em><a class="reference internal" href="space.html#space.Trajectory" title="space.Trajectory"><em>Trajectory</em></a><em>]</em>) – List of trajectories computed by the model and corresponding to
+each observation of the <a class="reference internal" href="database.html#module-database" title="database"><code class="xref py py-attr docutils literal notranslate"><span class="pre">database</span></code></a> case in the same order.</p></li>
+<li><p><strong>database</strong> (<a class="reference internal" href="database.html#database.Database" title="database.Database"><em>Database</em></a>) – cf.parameter</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>loss</strong> – The quantity that will be minimized by the fitter. The user must
+compute a quantity that compares the <code class="code docutils literal notranslate"><span class="pre">trajectories</span></code> done by
+the forward model (with the current values for the parameters of
+the closure at the current calibration step), and the trajectories
+from the <a class="reference internal" href="database.html#module-database" title="database"><code class="xref py py-attr docutils literal notranslate"><span class="pre">database</span></code></a>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, positive</p>
+</dd>
+<dt class="field-even">Type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Callable[[List[<a class="reference internal" href="space.html#space.Trajectory" title="space.Trajectory">Trajectory</a>], <a class="reference internal" href="database.html#database.Database" title="database.Database">Database</a>], <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.nloop">
+<span class="sig-name descname"><span class="pre">nloop</span></span><a class="headerlink" href="#fitter.Fitter.nloop" title="Link to this definition"></a></dt>
+<dd><p>Maximum number of calibration loops.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.nit_loss">
+<span class="sig-name descname"><span class="pre">nit_loss</span></span><a class="headerlink" href="#fitter.Fitter.nit_loss" title="Link to this definition"></a></dt>
+<dd><p>Number of iterations of every computation of the loss function in the
+output for diagnostic. Set to -1 to never compute it. Useless if
+<a class="reference internal" href="#fitter.Fitter.output_path" title="fitter.Fitter.output_path"><code class="xref py py-attr docutils literal notranslate"><span class="pre">output_path</span></code></a> is <code class="code docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a>, default = -1</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.learning_rate">
+<span class="sig-name descname"><span class="pre">learning_rate</span></span><a class="headerlink" href="#fitter.Fitter.learning_rate" title="Link to this definition"></a></dt>
+<dd><p>Learning rate of the optimizer algorithm : how much it is fast at each
+step.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.001</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.verbatim">
+<span class="sig-name descname"><span class="pre">verbatim</span></span><a class="headerlink" href="#fitter.Fitter.verbatim" title="Link to this definition"></a></dt>
+<dd><p>Print in the terminal the evolution of the calibration.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a>, default = True</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fitter.Fitter.output_path">
+<span class="sig-name descname"><span class="pre">output_path</span></span><a class="headerlink" href="#fitter.Fitter.output_path" title="Link to this definition"></a></dt>
+<dd><p>If <code class="code docutils literal notranslate"><span class="pre">None</span></code>, don’t write the evolution on numpy files ; else must
+finishes by <code class="code docutils literal notranslate"><span class="pre">.npz</span></code> : in this file the compressed numpy output
+will be written.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)">str</a>], default = ‘.’</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>During the calibration the gradient of the loss function is computed at
+every iterations, but not the loss function itself. The set of
+<a class="reference internal" href="#fitter.Fitter.nit_loss" title="fitter.Fitter.nit_loss"><code class="xref py py-attr docutils literal notranslate"><span class="pre">nit_loss</span></code></a> increase the cost of the iteration if the value of the
+cost funtion is computed too often.</p></li>
+<li><p>The output is written at every step so its readable by another python
+kernel during the calibration. To access to this data, one have to read
+the <code class="code docutils literal notranslate"><span class="pre">.npz</span></code> file with the <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.load.html#numpy.load" title="(in NumPy v2.1)"><code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.load()</span></code></a> function (with
+<code class="code docutils literal notranslate"><span class="pre">allow_pickle</span></code> set one <code class="code docutils literal notranslate"><span class="pre">True</span></code>), and then access to the
+evolutions of the calibrated vector (the closures paramters that are
+calibrated) with <code class="code docutils literal notranslate"><span class="pre">['x']</span></code>, to their gradients with <code class="code docutils literal notranslate"><span class="pre">['grads']</span></code>
+these are 2 dimensional arrays, the first dimension being the calibration
+iterations and the second one the parameters list. If <a class="reference internal" href="#fitter.Fitter.nit_loss" title="fitter.Fitter.nit_loss"><code class="xref py py-attr docutils literal notranslate"><span class="pre">nit_loss</span></code></a> is
+not equal to -1, one can access to the evolution of the loss function
+with <code class="code docutils literal notranslate"><span class="pre">['loss_it']</span></code> which records the indexes of the iterations
+where the loss function is computed and <code class="code docutils literal notranslate"><span class="pre">['loss_values']</span></code> the
+corresponding values of the loss function.</p></li>
+</ul>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="fitter.Fitter.loss_wrapped">
+<span class="sig-name descname"><span class="pre">loss_wrapped</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fitter.html#Fitter.loss_wrapped"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fitter.Fitter.loss_wrapped" title="Link to this definition"></a></dt>
+<dd><p>Wrapping of <a class="reference internal" href="#fitter.Fitter.loss" title="fitter.Fitter.loss"><code class="xref py py-attr docutils literal notranslate"><span class="pre">loss</span></code></a> that takes only an array in argument.</p>
+<p>This method runs every model for each observations with the set of
+closure parameters corresponding to x, then it computes and returns the
+the value of the loss function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nc'</em><em>]</em>) – An array that represent the values of the parameters of the closure
+that are in calibration.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>loss</strong> – Value of the loss function for the <code class="code docutils literal notranslate"><span class="pre">x</span></code> values of the closure
+parameters.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, positive</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fitter.Fitter.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/fitter.html#Fitter.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fitter.Fitter.__call__" title="Link to this definition"></a></dt>
+<dd><p>Execute the callibration.</p>
+<p>First the optimizer is selected and parametrized with optax and the
+gradient function of the loss is computed. Then in the calibration
+loop, the gradient is evaluated on the currents values of the closure
+parameters, the eventual output are computed and the optax optimizer
+is updated. The optmizer used is <a class="reference external" href="https://optax.readthedocs.io/en/latest/api/optimizers.html#optax.adam" title="(in Optax)"><code class="xref py py-func docutils literal notranslate"><span class="pre">optax.adam()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>closure_params</strong> – The instance of the closure parameters changed with the final
+value of the calibrated parameters.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="closure.html#closure.ClosureParametersAbstract" title="closure.ClosureParametersAbstract">ClosureParametersAbstract</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="database.html" class="btn btn-neutral float-left" title="database" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="closures.html" class="btn btn-neutral float-right" title="Closures implementations" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Gabriel Mouttapa.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
