@@ -1,5 +1,7 @@
-Blabla
-======
+Examples
+========
 
-.. include:: ../../notebooks/logbook.ipynb
-   :parser: myst_parser.sphinx_
+.. toctree::
+   :maxdepth: 1
+
+   examples/k-epsilon_Kato-Phillips

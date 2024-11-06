@@ -5,8 +5,7 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join('..', 'tunax')))
-sys.path.insert(0, os.path.abspath(os.path.join('..', 'notebooks')))
+sys.path.append(os.path.join('..', 'tunax'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -25,11 +24,11 @@ extensions = [
     "sphinx.ext.autosummary",
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
-    'sphinx_autodoc_typehints',
     'sphinx.ext.mathjax',
     "sphinx.ext.duration",
-    "myst_parser",
     'sphinx.ext.intersphinx',
+    'sphinx_autodoc_typehints',
+    "myst_parser",
     'nbsphinx'
 ]
 templates_path = ['_templates']
