@@ -3,3 +3,4 @@ sphinx-autodoc-typehints==2.4.4
 sphinx-rtd-theme==3.0.0
 myst-parser==4.0.0
 nbsphinx==0.9.5
+nbconvert==7.16.4
