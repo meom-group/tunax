@@ -2,8 +2,7 @@
 notebooks/*/
 notebooks/logbook.ipynb
 notebooks/fit_wagner.ipynb
-obs/*
-!obs/Wagner_LES
+obs/
 *.nc
 *jld2
 *_archive.py
