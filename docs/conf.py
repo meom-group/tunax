@@ -5,7 +5,7 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.append(os.path.join('..', 'tunax'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -33,7 +33,7 @@ extensions = [
 ]
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-autodoc_mock_imports = ["jax", "xarray", "optax", "netcdf4", "equinox", "jaxtyping"]
+# autodoc_mock_imports = ["jax", "xarray", "optax", "netcdf4", "equinox", "jaxtyping"]
 
 # -- Napoleon configuration --------------------------------------------------
 napoleon_google_docstring = False
