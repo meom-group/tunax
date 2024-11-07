@@ -22,13 +22,7 @@ optax = "^0.2.3"
 xarray = "^2024.9.0"
 netcdf4 = "^1.7.1.post2"
 jax = "^0.4.34"
-sphinx = "^8.0.2"
-sphinx-autodoc-typehints = "^2.4.4"
-myst-parser = "^4.0.0"
 jaxtyping = "^0.2.34"
-nbsphinx = "^0.9.5"
-nbconvert = "^7.16.4"
-jupyter = "^1.1.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.1.1"
@@ -36,6 +30,9 @@ matplotlib = "^3.9.2"
 sphinx = "^8.0.2"
 sphinx-autodoc-typehints = "^2.4.4"
 sphinx-rtd-theme = "^3.0.0"
+myst-parser = "^4.0.0"
+nbsphinx = "^0.9.5"
+nbconvert = "^7.16.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
