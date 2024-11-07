@@ -33,6 +33,7 @@ extensions = [
 ]
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+autodoc_mock_imports = ["jax", "xarray", "optax", "netcdf4", "equinox", "jaxtyping"]
 
 # -- Napoleon configuration --------------------------------------------------
 napoleon_google_docstring = False
