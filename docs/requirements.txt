@@ -3,3 +3,4 @@ myst_parser
 sphinx-rtd-theme
 sphinx-autodoc-typehints
 nbsphinx
+sphinxcontrib-napoleon
