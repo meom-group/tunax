@@ -1,0 +1,1236 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>\(k-\varepsilon\) &mdash; tunax 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=7ab3649f" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="prev" title="Closures implementations" href="../closures.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            tunax
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../api.html">API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../space.html">space</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../case.html">case</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../functions.html">functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../closure.html">closure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../closures_registry.html">closures_registry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../model.html">model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../database.html">database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fitter.html">fitter</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../closures.html">Closures implementations</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#"><span class="math notranslate nohighlight">\(k-\varepsilon\)</span></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.KepsParameters"><code class="docutils literal notranslate"><span class="pre">KepsParameters</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.KepsState"><code class="docutils literal notranslate"><span class="pre">KepsState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.keps_step"><code class="docutils literal notranslate"><span class="pre">keps_step()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.compute_rho_eos"><code class="docutils literal notranslate"><span class="pre">compute_rho_eos()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.compute_shear"><code class="docutils literal notranslate"><span class="pre">compute_shear()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.compute_tke_eps_bc"><code class="docutils literal notranslate"><span class="pre">compute_tke_eps_bc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.advance_turb"><code class="docutils literal notranslate"><span class="pre">advance_turb()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#closures.k_epsilon.compute_diag"><code class="docutils literal notranslate"><span class="pre">compute_diag()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">tunax</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../api.html">API</a></li>
+          <li class="breadcrumb-item"><a href="../closures.html">Closures implementations</a></li>
+      <li class="breadcrumb-item active"><span class="math notranslate nohighlight">\(k-\varepsilon\)</span></li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/rst_files/api/closures/k_epsilon.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-closures.k_epsilon">
+<span id="k-varepsilon"></span><h1><span class="math notranslate nohighlight">\(k-\varepsilon\)</span><a class="headerlink" href="#module-closures.k_epsilon" title="Link to this heading"></a></h1>
+<p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> closure parameters, states and computation functions.</p>
+<p>This module contains the implementation of the <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> model
+described as a GLS case as in <a class="footnote-reference brackets" href="#id4" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> as a <a class="reference internal" href="../closure.html#closure.Closure" title="closure.Closure"><code class="xref py py-class docutils literal notranslate"><span class="pre">Closure</span></code></a> instance. The
+model was traduced from Frotran to JAX with the work of Florian Lemarié and
+Manolis Perrot <a class="footnote-reference brackets" href="#id6" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>, the translation was done in part using the work of Anthony
+Zhou, Linnia Hawkins and Pierre Gentine <a class="footnote-reference brackets" href="#id7" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>. The parameters of the closure are
+available in the <a class="reference internal" href="#closures.k_epsilon.KepsParameters" title="closures.k_epsilon.KepsParameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">KepsParameters</span></code></a> class, the closure state in
+<a class="reference internal" href="#closures.k_epsilon.KepsState" title="closures.k_epsilon.KepsState"><code class="xref py py-class docutils literal notranslate"><span class="pre">KepsState</span></code></a> class. The function <a class="reference internal" href="#closures.k_epsilon.keps_step" title="closures.k_epsilon.keps_step"><code class="xref py py-attr docutils literal notranslate"><span class="pre">keps_step</span></code></a> compute one time-step
+of the closure, which means that it computes the eddy-diffusivity and
+viscosity. The module contains other functions that are used by this main one.
+These classes and the function step can be obtained by the prefix
+<code class="code docutils literal notranslate"><span class="pre">tunax.closures.k_epsilon</span></code> or directly by <code class="code docutils literal notranslate"><span class="pre">tunax.closures</span></code>.</p>
+<p class="rubric">References</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id4" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>L. Umlauf and H. Burchard. A generic length-scale equation for
+geophysical turbulence models (2003). Journal of Marine Research 61
+pp. 235-265. doi : <a class="reference external" href="https://www.semanticscholar.org/paper/A-generic-length-scale-equation-for-geophysical-Umlauf-Burchard/24fd6403615fc7a6c5d9b6156e4f1e8d4d280af2">10.1357/002224003322005087</a>.</p>
+</aside>
+<aside class="footnote brackets" id="id6" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p>M. Perrot and F. Lemarié. Energetically consistent Eddy-Diffusivity
+Mass-Flux convective schemes. Part I: Theory and Models (2024). url :
+<a class="reference external" href="https://hal.science/hal-04439113">hal.science/hal-04439113</a>.</p>
+</aside>
+<aside class="footnote brackets" id="id7" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">3</a><span class="fn-bracket">]</span></span>
+<p>A. Zhou, L. Hawkins and P. Gentine. Proof-of-concept: Using ChatGPT to
+Translate and Modernize an Earth System Model from Fortran to Python/JAX
+(2024). url : <a class="reference external" href="https://arxiv.org/abs/2405.00018">arxiv.org/abs/2405.00018</a>.</p>
+</aside>
+</aside>
+<dl class="py class">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">KepsParameters</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.968</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c4</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.136</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c5</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c6</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cb1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.95</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cb2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cb3</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cb4</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cb5</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.3333</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cbb</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.72</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_mu0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5477</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sig_eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_eps1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.44</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_eps2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.92</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_eps3m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-0.4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_eps3p</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chk_grav</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1400.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">galp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.53</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0s_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0b_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.01</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z0b</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-14</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">akt_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">akv_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tke_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_mu_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_mu_prim_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dir_sfc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dir_btm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gls_p</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gls_m</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gls_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#KepsParameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.KepsParameters" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ClosureParametersAbstract</span></code></p>
+<p>Parameters and constants for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span>.</p>
+<p>The first 17 attributes are the parameters of <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> that
+may be calibrated. This class also contains some physical constants used
+in the closure computing. The last 19 attributes are the one for the
+stability function that are computed from the parameters of
+<span class="math notranslate nohighlight">\(k-\varepsilon\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>c1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=5.</em>) – cf. attribute.</p></li>
+<li><p><strong>c2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.8</em>) – cf. attribute.</p></li>
+<li><p><strong>c3</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.968</em>) – cf. attribute.</p></li>
+<li><p><strong>c4</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.136</em>) – cf. attribute.</p></li>
+<li><p><strong>c5</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.</em>) – cf. attribute.</p></li>
+<li><p><strong>c6</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.4</em>) – cf. attribute.</p></li>
+<li><p><strong>cb1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=5.95</em>) – cf. attribute.</p></li>
+<li><p><strong>cb2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=.6</em>) – cf. attribute.</p></li>
+<li><p><strong>cb3</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.</em>) – cf. attribute.</p></li>
+<li><p><strong>cb4</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.</em>) – cf. attribute.</p></li>
+<li><p><strong>cb5</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.3333</em>) – cf. attribute.</p></li>
+<li><p><strong>cbb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=.72</em>) – cf. attribute.</p></li>
+<li><p><strong>c_mu0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.5477</em>) – cf. attribute.</p></li>
+<li><p><strong>sig_k</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.</em>) – cf. attribute.</p></li>
+<li><p><strong>sig_eps</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.3</em>) – cf. attribute.</p></li>
+<li><p><strong>c_eps1</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.44</em>) – cf. attribute.</p></li>
+<li><p><strong>c_eps2</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.92</em>) – cf. attribute.</p></li>
+<li><p><strong>c_eps3m</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=-0.4</em>) – cf. attribute.</p></li>
+<li><p><strong>c_eps3p</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.</em>) – cf. attribute.</p></li>
+<li><p><strong>chk_grav</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1400.</em>) – cf. attribute.</p></li>
+<li><p><strong>galp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.53</em>) – cf. attribute.</p></li>
+<li><p><strong>z0s_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1e-2</em>) – cf. attribute.</p></li>
+<li><p><strong>z0b_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1e-4</em>) – cf. attribute.</p></li>
+<li><p><strong>z0b</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1e-14</em>) – cf. attribute.</p></li>
+<li><p><strong>akt_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1e-4</em>) – cf. attribute.</p></li>
+<li><p><strong>akt_min</strong> – cf. attribute.</p></li>
+<li><p><strong>tke_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1e-6</em>) – cf. attribute.</p></li>
+<li><p><strong>eps_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1e-12</em>) – cf. attribute.</p></li>
+<li><p><strong>c_mu_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.1</em>) – cf. attribute.</p></li>
+<li><p><strong>c_mu_prim_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.1</em>) – cf. attribute.</p></li>
+<li><p><strong>dir_sfc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>, </em><em>default=False</em>) – cf. attribute.</p></li>
+<li><p><strong>dir_btm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a><em>, </em><em>default=True</em>) – cf. attribute.</p></li>
+<li><p><strong>gls_p</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=3</em>) – cf. attribute.</p></li>
+<li><p><strong>gls_m</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=1.5</em>) – cf. attribute.</p></li>
+<li><p><strong>gls_n</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=-1</em>) – cf. attribute.</p></li>
+<li><p><strong>akv_min</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c1">
+<span class="sig-name descname"><span class="pre">c1</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c1" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_1\)</span> for the dissipation of the
+corelation tensor pressure/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=5.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c2">
+<span class="sig-name descname"><span class="pre">c2</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c2" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_2\)</span> for the dissipation of the
+corelation tensor pressure/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.8</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c3">
+<span class="sig-name descname"><span class="pre">c3</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c3" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_3\)</span> for the dissipation of the
+corelation tensor pressure/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.968</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c4">
+<span class="sig-name descname"><span class="pre">c4</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c4" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_4\)</span> for the dissipation of the
+corelation tensor pressure/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.136</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c5">
+<span class="sig-name descname"><span class="pre">c5</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c5" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_5\)</span> for the dissipation of the
+corelation tensor pressure/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c6">
+<span class="sig-name descname"><span class="pre">c6</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c6" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_6\)</span> for the dissipation of the
+corelation tensor pressure/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.4</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.cb1">
+<span class="sig-name descname"><span class="pre">cb1</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.cb1" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{b1}\)</span> for the dissipation of
+the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=5.95</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.cb2">
+<span class="sig-name descname"><span class="pre">cb2</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.cb2" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{b2}\)</span> for the dissipation of
+the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=.6</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.cb3">
+<span class="sig-name descname"><span class="pre">cb3</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.cb3" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{b3}\)</span> for the dissipation of
+the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.cb4">
+<span class="sig-name descname"><span class="pre">cb4</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.cb4" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{b4}\)</span> for the dissipation of
+the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.cb5">
+<span class="sig-name descname"><span class="pre">cb5</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.cb5" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{b5}\)</span> for the dissipation of
+the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.3333</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.cbb">
+<span class="sig-name descname"><span class="pre">cbb</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.cbb" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{b}\)</span> for the dissipation of
+the corelation tensor buoyancy/velocity (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=.72</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c_mu0">
+<span class="sig-name descname"><span class="pre">c_mu0</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c_mu0" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_\mu^0\)</span> which links the mixing
+length to the dissipation (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.5477</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sig_k">
+<span class="sig-name descname"><span class="pre">sig_k</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sig_k" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(\sigma_k\)</span> Schmit number for the
+dissipation of TKE (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sig_eps">
+<span class="sig-name descname"><span class="pre">sig_eps</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sig_eps" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(\sigma_\varepsilon\)</span> Schmit
+number for the dissipation of <span class="math notranslate nohighlight">\(\varepsilon\)</span> (Umlauf and Burchard
+notations) <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.3</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c_eps1">
+<span class="sig-name descname"><span class="pre">c_eps1</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c_eps1" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{\varepsilon 1}\)</span> correction of
+the <span class="math notranslate nohighlight">\(\varepsilon\)</span> equation (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.44</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c_eps2">
+<span class="sig-name descname"><span class="pre">c_eps2</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c_eps2" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{\varepsilon 2}\)</span> correction of
+the <span class="math notranslate nohighlight">\(\varepsilon\)</span> equation (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.92</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c_eps3m">
+<span class="sig-name descname"><span class="pre">c_eps3m</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c_eps3m" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{\varepsilon 3}^-\)</span> correction
+of the <span class="math notranslate nohighlight">\(\varepsilon\)</span> equation (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=-0.4</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c_eps3p">
+<span class="sig-name descname"><span class="pre">c_eps3p</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c_eps3p" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(k-\varepsilon\)</span> parameter <span class="math notranslate nohighlight">\(c_{\varepsilon 3}^+\)</span> correction
+of the <span class="math notranslate nohighlight">\(\varepsilon\)</span> equation (Umlauf and Burchard notations)
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.chk_grav">
+<span class="sig-name descname"><span class="pre">chk_grav</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.chk_grav" title="Link to this definition"></a></dt>
+<dd><p>Charnock coefficient times gravity <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1400.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.galp">
+<span class="sig-name descname"><span class="pre">galp</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.galp" title="Link to this definition"></a></dt>
+<dd><p>Parameter for Galperin mixing length limitation
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.53</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.z0s_min">
+<span class="sig-name descname"><span class="pre">z0s_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.z0s_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal surface roughness length <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1e-2</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.z0b_min">
+<span class="sig-name descname"><span class="pre">z0b_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.z0b_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal bottom roughness length <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1e-4</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.z0b">
+<span class="sig-name descname"><span class="pre">z0b</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.z0b" title="Link to this definition"></a></dt>
+<dd><p>Bottom roughness length <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1e-14</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.akt_min">
+<span class="sig-name descname"><span class="pre">akt_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.akt_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal and initialization value of eddy-diffusivity
+<span class="math notranslate nohighlight">\(\left[\text m^2 \cdot \text s^{-1} \right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1e-5</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.akv_min">
+<span class="sig-name descname"><span class="pre">akv_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.akv_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal and initialization value of eddy-viscosity
+<span class="math notranslate nohighlight">\(\left[\text m^2 \cdot \text s^{-1} \right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1e-4</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.tke_min">
+<span class="sig-name descname"><span class="pre">tke_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.tke_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal and initialization value of turbulent kinetic energy (TKE)
+<span class="math notranslate nohighlight">\(\left[\text m^3 \cdot \text s^{-2} \right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1e-6</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.eps_min">
+<span class="sig-name descname"><span class="pre">eps_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.eps_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal and initialization value of TKE dissipation
+<span class="math notranslate nohighlight">\(\left[\text m^2 \cdot \text s^{-3} \right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1e-12</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c_mu_min">
+<span class="sig-name descname"><span class="pre">c_mu_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c_mu_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal and initialization value of <span class="math notranslate nohighlight">\(c_\mu\)</span> in GLS formalisim
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.1</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.c_mu_prim_min">
+<span class="sig-name descname"><span class="pre">c_mu_prim_min</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.c_mu_prim_min" title="Link to this definition"></a></dt>
+<dd><p>Minimal and initialization value of <cite>c_mu’</cite> in GLS formalisim
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=0.1</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.dir_sfc">
+<span class="sig-name descname"><span class="pre">dir_sfc</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.dir_sfc" title="Link to this definition"></a></dt>
+<dd><p>Apply a Dirichlet boundary condition at the surface for TKE, else
+apply a Neumann boundary condition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a>, default=False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.dir_btm">
+<span class="sig-name descname"><span class="pre">dir_btm</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.dir_btm" title="Link to this definition"></a></dt>
+<dd><p>Apply a Dirichlet boundary condition at the bottom for TKE, else
+apply a Neumann boundary condition.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a>, default=True</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.gls_p">
+<span class="sig-name descname"><span class="pre">gls_p</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.gls_p" title="Link to this definition"></a></dt>
+<dd><p>GLS coefficient <span class="math notranslate nohighlight">\(p\)</span> to define <span class="math notranslate nohighlight">\(k-\varepsilon\)</span>
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=3</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.gls_m">
+<span class="sig-name descname"><span class="pre">gls_m</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.gls_m" title="Link to this definition"></a></dt>
+<dd><p>GLS coefficient <span class="math notranslate nohighlight">\(m\)</span> to define <span class="math notranslate nohighlight">\(k-\varepsilon\)</span>
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=1.5</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.gls_n">
+<span class="sig-name descname"><span class="pre">gls_n</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.gls_n" title="Link to this definition"></a></dt>
+<dd><p>GLS coefficient <span class="math notranslate nohighlight">\(n\)</span> to define <span class="math notranslate nohighlight">\(k-\varepsilon\)</span>
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a>, default=-1</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_d0">
+<span class="sig-name descname"><span class="pre">sf_d0</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_d0" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_d1">
+<span class="sig-name descname"><span class="pre">sf_d1</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_d1" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_d2">
+<span class="sig-name descname"><span class="pre">sf_d2</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_d2" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_d3">
+<span class="sig-name descname"><span class="pre">sf_d3</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_d3" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_d4">
+<span class="sig-name descname"><span class="pre">sf_d4</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_d4" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_d5">
+<span class="sig-name descname"><span class="pre">sf_d5</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_d5" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_n0">
+<span class="sig-name descname"><span class="pre">sf_n0</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_n0" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_n1">
+<span class="sig-name descname"><span class="pre">sf_n1</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_n1" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_n2">
+<span class="sig-name descname"><span class="pre">sf_n2</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_n2" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_nb0">
+<span class="sig-name descname"><span class="pre">sf_nb0</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_nb0" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_nb1">
+<span class="sig-name descname"><span class="pre">sf_nb1</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_nb1" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.sf_nb2">
+<span class="sig-name descname"><span class="pre">sf_nb2</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.sf_nb2" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.lim_am0">
+<span class="sig-name descname"><span class="pre">lim_am0</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.lim_am0" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.lim_am1">
+<span class="sig-name descname"><span class="pre">lim_am1</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.lim_am1" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.lim_am2">
+<span class="sig-name descname"><span class="pre">lim_am2</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.lim_am2" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.lim_am3">
+<span class="sig-name descname"><span class="pre">lim_am3</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.lim_am3" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.lim_am4">
+<span class="sig-name descname"><span class="pre">lim_am4</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.lim_am4" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.lim_am5">
+<span class="sig-name descname"><span class="pre">lim_am5</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.lim_am5" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsParameters.lim_am6">
+<span class="sig-name descname"><span class="pre">lim_am6</span></span><a class="headerlink" href="#closures.k_epsilon.KepsParameters.lim_am6" title="Link to this definition"></a></dt>
+<dd><p>Limitation coefficient for <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> computed from the
+parameters <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a> (not a parameter, computed from the above attributes)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">KepsState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keps_params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#KepsState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.KepsState" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ClosureStateAbstract</span></code></p>
+<p>Define the state of the water column for the <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> model.</p>
+<p>The first initilisation is done from the minimal values of the different
+variables given in an instance of :class:’KepsParameters`.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grid</strong> (<a class="reference internal" href="../space.html#space.Grid" title="space.Grid"><em>Grid</em></a>) – cf. attribute.</p></li>
+<li><p><strong>keps_params</strong> (<a class="reference internal" href="#closures.k_epsilon.KepsParameters" title="closures.k_epsilon.KepsParameters"><em>KepsParameters</em></a>) – Used to define the initialization values of the variables.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState.grid">
+<span class="sig-name descname"><span class="pre">grid</span></span><a class="headerlink" href="#closures.k_epsilon.KepsState.grid" title="Link to this definition"></a></dt>
+<dd><p>Geometry of the water column, should be the same than for the
+<a class="reference internal" href="../space.html#space.State" title="space.State"><code class="xref py py-class docutils literal notranslate"><span class="pre">State</span></code></a> instance used in the model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../space.html#space.Grid" title="space.Grid">Grid</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState.akt">
+<span class="sig-name descname"><span class="pre">akt</span></span><a class="headerlink" href="#closures.k_epsilon.KepsState.akt" title="Link to this definition"></a></dt>
+<dd><p>Eddy-diffusivity on the interfaces of the cells
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-1}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState.akv">
+<span class="sig-name descname"><span class="pre">akv</span></span><a class="headerlink" href="#closures.k_epsilon.KepsState.akv" title="Link to this definition"></a></dt>
+<dd><p>Eddy-viscosity on the interfaces of the cells
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-1}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState.tke">
+<span class="sig-name descname"><span class="pre">tke</span></span><a class="headerlink" href="#closures.k_epsilon.KepsState.tke" title="Link to this definition"></a></dt>
+<dd><p>Turbulent kinetic energy (TKE) denoted <span class="math notranslate nohighlight">\(k\)</span> on the interfaces of
+the cells <span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState.eps">
+<span class="sig-name descname"><span class="pre">eps</span></span><a class="headerlink" href="#closures.k_epsilon.KepsState.eps" title="Link to this definition"></a></dt>
+<dd><p>TKE dissipation denoted <span class="math notranslate nohighlight">\(\varepsilon\)</span> on the interfaces of the
+cells <span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState.c_mu">
+<span class="sig-name descname"><span class="pre">c_mu</span></span><a class="headerlink" href="#closures.k_epsilon.KepsState.c_mu" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(c_\mu\)</span> in GLS formalisim on the interfaces of the cells
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="closures.k_epsilon.KepsState.c_mu_prim">
+<span class="sig-name descname"><span class="pre">c_mu_prim</span></span><a class="headerlink" href="#closures.k_epsilon.KepsState.c_mu_prim" title="Link to this definition"></a></dt>
+<dd><p><span class="math notranslate nohighlight">\(c_\mu'\)</span> in GLS formalisim on the interfaces of the cells
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="closures.k_epsilon.keps_step">
+<span class="sig-name descname"><span class="pre">keps_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keps_state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keps_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#keps_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.keps_step" title="Link to this definition"></a></dt>
+<dd><p>Run one time-step of the <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> closure.</p>
+<p>The purpose of this function is to get the eddy-diffusivity and
+eddy-viscosity at the next time-step. It works in 3 steps</p>
+<ol class="arabic simple">
+<li><p>The Brunt–Väisälä frequency and the shear is computed from the
+<code class="code docutils literal notranslate"><span class="pre">state</span></code> and the boundary conditions are computed.</p></li>
+<li><p>The equations on <span class="math notranslate nohighlight">\(k\)</span> and <span class="math notranslate nohighlight">\(\varepsilon\)</span> are solved and their
+values are computed for the next time step.</p></li>
+<li><p>The eddy-diffusivity and viscosity are computed as diagnostic variables
+and the <span class="math notranslate nohighlight">\(keps_state\)</span> is updated.</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<a class="reference internal" href="../space.html#space.State" title="space.State"><em>State</em></a>) – Current state of the water column.</p></li>
+<li><p><strong>keps_state</strong> (<a class="reference internal" href="#closures.k_epsilon.KepsState" title="closures.k_epsilon.KepsState"><em>KepsState</em></a>) – Current state of the water column for the variables used by
+<span class="math notranslate nohighlight">\(k-\varepsilon\)</span>.</p></li>
+<li><p><strong>dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Time-step of the forward model <span class="math notranslate nohighlight">\([\text s]\)</span>.</p></li>
+<li><p><strong>keps_params</strong> (<a class="reference internal" href="#closures.k_epsilon.KepsParameters" title="closures.k_epsilon.KepsParameters"><em>KepsParameters</em></a>) – Values of the parameters used by <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> (time-
+independant).</p></li>
+<li><p><strong>case</strong> (<a class="reference internal" href="../case.html#case.Case" title="case.Case"><em>Case</em></a>) – Physical parameters and forcings of the model run.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>keps_state</strong> – State of the water column for the variables used by
+<span class="math notranslate nohighlight">\(k-\varepsilon\)</span> at the next time-step.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#closures.k_epsilon.KepsState" title="closures.k_epsilon.KepsState">KepsState</a></p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This function is jitted with JAX, it should make it faster, but the
+<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.jit.html#jax.jit" title="(in JAX)"><code class="xref py py-func docutils literal notranslate"><span class="pre">jit()</span></code></a> decorator can be removed.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="closures.k_epsilon.compute_rho_eos">
+<span class="sig-name descname"><span class="pre">compute_rho_eos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#compute_rho_eos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.compute_rho_eos" title="Link to this definition"></a></dt>
+<dd><p>Compute density anomaly and Brunt–Väisälä frequency.</p>
+<p>Prognostic computation via linear Equation Of State (EOS) :</p>
+<p><span class="math notranslate nohighlight">\(\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))\)</span></p>
+<p><span class="math notranslate nohighlight">\(N^2 = - \dfrac g {\rho_0} \partial_z \rho\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Temperature on the center of the cells <span class="math notranslate nohighlight">\([° \text C]\)</span>.</p></li>
+<li><p><strong>s</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Salinity on the center of the cells <span class="math notranslate nohighlight">\([\text{psu}]\)</span>.</p></li>
+<li><p><strong>zr</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Depths of cell centers from deepest to shallowest <span class="math notranslate nohighlight">\([\text m]\)</span></p></li>
+<li><p><strong>case</strong> (<a class="reference internal" href="../case.html#case.Case" title="case.Case"><em>Case</em></a>) – Physical parameters and forcings of the model run.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Float[Array,</span> <span class="pre">'nz+1']</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Float[Array,</span> <span class="pre">'nz']</span></code>]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>bvf</strong> (<em>Float[Array, ‘nz+1’]</em>) – Brunt–Väisälä frequency squared <span class="math notranslate nohighlight">\(N^2\)</span> on cell interfaces
+<span class="math notranslate nohighlight">\(\left[\text s^{-2}\right]\)</span>.</p></li>
+<li><p><strong>rho</strong> (<em>Float[Array, ‘nz’]</em>) – Density anomaly <span class="math notranslate nohighlight">\(\rho\)</span> on cell interfaces
+<span class="math notranslate nohighlight">\(\left[\text {kg} \cdot \text m^{-3}\right]\)</span></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="closures.k_epsilon.compute_shear">
+<span class="sig-name descname"><span class="pre">compute_shear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u_n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_np1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_np1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zr</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#compute_shear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.compute_shear" title="Link to this definition"></a></dt>
+<dd><p>Compute shear production term for TKE equation.</p>
+<p>The prognostic equations are</p>
+<p><span class="math notranslate nohighlight">\(S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}\)</span></p>
+<p>where <span class="math notranslate nohighlight">\(U^{n+1/2}\)</span> is the mean between <span class="math notranslate nohighlight">\(U^n\)</span> and
+<span class="math notranslate nohighlight">\(U^{n+1}\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>u_n</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Current zonal velocity on the center of the cells
+<span class="math notranslate nohighlight">\(\left[\text m \cdot \text s^{-1}\right]\)</span>.</p></li>
+<li><p><strong>v_n</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Current meridional velocity on the center of the cells
+<span class="math notranslate nohighlight">\(\left[\text m \cdot \text s^{-1}\right]\)</span>.</p></li>
+<li><p><strong>u_np1</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Zonal velocity on the center of the cells at the next time step
+<span class="math notranslate nohighlight">\(\left[\text m \cdot \text s^{-1}\right]\)</span>.</p></li>
+<li><p><strong>v_np1</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Meridional velocity on the center of the cells at the next time step
+<span class="math notranslate nohighlight">\(\left[\text m \cdot \text s^{-1}\right]\)</span>.</p></li>
+<li><p><strong>zr</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Depths of cell centers from deepest to shallowest <span class="math notranslate nohighlight">\([\text m]\)</span></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>shear2</strong> – Shear production squared <span class="math notranslate nohighlight">\(S_h^2\)</span> on cell interfaces
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="closures.k_epsilon.compute_tke_eps_bc">
+<span class="sig-name descname"><span class="pre">compute_tke_eps_bc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tke</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keps_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">case</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#compute_tke_eps_bc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.compute_tke_eps_bc" title="Link to this definition"></a></dt>
+<dd><p>Compute top and bottom boundary conditions for TKE and <span class="math notranslate nohighlight">\(\varepsilon\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tke</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Turbulent kinetic energy (TKE) denoted <span class="math notranslate nohighlight">\(k\)</span> on the interfaces of
+the cells <span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span>.</p></li>
+<li><p><strong>hz</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Thickness of cells from deepest to shallowest <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>keps_params</strong> (<a class="reference internal" href="#closures.k_epsilon.KepsParameters" title="closures.k_epsilon.KepsParameters"><em>KepsParameters</em></a>) – Values of the parameters used by <span class="math notranslate nohighlight">\(k-\varepsilon\)</span>.</p></li>
+<li><p><strong>case</strong> (<a class="reference internal" href="../case.html#case.Case" title="case.Case"><em>Case</em></a>) – Physical parameters and forcings of the model run.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>tke_sfc_bc</strong> (<em>float</em>) – TKE value for surface boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-3}\right]\)</span>).</p></li>
+<li><p><strong>tke_btm_bc</strong> (<em>float</em>) – TKE value for bottom boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-3}\right]\)</span>).</p></li>
+<li><p><strong>eps_sfc_bc</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(\varepsilon\)</span> value for surface boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-4}\right]\)</span>).</p></li>
+<li><p><strong>eps_btm_bc</strong> (<em>float</em>) – <span class="math notranslate nohighlight">\(\varepsilon\)</span> value for surface boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-4}\right]\)</span>).</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The kind of boundary conditions between Neumann and Dirichlet are register
+in the parameters <code class="code docutils literal notranslate"><span class="pre">keps_params</span></code>.</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="closures.k_epsilon.advance_turb">
+<span class="sig-name descname"><span class="pre">advance_turb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">akt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">akv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tke</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tke_np1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_mu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">c_mu_prim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bvf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shear2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tke_sfc_bc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tke_btm_bc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_sfc_bc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps_btm_bc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keps_params</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_tke</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#advance_turb"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.advance_turb" title="Link to this definition"></a></dt>
+<dd><p>Integrate TKE or <span class="math notranslate nohighlight">\(\varepsilon\)</span> quantities.</p>
+<p>First the shear and buoyancy production are computed, then they are used in
+the building of the tridiagonal problem, the boundary conditions are then
+added and finally the tridiagonal problem is solved.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>akt</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current eddy-diffusivity on the interfaces of the cells
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-1}\right]\)</span>.</p></li>
+<li><p><strong>akv</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current eddy-viscosity on the interfaces of the cells
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-1}\right]\)</span>.</p></li>
+<li><p><strong>tke</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current turbulent kinetic energy (TKE) denoted <span class="math notranslate nohighlight">\(k\)</span> on the
+interfaces of the cells
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span>.</p></li>
+<li><p><strong>tke_np1</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Turbulent kinetic energy (TKE) denoted <span class="math notranslate nohighlight">\(k\)</span> on the interfaces of
+the cells at next step (usefull only for <span class="math notranslate nohighlight">\(\varepsilon\)</span>
+integration) <span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span>.</p></li>
+<li><p><strong>eps</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current TKE dissipation denoted <span class="math notranslate nohighlight">\(\varepsilon\)</span> on the interfaces
+of the cells <span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span>.</p></li>
+<li><p><strong>c_mu</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current <span class="math notranslate nohighlight">\(c_\mu\)</span> in GLS formalisim on the interfaces of the cells
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p></li>
+<li><p><strong>c_mu_prim</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current <span class="math notranslate nohighlight">\(c_\mu'\)</span> in GLS formalisim on the interfaces of the cells
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p></li>
+<li><p><strong>bvf</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>(</em><em>nz+1</em><em>)</em>) – Current Brunt–Väisälä frequency squared <span class="math notranslate nohighlight">\(N^2\)</span> on cell interfaces
+<span class="math notranslate nohighlight">\(\left[\text s^{-2}\right]\)</span>.</p></li>
+<li><p><strong>shear2</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current shear production squared <span class="math notranslate nohighlight">\(S_h^2\)</span> on cell interfaces
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span>.</p></li>
+<li><p><strong>hz</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – Thickness of cells from deepest to shallowest <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>dt</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Time-step of the forward model <span class="math notranslate nohighlight">\([\text s]\)</span>.</p></li>
+<li><p><strong>tke_sfc_bc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – TKE value for surface boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-3}\right]\)</span>).</p></li>
+<li><p><strong>tke_btm_bc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – TKE value for bottom boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-3}\right]\)</span>).</p></li>
+<li><p><strong>eps_sfc_bc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <span class="math notranslate nohighlight">\(\varepsilon\)</span> value for surface boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-4}\right]\)</span>).</p></li>
+<li><p><strong>eps_btm_bc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <span class="math notranslate nohighlight">\(\varepsilon\)</span> value for surface boundary condition (Dirichlet
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span> or Neumann
+<span class="math notranslate nohighlight">\(\left[\text m ^3 \cdot \text s ^{-4}\right]\)</span>).</p></li>
+<li><p><strong>keps_params</strong> (<a class="reference internal" href="#closures.k_epsilon.KepsParameters" title="closures.k_epsilon.KepsParameters"><em>KepsParameters</em></a>) – Values of the parameters used by <span class="math notranslate nohighlight">\(k-\varepsilon\)</span>.</p></li>
+<li><p><strong>do_tke</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – If <code class="code docutils literal notranslate"><span class="pre">True</span></code> solve the equation for TKE, else for
+<span class="math notranslate nohighlight">\(\varepsilon\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>vec</strong> – TKE or <span class="math notranslate nohighlight">\(\varepsilon\)</span> at next step (depending on <code class="code docutils literal notranslate"><span class="pre">do_tke</span></code>).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="closures.k_epsilon.compute_diag">
+<span class="sig-name descname"><span class="pre">compute_diag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tke</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bvf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shear2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keps_params</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/closures/k_epsilon.html#compute_diag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#closures.k_epsilon.compute_diag" title="Link to this definition"></a></dt>
+<dd><p>Computes the diagnostic variables of <span class="math notranslate nohighlight">\(k-\varepsilon\)</span> closure.</p>
+<p>This function first apply the Galperin limitation, then it computes
+<span class="math notranslate nohighlight">\(c_\mu'\)</span> and <span class="math notranslate nohighlight">\(c_\mu\)</span> with the stability function, and finally
+it computes the eddy-diffusivity and viscosity with these variables.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tke</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Turbulent kinetic energy (TKE) denoted <span class="math notranslate nohighlight">\(k\)</span> on the interfaces of
+the cells at next step
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-2}\right]\)</span>.</p></li>
+<li><p><strong>eps</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – TKE dissipation denoted <span class="math notranslate nohighlight">\(\varepsilon\)</span> on the interfaces of the
+cells at next step <span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span>.</p></li>
+<li><p><strong>bvf</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current Brunt–Väisälä frequency squared <span class="math notranslate nohighlight">\(N^2\)</span> on cell interfaces
+<span class="math notranslate nohighlight">\(\left[\text s^{-2}\right]\)</span>.</p></li>
+<li><p><strong>shear2</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – Current shear production squared <span class="math notranslate nohighlight">\(S_h^2\)</span> on cell interfaces
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span>.</p></li>
+<li><p><strong>keps_params</strong> (<a class="reference internal" href="#closures.k_epsilon.KepsParameters" title="closures.k_epsilon.KepsParameters"><em>KepsParameters</em></a>) – Values of the parameters used by <span class="math notranslate nohighlight">\(k-\varepsilon\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Float[Array,</span> <span class="pre">'nz+1']</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Float[Array,</span> <span class="pre">'nz+1']</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Float[Array,</span> <span class="pre">'nz+1']</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Float[Array,</span> <span class="pre">'nz+1']</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Float[Array,</span> <span class="pre">'nz+1']</span></code>]</span></p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>akt</strong> (<em>Float[Array, ‘nz+1’]</em>) – Eddy-diffusivity on the interfaces of the cells at next step
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-1}\right]\)</span>.</p></li>
+<li><p><strong>akv</strong> (<em>Float[Array, ‘nz+1’]</em>) – Eddy-viscosity on the interfaces of the cells at next step
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-1}\right]\)</span>.</p></li>
+<li><p><strong>eps</strong> (<em>Float[Array, ‘nz+1’]</em>) – TKE dissipation denoted <span class="math notranslate nohighlight">\(\varepsilon\)</span> on the interfaces
+of the cells at next step
+<span class="math notranslate nohighlight">\(\left[\text m ^2 \cdot \text s ^{-3}\right]\)</span>.</p></li>
+<li><p><strong>c_mu</strong> (<em>Float[Array, ‘nz+1’]</em>) – <span class="math notranslate nohighlight">\(c_\mu\)</span> in GLS formalisim on the interfaces of the cells at next
+step <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p></li>
+<li><p><strong>c_mu_prim</strong> (<em>Float[Array, ‘nz+1’]</em>) – <span class="math notranslate nohighlight">\(c_\mu'\)</span> in GLS formalisim on the interfaces of the cells at next
+step <span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../closures.html" class="btn btn-neutral float-left" title="Closures implementations" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Gabriel Mouttapa.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
