@@ -1,0 +1,676 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>space &mdash; tunax 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=7ab3649f" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="case" href="case.html" />
+    <link rel="prev" title="API" href="../api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            tunax
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Examples</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">API</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">space</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#space.Grid"><code class="docutils literal notranslate"><span class="pre">Grid</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.nz"><code class="docutils literal notranslate"><span class="pre">Grid.nz</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.hbot"><code class="docutils literal notranslate"><span class="pre">Grid.hbot</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.zr"><code class="docutils literal notranslate"><span class="pre">Grid.zr</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.zw"><code class="docutils literal notranslate"><span class="pre">Grid.zw</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.hz"><code class="docutils literal notranslate"><span class="pre">Grid.hz</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.find_index"><code class="docutils literal notranslate"><span class="pre">Grid.find_index()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.linear"><code class="docutils literal notranslate"><span class="pre">Grid.linear()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.analytic"><code class="docutils literal notranslate"><span class="pre">Grid.analytic()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.orca75"><code class="docutils literal notranslate"><span class="pre">Grid.orca75()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Grid.load"><code class="docutils literal notranslate"><span class="pre">Grid.load()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#space.State"><code class="docutils literal notranslate"><span class="pre">State</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.grid"><code class="docutils literal notranslate"><span class="pre">State.grid</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.u"><code class="docutils literal notranslate"><span class="pre">State.u</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.v"><code class="docutils literal notranslate"><span class="pre">State.v</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.t"><code class="docutils literal notranslate"><span class="pre">State.t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.s"><code class="docutils literal notranslate"><span class="pre">State.s</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.zeros"><code class="docutils literal notranslate"><span class="pre">State.zeros()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.init_u"><code class="docutils literal notranslate"><span class="pre">State.init_u()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.init_v"><code class="docutils literal notranslate"><span class="pre">State.init_v()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.init_t"><code class="docutils literal notranslate"><span class="pre">State.init_t()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.State.init_s"><code class="docutils literal notranslate"><span class="pre">State.init_s()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#space.Trajectory"><code class="docutils literal notranslate"><span class="pre">Trajectory</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.grid"><code class="docutils literal notranslate"><span class="pre">Trajectory.grid</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.time"><code class="docutils literal notranslate"><span class="pre">Trajectory.time</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.u"><code class="docutils literal notranslate"><span class="pre">Trajectory.u</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.v"><code class="docutils literal notranslate"><span class="pre">Trajectory.v</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.t"><code class="docutils literal notranslate"><span class="pre">Trajectory.t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.s"><code class="docutils literal notranslate"><span class="pre">Trajectory.s</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.to_ds"><code class="docutils literal notranslate"><span class="pre">Trajectory.to_ds()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#space.Trajectory.extract_state"><code class="docutils literal notranslate"><span class="pre">Trajectory.extract_state()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="case.html">case</a></li>
+<li class="toctree-l2"><a class="reference internal" href="functions.html">functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="closure.html">closure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="closures_registry.html">closures_registry</a></li>
+<li class="toctree-l2"><a class="reference internal" href="model.html">model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="database.html">database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fitter.html">fitter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="closures.html">Closures implementations</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">tunax</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../api.html">API</a></li>
+      <li class="breadcrumb-item active">space</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/rst_files/api/space.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-space">
+<span id="space"></span><h1>space<a class="headerlink" href="#module-space" title="Link to this heading"></a></h1>
+<p>Geometry and variables of the model.</p>
+<p>This module contains the objects that are used in Tunax to describe the
+geometry of the water column in <a class="reference internal" href="#space.Grid" title="space.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a>, the variables of the water
+column at one time-step in <a class="reference internal" href="#space.State" title="space.State"><code class="xref py py-class docutils literal notranslate"><span class="pre">State</span></code></a> and the time-series of the model
+computation in <code class="xref py py-class docutils literal notranslate"><span class="pre">Trajectories</span></code>. These classes can be obtained by the
+prefix <code class="code docutils literal notranslate"><span class="pre">tunax.space.</span></code> or directly by <code class="code docutils literal notranslate"><span class="pre">tunax.</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="space.Grid">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">zr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zw</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Grid" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>One dimensional spatial geometry of a water column.</p>
+<p>This mesh is made up of a number of <a class="reference internal" href="#space.Grid.nz" title="space.Grid.nz"><code class="xref py py-attr docutils literal notranslate"><span class="pre">nz</span></code></a> of cells (<a class="reference internal" href="#space.Grid.zr" title="space.Grid.zr"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zr</span></code></a>) of
+potentially varying thickness (<a class="reference internal" href="#space.Grid.hz" title="space.Grid.hz"><code class="xref py py-attr docutils literal notranslate"><span class="pre">hz</span></code></a>), separated by interface points
+(<a class="reference internal" href="#space.Grid.zw" title="space.Grid.zw"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zw</span></code></a>) and extending from the ocean surface at a depth of <span class="math notranslate nohighlight">\(0\)</span>
+to the ocean floor at a depth of <a class="reference internal" href="#space.Grid.hbot" title="space.Grid.hbot"><code class="xref py py-attr docutils literal notranslate"><span class="pre">hbot</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>zr</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz'</em><em>]</em>) – cf. attribute.</p></li>
+<li><p><strong>zw</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nz+1'</em><em>]</em>) – cf. attribute.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Grid.nz">
+<span class="sig-name descname"><span class="pre">nz</span></span><a class="headerlink" href="#space.Grid.nz" title="Link to this definition"></a></dt>
+<dd><p>Number of cells.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Grid.hbot">
+<span class="sig-name descname"><span class="pre">hbot</span></span><a class="headerlink" href="#space.Grid.hbot" title="Link to this definition"></a></dt>
+<dd><p>Depth of the water column <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)">float</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Grid.zr">
+<span class="sig-name descname"><span class="pre">zr</span></span><a class="headerlink" href="#space.Grid.zr" title="Link to this definition"></a></dt>
+<dd><p>Depths of cell centers from deepest to shallowest <span class="math notranslate nohighlight">\([\text m]\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Grid.zw">
+<span class="sig-name descname"><span class="pre">zw</span></span><a class="headerlink" href="#space.Grid.zw" title="Link to this definition"></a></dt>
+<dd><p>Depths of cell interfaces from deepest to shallowest <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz+1’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Grid.hz">
+<span class="sig-name descname"><span class="pre">hz</span></span><a class="headerlink" href="#space.Grid.hz" title="Link to this definition"></a></dt>
+<dd><p>Thickness of cells from deepest to shallowest <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The constructor <code class="code docutils literal notranslate"><span class="pre">__init__</span></code> takes only <a class="reference internal" href="#space.Grid.zr" title="space.Grid.zr"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zr</span></code></a> and <a class="reference internal" href="#space.Grid.zw" title="space.Grid.zw"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zw</span></code></a> as
+as arguments and construct the other attributes from them. The centers of
+the cells <a class="reference internal" href="#space.Grid.zr" title="space.Grid.zr"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zr</span></code></a> are not necessarly the middle between the interfaces
+<a class="reference internal" href="#space.Grid.zw" title="space.Grid.zw"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zw</span></code></a>.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="space.Grid.find_index">
+<span class="sig-name descname"><span class="pre">find_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Grid.find_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Grid.find_index" title="Link to this definition"></a></dt>
+<dd><p>Find the index of a depth.</p>
+<p>Find the index <code class="code docutils literal notranslate"><span class="pre">i</span></code> so that the depth <code class="code docutils literal notranslate"><span class="pre">h</span></code> is in cell
+<code class="code docutils literal notranslate"><span class="pre">i</span></code>, which means <span class="math notranslate nohighlight">\(z^w_i \leqslant -h \leqslant z^w_{i+1}\)</span>
+if <span class="math notranslate nohighlight">\(h \leqslant 0\)</span> and <span class="math notranslate nohighlight">\(i=-1\)</span> if <span class="math notranslate nohighlight">\(h&gt;0\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>h</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>positive</em>) – The depth to search the index <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>i</strong> – The index corresponding to the depth <code class="code docutils literal notranslate"><span class="pre">h</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.Grid.linear">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">linear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbot</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Grid.linear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Grid.linear" title="Link to this definition"></a></dt>
+<dd><p>Creates a grid with equal thickness cells.</p>
+<p>The grid instance will have <a class="reference internal" href="#space.Grid.nz" title="space.Grid.nz"><code class="xref py py-attr docutils literal notranslate"><span class="pre">nz</span></code></a> cells of equal thickness for a
+depth of <a class="reference internal" href="#space.Grid.hbot" title="space.Grid.hbot"><code class="xref py py-attr docutils literal notranslate"><span class="pre">hbot</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Number of cells.</p></li>
+<li><p><strong>hbot</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>positive</em>) – Depth of the water column <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#space.Grid" title="space.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.Grid.analytic">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">analytic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nz</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hbot</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Grid.analytic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Grid.analytic" title="Link to this definition"></a></dt>
+<dd><p>Creates a grid of type analytic.</p>
+<p>The grid instance will have a depth of <a class="reference internal" href="#space.Grid.hbot" title="space.Grid.hbot"><code class="xref py py-attr docutils literal notranslate"><span class="pre">hbot</span></code></a> and <a class="reference internal" href="#space.Grid.nz" title="space.Grid.nz"><code class="xref py py-attr docutils literal notranslate"><span class="pre">nz</span></code></a>
+cells of thickness almost equals above <code class="code docutils literal notranslate"><span class="pre">hc</span></code> and wider under, the
+strecht parameter being defined by <code class="code docutils literal notranslate"><span class="pre">theta</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nz</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – Number of cells.</p></li>
+<li><p><strong>hbot</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>positive</em>) – Depth of the water column <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>hc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>positive</em>) – Reference depth <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>theta</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=6.5</em>) – Stretching parameter toward the surface
+<span class="math notranslate nohighlight">\([\text{dimensionless}]\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#space.Grid" title="space.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.Grid.orca75">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">orca75</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hbot</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Grid.orca75"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Grid.orca75" title="Link to this definition"></a></dt>
+<dd><p>Creates the ORCA 75 grid from NEMO.</p>
+<p>The whole grid is created then levels between the depth <a class="reference internal" href="#space.Grid.hbot" title="space.Grid.hbot"><code class="xref py py-attr docutils literal notranslate"><span class="pre">hbot</span></code></a>
+and <span class="math notranslate nohighlight">\(0\)</span> are extracted.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>hbot</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>positive</em>) – Depth of the water column <span class="math notranslate nohighlight">\([\text m]\)</span>.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#space.Grid" title="space.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.Grid.load">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Grid.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Grid.load" title="Link to this definition"></a></dt>
+<dd><p>Creates the grid defined by a dataset <code class="code docutils literal notranslate"><span class="pre">ds</span></code> of an observation.</p>
+<p>The dataset must be formated to have the variables corresponding to
+<a class="reference internal" href="#space.Grid.zr" title="space.Grid.zr"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zr</span></code></a> and <a class="reference internal" href="#space.Grid.zw" title="space.Grid.zw"><code class="xref py py-attr docutils literal notranslate"><span class="pre">zw</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ds</strong> (<a class="reference external" href="https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html#xarray.Dataset" title="(in xarray v2024.10.1.dev0)"><em>xarray.Dataset</em></a>) – Dataset from which to extract the grid.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><a class="reference internal" href="#space.Grid" title="space.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="space.State">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">State</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#State"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.State" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Water column state at one time-step.</p>
+<p>This state is defined on a <a class="reference internal" href="#space.State.grid" title="space.State.grid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">grid</span></code></a> describing the geometry, and is
+composed of the variables of the water column : the values of the momentum
+and the tracers on this <a class="reference internal" href="#space.State.grid" title="space.State.grid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">grid</span></code></a>. The call of the constructor build a
+state on the <a class="reference internal" href="#space.State.grid" title="space.State.grid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">grid</span></code></a> with all the variables set to <span class="math notranslate nohighlight">\(0\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grid</strong> (<a class="reference internal" href="#space.Grid" title="space.Grid"><em>Grid</em></a>) – cf. attribute.</p></li>
+<li><p><strong>u</strong> (<em>Float</em><em>[</em><em>Array</em><em>, </em><em>'nz'</em><em>]</em>)</p></li>
+<li><p><strong>v</strong> (<em>Float</em><em>[</em><em>Array</em><em>, </em><em>'nz'</em><em>]</em>)</p></li>
+<li><p><strong>t</strong> (<em>Float</em><em>[</em><em>Array</em><em>, </em><em>'nz'</em><em>]</em>)</p></li>
+<li><p><strong>s</strong> (<em>Float</em><em>[</em><em>Array</em><em>, </em><em>'nz'</em><em>]</em>)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.State.grid">
+<span class="sig-name descname"><span class="pre">grid</span></span><a class="headerlink" href="#space.State.grid" title="Link to this definition"></a></dt>
+<dd><p>Geometry of the water column.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.Grid" title="space.Grid">Grid</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.State.u">
+<span class="sig-name descname"><span class="pre">u</span></span><a class="headerlink" href="#space.State.u" title="Link to this definition"></a></dt>
+<dd><p>Zonal velocity on the center of the cells <span class="math notranslate nohighlight">\(\left[\text m \cdot
+\text s^{-1}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.State.v">
+<span class="sig-name descname"><span class="pre">v</span></span><a class="headerlink" href="#space.State.v" title="Link to this definition"></a></dt>
+<dd><p>Meridional velocity on the center of the cells <span class="math notranslate nohighlight">\(\left[\text m
+\cdot \text s^{-1}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.State.t">
+<span class="sig-name descname"><span class="pre">t</span></span><a class="headerlink" href="#space.State.t" title="Link to this definition"></a></dt>
+<dd><p>Temperature on the center of the cells <span class="math notranslate nohighlight">\([° \text C]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.State.s">
+<span class="sig-name descname"><span class="pre">s</span></span><a class="headerlink" href="#space.State.s" title="Link to this definition"></a></dt>
+<dd><p>Salinity on the center of the cells <span class="math notranslate nohighlight">\([\text{psu}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.State.zeros">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">zeros</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#State.zeros"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.State.zeros" title="Link to this definition"></a></dt>
+<dd><p>Initialize an instance with all variables equals to zero from a grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>grid</strong> (<a class="reference internal" href="#space.Grid" title="space.Grid"><em>Grid</em></a>) – Geometry of the water column.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>state</strong> – An instance defined on the grid with all variables set to 0.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.State" title="space.State">State</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.State.init_u">
+<span class="sig-name descname"><span class="pre">init_u</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hmxl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u_sfc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#State.init_u"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.State.init_u" title="Link to this definition"></a></dt>
+<dd><p>Initialize zonal velocity with a classical wind stratification.</p>
+<p>Return a State object where <a class="reference internal" href="#space.State.u" title="space.State.u"><code class="xref py py-attr docutils literal notranslate"><span class="pre">u</span></code></a> is continuous and linear by part
+<span class="math notranslate nohighlight">\(u(z) = \begin{cases}
+0 &amp; \text{if } z &lt; h_{\text{mxl}}\\
+u_{\text{sfc}} \left( 1 - \dfrac z {h_{\text{mxl}}}\right) &amp;
+\text{else} \end{cases}\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hmxl</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=20.</em>) – Mixed layer depth <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>u_sfc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.</em>) – Surface zonal velocity <span class="math notranslate nohighlight">\(\left[\text m \cdot \text
+s^{-1}\right]\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>state</strong> – The <code class="code docutils literal notranslate"><span class="pre">self</span></code> object with the the new value of zonal velocity.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.State" title="space.State">State</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.State.init_v">
+<span class="sig-name descname"><span class="pre">init_v</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hmxl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v_sfc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#State.init_v"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.State.init_v" title="Link to this definition"></a></dt>
+<dd><p>Initialize meridional velocity with a classical wind stratification.</p>
+<p>Return a State object where <a class="reference internal" href="#space.State.v" title="space.State.v"><code class="xref py py-attr docutils literal notranslate"><span class="pre">v</span></code></a> is continuous and linear by part
+<span class="math notranslate nohighlight">\(v(z) = \begin{cases}
+0 &amp; \text{if } z &lt; h_{\text{mxl}}\\
+v_{\text{sfc}} \left( 1 - \dfrac z {h_{\text{mxl}}}\right) &amp;
+\text{else} \end{cases}\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hmxl</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=20.</em>) – Mixed layer depth <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>u_sfc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=0.</em>) – Surface meridional velocity <span class="math notranslate nohighlight">\(\left[\text m \cdot \text
+s^{-1}\right]\)</span>.</p></li>
+<li><p><strong>v_sfc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>state</strong> – The <code class="code docutils literal notranslate"><span class="pre">self</span></code> object with the the new value of meridional
+velocity.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.State" title="space.State">State</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.State.init_t">
+<span class="sig-name descname"><span class="pre">init_t</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hmxl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_sfc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">21.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strat_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.051</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#State.init_t"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.State.init_t" title="Link to this definition"></a></dt>
+<dd><p>Initialize temperature with a classical tracer stratification.</p>
+<p>Return a State object where <a class="reference internal" href="#space.State.t" title="space.State.t"><code class="xref py py-attr docutils literal notranslate"><span class="pre">t</span></code></a> is linear by part and continous
+<span class="math notranslate nohighlight">\(T(z) = \begin{cases}
+t_{\text{sfc}} + S_T(z-h_{\text{mxl}}) &amp; \text{if } z &lt;
+h_{\text{mxl}}\\
+t_{\text{sfc}} &amp; \text{else}
+\end{cases}\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hmxl</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=20.</em>) – Mixed layer depth <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>t_sfc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=21.</em>) – Surface temperature <span class="math notranslate nohighlight">\([° \text C]\)</span>.</p></li>
+<li><p><strong>strat_t</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=5.1e-2</em>) – Thermal stratification above the mixed layer noted by <span class="math notranslate nohighlight">\(S_T\)</span>
+<span class="math notranslate nohighlight">\([\text K \cdot \text m ^{-1}]\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>state</strong> – The <code class="code docutils literal notranslate"><span class="pre">self</span></code> object with the the new value of temperature.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.State" title="space.State">State</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.State.init_s">
+<span class="sig-name descname"><span class="pre">init_s</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hmxl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s_sfc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">35.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strat_s</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.013</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#State.init_s"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.State.init_s" title="Link to this definition"></a></dt>
+<dd><p>Initialize salinity with a classical tracer stratification.</p>
+<p>Return a State object where <a class="reference internal" href="#space.State.s" title="space.State.s"><code class="xref py py-attr docutils literal notranslate"><span class="pre">s</span></code></a> is linear by part and continous
+<span class="math notranslate nohighlight">\(S(z) = \begin{cases}
+s_{\text{sfc}} + S_S(z-h_{\text{mxl}}) &amp; \text{if } z &lt;
+h_{\text{mxl}}\\
+s_{\text{sfc}} &amp; \text{else}
+\end{cases}\)</span></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hmxl</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=20.</em>) – Mixed layer depth <span class="math notranslate nohighlight">\([\text m]\)</span>.</p></li>
+<li><p><strong>s_sfc</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=21.</em>) – Surface salinity <span class="math notranslate nohighlight">\([\text{psu}]\)</span>.</p></li>
+<li><p><strong>strat_t</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em>, </em><em>default=5.1e-2</em>) – Salinity stratification above the mixed layer noted by <span class="math notranslate nohighlight">\(S_T\)</span>
+<span class="math notranslate nohighlight">\([\text{psu} \cdot \text m ^{-1}]\)</span>.</p></li>
+<li><p><strong>strat_s</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>state</strong> – The <code class="code docutils literal notranslate"><span class="pre">self</span></code> object with the the new value of temperature.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.State" title="space.State">State</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="space.Trajectory">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Trajectory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Trajectory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Trajectory" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></p>
+<p>Define the history of a simulation or an observation.</p>
+<p>Contains the timeseries of the momentum and the tracers throught the space
+of the <a class="reference internal" href="#space.Trajectory.grid" title="space.Trajectory.grid"><code class="xref py py-attr docutils literal notranslate"><span class="pre">grid</span></code></a> and the <a class="reference internal" href="#space.Trajectory.time" title="space.Trajectory.time"><code class="xref py py-attr docutils literal notranslate"><span class="pre">time</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>grid</strong> (<a class="reference internal" href="#space.Grid" title="space.Grid"><em>Grid</em></a>) – cf. attribute.</p></li>
+<li><p><strong>time</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nt'</em><em>]</em>) – cf. attribute.</p></li>
+<li><p><strong>u</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nt nz'</em><em>]</em>) – cf. attribute.</p></li>
+<li><p><strong>v</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nt nz'</em><em>]</em>) – cf. attribute.</p></li>
+<li><p><strong>t</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nt nz'</em><em>]</em>) – cf. attribute.</p></li>
+<li><p><strong>s</strong> (<em>Float</em><em>[</em><a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a><em>, </em><em>'nt nz'</em><em>]</em>) – cf. attribute.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Trajectory.grid">
+<span class="sig-name descname"><span class="pre">grid</span></span><a class="headerlink" href="#space.Trajectory.grid" title="Link to this definition"></a></dt>
+<dd><p>Geometry of the water column.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.Grid" title="space.Grid">Grid</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Trajectory.time">
+<span class="sig-name descname"><span class="pre">time</span></span><a class="headerlink" href="#space.Trajectory.time" title="Link to this definition"></a></dt>
+<dd><p>Time at each steps of observation from the begining of the simulation
+<span class="math notranslate nohighlight">\([\text s]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nt’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Trajectory.u">
+<span class="sig-name descname"><span class="pre">u</span></span><a class="headerlink" href="#space.Trajectory.u" title="Link to this definition"></a></dt>
+<dd><p>Time-serie of zonal velocity <span class="math notranslate nohighlight">\(\left[\text m \cdot \text
+s^{-1}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nt nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Trajectory.v">
+<span class="sig-name descname"><span class="pre">v</span></span><a class="headerlink" href="#space.Trajectory.v" title="Link to this definition"></a></dt>
+<dd><p>Time-serie of meridional velocity <span class="math notranslate nohighlight">\(\left[\text m \cdot \text
+s^{-1}\right]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nt nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Trajectory.t">
+<span class="sig-name descname"><span class="pre">t</span></span><a class="headerlink" href="#space.Trajectory.t" title="Link to this definition"></a></dt>
+<dd><p>Time-serie of temperature <span class="math notranslate nohighlight">\([\text C°]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nt nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="space.Trajectory.s">
+<span class="sig-name descname"><span class="pre">s</span></span><a class="headerlink" href="#space.Trajectory.s" title="Link to this definition"></a></dt>
+<dd><p>Time-serie of salinity <span class="math notranslate nohighlight">\([\text{psu}]\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[<a class="reference external" href="https://jax.readthedocs.io/en/latest/_autosummary/jax.Array.html#jax.Array" title="(in JAX)"><em>Array</em></a>, ‘nt nz’]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.Trajectory.to_ds">
+<span class="sig-name descname"><span class="pre">to_ds</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Trajectory.to_ds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Trajectory.to_ds" title="Link to this definition"></a></dt>
+<dd><p>Exports the trajectory in an xarray.Dataset.</p>
+<p>The dimensions of the dataset are <a class="reference internal" href="#space.Trajectory.time" title="space.Trajectory.time"><code class="xref py py-attr docutils literal notranslate"><span class="pre">time</span></code></a>, <code class="code docutils literal notranslate"><span class="pre">grid.zr</span></code> and
+<code class="code docutils literal notranslate"><span class="pre">grid.zw</span></code>, the variables are <a class="reference internal" href="#space.Trajectory.u" title="space.Trajectory.u"><code class="xref py py-attr docutils literal notranslate"><span class="pre">u</span></code></a>, <a class="reference internal" href="#space.Trajectory.v" title="space.Trajectory.v"><code class="xref py py-attr docutils literal notranslate"><span class="pre">v</span></code></a>, <a class="reference internal" href="#space.Trajectory.t" title="space.Trajectory.t"><code class="xref py py-attr docutils literal notranslate"><span class="pre">t</span></code></a> and
+<a class="reference internal" href="#space.Trajectory.s" title="space.Trajectory.s"><code class="xref py py-attr docutils literal notranslate"><span class="pre">s</span></code></a>, all defined on the dimensions (<a class="reference internal" href="#space.Trajectory.time" title="space.Trajectory.time"><code class="xref py py-attr docutils literal notranslate"><span class="pre">time</span></code></a>, <code class="code docutils literal notranslate"><span class="pre">zr</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ds</strong> – Dataset of the trajectory.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html#xarray.Dataset" title="(in xarray v2024.10.1.dev0)">xarray.Dataset</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="space.Trajectory.extract_state">
+<span class="sig-name descname"><span class="pre">extract_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i_time</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/space.html#Trajectory.extract_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#space.Trajectory.extract_state" title="Link to this definition"></a></dt>
+<dd><p>Extracts the water column state at one time index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>i_time</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – The time index of the moment to extract the state.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>state</strong> – The state of the trajectory at the time of index <code class="code docutils literal notranslate"><span class="pre">i_time</span></code>.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#space.State" title="space.State">State</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../api.html" class="btn btn-neutral float-left" title="API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="case.html" class="btn btn-neutral float-right" title="case" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Gabriel Mouttapa.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

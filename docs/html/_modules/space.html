@@ -1,0 +1,670 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>space &mdash; tunax 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=7ab3649f" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            tunax
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../rst_files/overview.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rst_files/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../rst_files/api.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">tunax</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">space</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for space</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Geometry and variables of the model.</span>
+
+<span class="sd">This module contains the objects that are used in Tunax to describe the</span>
+<span class="sd">geometry of the water column in :class:`Grid`, the variables of the water</span>
+<span class="sd">column at one time-step in :class:`State` and the time-series of the model</span>
+<span class="sd">computation in :class:`Trajectories`. These classes can be obtained by the</span>
+<span class="sd">prefix :code:`tunax.space.` or directly by :code:`tunax.`.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">equinox</span> <span class="k">as</span> <span class="nn">eqx</span>
+<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">vmap</span>
+<span class="kn">from</span> <span class="nn">jaxtyping</span> <span class="kn">import</span> <span class="n">Float</span><span class="p">,</span> <span class="n">Array</span>
+
+
+<span class="k">def</span> <span class="nf">_piecewise_linear_ramp</span><span class="p">(</span><span class="n">z</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">z0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">f0</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span><span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Mathemacial function used for the state initialisation.</span>
+
+<span class="sd">    Apply to z a function linear by part and continuous :</span>
+<span class="sd">    f(z) = 0 if z &lt; zm and f(z) = f0 (1-z/zm) else.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    z : float</span>
+<span class="sd">        The value where to apply the function.</span>
+<span class="sd">    zm : float</span>
+<span class="sd">        The point of connexion of the two linear parts of the function.</span>
+<span class="sd">    f0 : float</span>
+<span class="sd">        The value of the function in 0.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fz : float</span>
+<span class="sd">        The value of the function in z.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">f0</span><span class="o">*</span><span class="p">(</span><span class="n">z</span><span class="o">/-</span><span class="n">z0</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">z</span><span class="o">&gt;</span><span class="n">z0</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_piecewise_linear_flat</span><span class="p">(</span><span class="n">z</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">zm</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">f0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sl</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Mathemacial function used for the state initialisation.</span>
+
+<span class="sd">    Apply to z a function linear by part and continuous :</span>
+<span class="sd">    f(z) = f0 + s_l (z-zm) if z &lt; z_m and f(z) = f0 else.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    z : float</span>
+<span class="sd">        The value where to apply the function.</span>
+<span class="sd">    zm : float</span>
+<span class="sd">        The point of connexion of the two linear parts of the function.</span>
+<span class="sd">    f0 : float</span>
+<span class="sd">        The value of the function in 0 and in the right part of the</span>
+<span class="sd">        funcion.</span>
+<span class="sd">    sl : float</span>
+<span class="sd">        The slope of the left part of the function.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fz : float</span>
+<span class="sd">        The value of the function in z.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">f0</span> <span class="o">+</span> <span class="n">sl</span><span class="o">*</span><span class="p">(</span><span class="n">z</span><span class="o">-</span><span class="n">zm</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">z</span><span class="o">&lt;</span><span class="n">zm</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Grid">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Grid">[docs]</a>
+<span class="k">class</span> <span class="nc">Grid</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    One dimensional spatial geometry of a water column.</span>
+
+<span class="sd">    This mesh is made up of a number of :attr:`nz` of cells (:attr:`zr`) of</span>
+<span class="sd">    potentially varying thickness (:attr:`hz`), separated by interface points</span>
+<span class="sd">    (:attr:`zw`) and extending from the ocean surface at a depth of :math:`0`</span>
+<span class="sd">    to the ocean floor at a depth of :attr:`hbot`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    zr : Float[~jax.Array, &#39;nz&#39;]</span>
+<span class="sd">        cf. attribute.</span>
+<span class="sd">    zw : Float[~jax.Array, &#39;nz+1&#39;]</span>
+<span class="sd">        cf. attribute.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    nz : int</span>
+<span class="sd">        Number of cells.</span>
+<span class="sd">    hbot : float</span>
+<span class="sd">        Depth of the water column :math:`[\text m]`.</span>
+<span class="sd">    zr : Float[~jax.Array, &#39;nz&#39;]</span>
+<span class="sd">        Depths of cell centers from deepest to shallowest :math:`[\text m]`</span>
+<span class="sd">    zw : Float[~jax.Array, &#39;nz+1&#39;]</span>
+<span class="sd">        Depths of cell interfaces from deepest to shallowest :math:`[\text m]`.</span>
+<span class="sd">    hz : Float[~jax.Array, &#39;nz&#39;]</span>
+<span class="sd">        Thickness of cells from deepest to shallowest :math:`[\text m]`.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    The constructor :code:`__init__` takes only :attr:`zr` and :attr:`zw` as</span>
+<span class="sd">    as arguments and construct the other attributes from them. The centers of</span>
+<span class="sd">    the cells :attr:`zr` are not necessarly the middle between the interfaces</span>
+<span class="sd">    :attr:`zw`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nz</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">hbot</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">zr</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz&#39;</span><span class="p">]</span>
+    <span class="n">zw</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz+1&#39;</span><span class="p">]</span>
+    <span class="n">hz</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">zr</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz&#39;</span><span class="p">],</span> <span class="n">zw</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz+1&#39;</span><span class="p">]):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nz</span> <span class="o">=</span> <span class="n">zr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hbot</span> <span class="o">=</span> <span class="n">zw</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zw</span> <span class="o">=</span> <span class="n">zw</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">zr</span> <span class="o">=</span> <span class="n">zr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hz</span> <span class="o">=</span> <span class="n">zw</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">zw</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Grid.find_index">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Grid.find_index">[docs]</a>
+    <span class="k">def</span> <span class="nf">find_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Find the index of a depth.</span>
+
+<span class="sd">        Find the index :code:`i` so that the depth :code:`h` is in cell</span>
+<span class="sd">        :code:`i`, which means :math:`z^w_i \leqslant -h \leqslant z^w_{i+1}`</span>
+<span class="sd">        if :math:`h \leqslant 0` and :math:`i=-1` if :math:`h&gt;0`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        h : float, positive</span>
+<span class="sd">            The depth to search the index :math:`[\text m]`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        i : int</span>
+<span class="sd">            The index corresponding to the depth :code:`h`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">zw</span><span class="p">,</span> <span class="o">-</span><span class="n">h</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span></div>
+
+
+<div class="viewcode-block" id="Grid.linear">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Grid.linear">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">linear</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">nz</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hbot</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Grid</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a grid with equal thickness cells.</span>
+
+<span class="sd">        The grid instance will have :attr:`nz` cells of equal thickness for a</span>
+<span class="sd">        depth of :attr:`hbot`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        nz : int</span>
+<span class="sd">            Number of cells.</span>
+<span class="sd">        hbot : float, positive</span>
+<span class="sd">            Depth of the water column :math:`[\text m]`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">zw</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="n">hbot</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">nz</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">zr</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="p">(</span><span class="n">zw</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="n">zw</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">zr</span><span class="p">,</span> <span class="n">zw</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Grid.analytic">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Grid.analytic">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">analytic</span><span class="p">(</span>
+            <span class="bp">cls</span><span class="p">,</span>
+            <span class="n">nz</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="n">hbot</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">hc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">theta</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">6.5</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Grid</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates a grid of type analytic.</span>
+
+<span class="sd">        The grid instance will have a depth of :attr:`hbot` and :attr:`nz`</span>
+<span class="sd">        cells of thickness almost equals above :code:`hc` and wider under, the</span>
+<span class="sd">        strecht parameter being defined by :code:`theta`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        nz : int</span>
+<span class="sd">            Number of cells.</span>
+<span class="sd">        hbot : float, positive</span>
+<span class="sd">            Depth of the water column :math:`[\text m]`.</span>
+<span class="sd">        hc : float, positive</span>
+<span class="sd">            Reference depth :math:`[\text m]`.</span>
+<span class="sd">        theta : float, default=6.5</span>
+<span class="sd">            Stretching parameter toward the surface</span>
+<span class="sd">            :math:`[\text{dimensionless}]`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sc_w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">nz</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sc_r</span> <span class="o">=</span> <span class="p">(</span><span class="n">sc_w</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">sc_w</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="o">/</span><span class="mi">2</span>
+        <span class="n">cs_r</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">theta</span><span class="o">*</span><span class="n">sc_r</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">cs_w</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">theta</span><span class="o">*</span><span class="n">sc_w</span><span class="p">))</span><span class="o">/</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">zw</span> <span class="o">=</span> <span class="p">(</span><span class="n">hc</span><span class="o">*</span><span class="n">sc_w</span> <span class="o">+</span> <span class="n">hbot</span><span class="o">*</span><span class="n">cs_w</span><span class="p">)</span> <span class="o">*</span> <span class="n">hbot</span><span class="o">/</span><span class="p">(</span><span class="n">hbot</span><span class="o">+</span><span class="n">hc</span><span class="p">)</span>
+        <span class="n">zr</span> <span class="o">=</span> <span class="p">(</span><span class="n">hc</span><span class="o">*</span><span class="n">sc_r</span> <span class="o">+</span> <span class="n">hbot</span><span class="o">*</span><span class="n">cs_r</span><span class="p">)</span> <span class="o">*</span> <span class="n">hbot</span><span class="o">/</span><span class="p">(</span><span class="n">hbot</span><span class="o">+</span><span class="n">hc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">zr</span><span class="p">,</span> <span class="n">zw</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Grid.orca75">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Grid.orca75">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">orca75</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">hbot</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Grid</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates the ORCA 75 grid from NEMO.</span>
+
+<span class="sd">        The whole grid is created then levels between the depth :attr:`hbot`</span>
+<span class="sd">        and :math:`0` are extracted.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        hbot : float, positive</span>
+<span class="sd">            Depth of the water column :math:`[\text m]`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nz_orca</span> <span class="o">=</span> <span class="mi">75</span>
+        <span class="n">zsur</span> <span class="o">=</span> <span class="o">-</span><span class="mf">3958.95137127683</span>
+        <span class="n">za2</span> <span class="o">=</span> <span class="mf">100.7609285</span>
+        <span class="n">za0</span> <span class="o">=</span> <span class="mf">103.9530096</span>
+        <span class="n">za1</span> <span class="o">=</span> <span class="mf">2.415951269</span>
+        <span class="n">zkth</span> <span class="o">=</span> <span class="mf">15.3510137</span>
+        <span class="n">zkth2</span> <span class="o">=</span> <span class="mf">48.02989372</span>
+        <span class="n">zacr</span> <span class="o">=</span> <span class="mf">7.</span>
+        <span class="n">zacr2</span> <span class="o">=</span> <span class="mf">13.</span>
+        <span class="n">sc_r</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nz_orca</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sc_w</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nz_orca</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">zw_orca</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">zsur</span> <span class="o">+</span> <span class="n">za0</span><span class="o">*</span><span class="n">sc_w</span> <span class="o">+</span> <span class="n">za1</span><span class="o">*</span><span class="n">zacr</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">((</span><span class="n">sc_w</span><span class="o">-</span><span class="n">zkth</span><span class="p">)</span><span class="o">/</span>\
+            <span class="n">zacr</span><span class="p">))</span> <span class="o">+</span> <span class="n">za2</span><span class="o">*</span><span class="n">zacr2</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">((</span><span class="n">sc_w</span><span class="o">-</span><span class="n">zkth2</span><span class="p">)</span><span class="o">/</span><span class="n">zacr2</span><span class="p">)))</span>
+        <span class="n">zr_orca</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">zsur</span> <span class="o">+</span> <span class="n">za0</span><span class="o">*</span><span class="n">sc_r</span> <span class="o">+</span> <span class="n">za1</span><span class="o">*</span><span class="n">zacr</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">((</span><span class="n">sc_r</span><span class="o">-</span><span class="n">zkth</span><span class="p">)</span><span class="o">/</span>\
+            <span class="n">zacr</span><span class="p">))</span> <span class="o">+</span> <span class="n">za2</span><span class="o">*</span><span class="n">zacr2</span><span class="o">*</span><span class="n">jnp</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">cosh</span><span class="p">((</span><span class="n">sc_r</span><span class="o">-</span><span class="n">zkth2</span><span class="p">)</span><span class="o">/</span><span class="n">zacr2</span><span class="p">)))</span>
+        <span class="n">ibot</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">zw_orca</span> <span class="o">&lt;=</span> <span class="o">-</span><span class="n">hbot</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ibot</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ibot</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="n">zw_orca</span> <span class="o">=</span> <span class="n">zw_orca</span><span class="o">.</span><span class="n">at</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mf">0.</span><span class="p">)</span>
+        <span class="n">zw</span> <span class="o">=</span> <span class="n">zw_orca</span><span class="p">[</span><span class="n">ibot</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="n">zr</span> <span class="o">=</span> <span class="n">zr_orca</span><span class="p">[</span><span class="n">ibot</span><span class="o">-</span><span class="mi">1</span><span class="p">:]</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">zr</span><span class="p">,</span> <span class="n">zw</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Grid.load">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Grid.load">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">ds</span><span class="p">:</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Grid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Creates the grid defined by a dataset :code:`ds` of an observation.</span>
+
+<span class="sd">        The dataset must be formated to have the variables corresponding to</span>
+<span class="sd">        :attr:`zr` and :attr:`zw`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ds : xarray.Dataset</span>
+<span class="sd">            Dataset from which to extract the grid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">zw</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s1">&#39;zw&#39;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">zr</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ds</span><span class="p">[</span><span class="s1">&#39;zr&#39;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">jnp</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">zr</span><span class="p">,</span> <span class="n">zw</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="State">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.State">[docs]</a>
+<span class="k">class</span> <span class="nc">State</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Water column state at one time-step.</span>
+
+<span class="sd">    This state is defined on a :attr:`grid` describing the geometry, and is</span>
+<span class="sd">    composed of the variables of the water column : the values of the momentum</span>
+<span class="sd">    and the tracers on this :attr:`grid`. The call of the constructor build a</span>
+<span class="sd">    state on the :attr:`grid` with all the variables set to :math:`0`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : Grid</span>
+<span class="sd">        cf. attribute.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : Grid</span>
+<span class="sd">        Geometry of the water column.</span>
+<span class="sd">    u : Float[~jax.Array, &#39;nz&#39;]</span>
+<span class="sd">        Zonal velocity on the center of the cells :math:`\left[\text m \cdot</span>
+<span class="sd">        \text s^{-1}\right]`.</span>
+<span class="sd">    v : Float[~jax.Array, &#39;nz&#39;]</span>
+<span class="sd">        Meridional velocity on the center of the cells :math:`\left[\text m</span>
+<span class="sd">        \cdot \text s^{-1}\right]`.</span>
+<span class="sd">    t : Float[~jax.Array, &#39;nz&#39;]</span>
+<span class="sd">        Temperature on the center of the cells :math:`[° \text C]`.</span>
+<span class="sd">    s : Float[~jax.Array, &#39;nz&#39;]</span>
+<span class="sd">        Salinity on the center of the cells :math:`[\text{psu}]`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">grid</span><span class="p">:</span> <span class="n">Grid</span>
+    <span class="n">u</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz&#39;</span><span class="p">]</span>
+    <span class="n">v</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz&#39;</span><span class="p">]</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz&#39;</span><span class="p">]</span>
+    <span class="n">s</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nz&#39;</span><span class="p">]</span>
+
+<div class="viewcode-block" id="State.zeros">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.State.zeros">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">zeros</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">State</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize an instance with all variables equals to zero from a grid.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        grid : Grid</span>
+<span class="sd">            Geometry of the water column.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        state : State</span>
+<span class="sd">            An instance defined on the grid with all variables set to 0.        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">nz</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">nz</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">nz</span><span class="p">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">nz</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">State</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="State.init_u">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.State.init_u">[docs]</a>
+    <span class="k">def</span> <span class="nf">init_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hmxl</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">20.</span><span class="p">,</span> <span class="n">u_sfc</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">State</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize zonal velocity with a classical wind stratification.</span>
+
+<span class="sd">        Return a State object where :attr:`u` is continuous and linear by part</span>
+<span class="sd">        :math:`u(z) = \begin{cases}</span>
+<span class="sd">        0 &amp; \text{if } z &lt; h_{\text{mxl}}\\</span>
+<span class="sd">        u_{\text{sfc}} \left( 1 - \dfrac z {h_{\text{mxl}}}\right) &amp;</span>
+<span class="sd">        \text{else} \end{cases}`</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        hmxl : float, default=20.</span>
+<span class="sd">            Mixed layer depth :math:`[\text m]`.</span>
+<span class="sd">        u_sfc : float, default=0.</span>
+<span class="sd">            Surface zonal velocity :math:`\left[\text m \cdot \text</span>
+<span class="sd">            s^{-1}\right]`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        state : State</span>
+<span class="sd">            The :code:`self` object with the the new value of zonal velocity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">maped_fun</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">_piecewise_linear_ramp</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">u_new</span> <span class="o">=</span> <span class="n">maped_fun</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zr</span><span class="p">,</span> <span class="o">-</span><span class="n">hmxl</span><span class="p">,</span> <span class="n">u_sfc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eqx</span><span class="o">.</span><span class="n">tree_at</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">u</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">u_new</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="State.init_v">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.State.init_v">[docs]</a>
+    <span class="k">def</span> <span class="nf">init_v</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hmxl</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">20.</span><span class="p">,</span> <span class="n">v_sfc</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">0.</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">State</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize meridional velocity with a classical wind stratification.</span>
+
+<span class="sd">        Return a State object where :attr:`v` is continuous and linear by part</span>
+<span class="sd">        :math:`v(z) = \begin{cases}</span>
+<span class="sd">        0 &amp; \text{if } z &lt; h_{\text{mxl}}\\</span>
+<span class="sd">        v_{\text{sfc}} \left( 1 - \dfrac z {h_{\text{mxl}}}\right) &amp;</span>
+<span class="sd">        \text{else} \end{cases}`</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        hmxl : float, default=20.</span>
+<span class="sd">            Mixed layer depth :math:`[\text m]`.</span>
+<span class="sd">        u_sfc : float, default=0.</span>
+<span class="sd">            Surface meridional velocity :math:`\left[\text m \cdot \text</span>
+<span class="sd">            s^{-1}\right]`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        state : State</span>
+<span class="sd">            The :code:`self` object with the the new value of meridional</span>
+<span class="sd">            velocity.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">maped_fun</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">_piecewise_linear_ramp</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">v_new</span> <span class="o">=</span> <span class="n">maped_fun</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zr</span><span class="p">,</span> <span class="o">-</span><span class="n">hmxl</span><span class="p">,</span> <span class="n">v_sfc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eqx</span><span class="o">.</span><span class="n">tree_at</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">v</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">v_new</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="State.init_t">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.State.init_t">[docs]</a>
+    <span class="k">def</span> <span class="nf">init_t</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">hmxl</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">20.</span><span class="p">,</span>
+            <span class="n">t_sfc</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">21.</span><span class="p">,</span>
+            <span class="n">strat_t</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">5.1e-2</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">State</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize temperature with a classical tracer stratification.</span>
+
+<span class="sd">        Return a State object where :attr:`t` is linear by part and continous</span>
+<span class="sd">        :math:`T(z) = \begin{cases}</span>
+<span class="sd">        t_{\text{sfc}} + S_T(z-h_{\text{mxl}}) &amp; \text{if } z &lt;</span>
+<span class="sd">        h_{\text{mxl}}\\</span>
+<span class="sd">        t_{\text{sfc}} &amp; \text{else}</span>
+<span class="sd">        \end{cases}`</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        hmxl : float, default=20.</span>
+<span class="sd">            Mixed layer depth :math:`[\text m]`.</span>
+<span class="sd">        t_sfc : float, default=21.</span>
+<span class="sd">            Surface temperature :math:`[° \text C]`.</span>
+<span class="sd">        strat_t : float, default=5.1e-2</span>
+<span class="sd">            Thermal stratification above the mixed layer noted by :math:`S_T`</span>
+<span class="sd">            :math:`[\text K \cdot \text m ^{-1}]`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        state : State</span>
+<span class="sd">            The :code:`self` object with the the new value of temperature.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">maped_fun</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">_piecewise_linear_flat</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">t_new</span> <span class="o">=</span> <span class="n">maped_fun</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zr</span><span class="p">,</span> <span class="o">-</span><span class="n">hmxl</span><span class="p">,</span> <span class="n">t_sfc</span><span class="p">,</span> <span class="n">strat_t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eqx</span><span class="o">.</span><span class="n">tree_at</span><span class="p">(</span><span class="k">lambda</span> <span class="n">tree</span><span class="p">:</span> <span class="n">tree</span><span class="o">.</span><span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">t_new</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="State.init_s">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.State.init_s">[docs]</a>
+    <span class="k">def</span> <span class="nf">init_s</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">hmxl</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">20.</span><span class="p">,</span>
+            <span class="n">s_sfc</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">35.</span><span class="p">,</span>
+            <span class="n">strat_s</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">1.3e-2</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">State</span><span class="p">:</span>
+<span class="w">        </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize salinity with a classical tracer stratification.</span>
+
+<span class="sd">        Return a State object where :attr:`s` is linear by part and continous</span>
+<span class="sd">        :math:`S(z) = \begin{cases}</span>
+<span class="sd">        s_{\text{sfc}} + S_S(z-h_{\text{mxl}}) &amp; \text{if } z &lt;</span>
+<span class="sd">        h_{\text{mxl}}\\</span>
+<span class="sd">        s_{\text{sfc}} &amp; \text{else}</span>
+<span class="sd">        \end{cases}`</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        hmxl : float, default=20.</span>
+<span class="sd">            Mixed layer depth :math:`[\text m]`.</span>
+<span class="sd">        s_sfc : float, default=21.</span>
+<span class="sd">            Surface salinity :math:`[\text{psu}]`.</span>
+<span class="sd">        strat_t : float, default=5.1e-2</span>
+<span class="sd">            Salinity stratification above the mixed layer noted by :math:`S_T`</span>
+<span class="sd">            :math:`[\text{psu} \cdot \text m ^{-1}]`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        state : State</span>
+<span class="sd">            The :code:`self` object with the the new value of temperature.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">maped_fun</span> <span class="o">=</span> <span class="n">vmap</span><span class="p">(</span><span class="n">_piecewise_linear_flat</span><span class="p">,</span> <span class="n">in_axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="n">s_new</span> <span class="o">=</span> <span class="n">maped_fun</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zr</span><span class="p">,</span> <span class="o">-</span><span class="n">hmxl</span><span class="p">,</span> <span class="n">s_sfc</span><span class="p">,</span> <span class="n">strat_s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eqx</span><span class="o">.</span><span class="n">tree_at</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">s_new</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Trajectory">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Trajectory">[docs]</a>
+<span class="k">class</span> <span class="nc">Trajectory</span><span class="p">(</span><span class="n">eqx</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Define the history of a simulation or an observation.</span>
+
+<span class="sd">    Contains the timeseries of the momentum and the tracers throught the space</span>
+<span class="sd">    of the :attr:`grid` and the :attr:`time`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : Grid</span>
+<span class="sd">        cf. attribute.</span>
+<span class="sd">    time : Float[~jax.Array, &#39;nt&#39;]</span>
+<span class="sd">        cf. attribute.</span>
+<span class="sd">    u : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        cf. attribute.</span>
+<span class="sd">    v : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        cf. attribute.</span>
+<span class="sd">    t : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        cf. attribute.</span>
+<span class="sd">    s : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        cf. attribute.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid : Grid</span>
+<span class="sd">        Geometry of the water column.</span>
+<span class="sd">    time : Float[~jax.Array, &#39;nt&#39;]</span>
+<span class="sd">        Time at each steps of observation from the begining of the simulation</span>
+<span class="sd">        :math:`[\text s]`.</span>
+<span class="sd">    u : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        Time-serie of zonal velocity :math:`\left[\text m \cdot \text</span>
+<span class="sd">        s^{-1}\right]`.</span>
+<span class="sd">    v : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        Time-serie of meridional velocity :math:`\left[\text m \cdot \text</span>
+<span class="sd">        s^{-1}\right]`.</span>
+<span class="sd">    t : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        Time-serie of temperature :math:`[\text C°]`.</span>
+<span class="sd">    s : Float[~jax.Array, &#39;nt nz&#39;]</span>
+<span class="sd">        Time-serie of salinity :math:`[\text{psu}]`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">grid</span><span class="p">:</span> <span class="n">Grid</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nt&#39;</span><span class="p">]</span>
+    <span class="n">t</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nt nz&#39;</span><span class="p">]</span>
+    <span class="n">s</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nt nz&#39;</span><span class="p">]</span>
+    <span class="n">u</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nt nz&#39;</span><span class="p">]</span>
+    <span class="n">v</span><span class="p">:</span> <span class="n">Float</span><span class="p">[</span><span class="n">Array</span><span class="p">,</span> <span class="s1">&#39;nt nz&#39;</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Trajectory.to_ds">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Trajectory.to_ds">[docs]</a>
+    <span class="k">def</span> <span class="nf">to_ds</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Exports the trajectory in an xarray.Dataset.</span>
+
+<span class="sd">        The dimensions of the dataset are :attr:`time`, :code:`grid.zr` and</span>
+<span class="sd">        :code:`grid.zw`, the variables are :attr:`u`, :attr:`v`, :attr:`t` and</span>
+<span class="sd">        :attr:`s`, all defined on the dimensions (:attr:`time`, :code:`zr`).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ds : xarray.Dataset</span>
+<span class="sd">            Dataset of the trajectory.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;u&#39;</span><span class="p">:</span> <span class="p">((</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;zr&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">),</span>
+                     <span class="s1">&#39;v&#39;</span><span class="p">:</span> <span class="p">((</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;zr&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">),</span>
+                     <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="p">((</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;zr&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">),</span>
+                     <span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="p">((</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="s1">&#39;zr&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="p">)}</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;time&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">,</span>
+                  <span class="s1">&#39;zr&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zr</span><span class="p">,</span>
+                  <span class="s1">&#39;zw&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="o">.</span><span class="n">zw</span><span class="p">}</span>
+        <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">(</span><span class="n">variables</span><span class="p">,</span> <span class="n">coords</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Trajectory.extract_state">
+<a class="viewcode-back" href="../rst_files/api/space.html#space.Trajectory.extract_state">[docs]</a>
+    <span class="k">def</span> <span class="nf">extract_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i_time</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">State</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extracts the water column state at one time index.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        i_time : int</span>
+<span class="sd">            The time index of the moment to extract the state.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        state : State</span>
+<span class="sd">            The state of the trajectory at the time of index :code:`i_time`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">State</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">[</span><span class="n">i_time</span><span class="p">,</span> <span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">i_time</span><span class="p">,</span> <span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">t</span><span class="p">[</span><span class="n">i_time</span><span class="p">,</span> <span class="p">:],</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="p">[</span><span class="n">i_time</span><span class="p">,</span> <span class="p">:],</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Gabriel Mouttapa.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
