@@ -86,8 +86,8 @@ class FittableParametersSet(eqx.Module):
     
     """
 
-    # coef_fit_dict: Dict[str, FittableParameter]
-    # closure: Closure
+    coef_fit_dict: Dict[str, FittableParameter]
+    closure: Closure
 
     def __init__(
             self,
