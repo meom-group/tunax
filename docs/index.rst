@@ -10,5 +10,4 @@ Welcome to tunax's documentation!
    :maxdepth: 2
    
    rst_files/overview
-   rst_files/examples
    rst_files/api
