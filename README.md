@@ -1,5 +1,5 @@
 [![Documentation Status](https://readthedocs.org/projects/tunax/badge/?version=latest)](https://tunax.readthedocs.io/en/latest/?badge=latest)
-[![License: CC-BY-NC](https://img.shields.io/badge/License-CCBYNC-blue.svg)](./LICENSE)
+[![License: CC-BY-NC](https://img.shields.io/badge/License-CC--BY--NC-blue.svg)](./LICENSE)
 
 # Description
 This package provides a framework for calibrating the parameters of vertical physics schemes of ocean circulation models using variational optimization. The parameters are calibrated through the minimization of an 'objective function' which compares model predictions with 'Large Eddy Simulations' (LES). *Tunax* is written in JAX in order to use automatic differentiation for computing the gradient of the objective function with respect to model parameters.
