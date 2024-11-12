@@ -41,7 +41,8 @@ autodoc_default_options = {
     'private-members': False,
     'special-members': False,
     'inherited-members': False,
-    'show-inheritance': True
+    'show-inheritance': True,
+    'member-order': 'bysource'
 }
 # -- Napoleon configuration --------------------------------------------------
 napoleon_google_docstring = False
