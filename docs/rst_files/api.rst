@@ -12,3 +12,4 @@ API
    api/closures
    api/closures_registry
    api/model
+   api/fitter
