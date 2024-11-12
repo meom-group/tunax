@@ -10,4 +10,4 @@ API
    api/database
    api/functions
    api/closures
-   api/model
+   api/closures_registry
