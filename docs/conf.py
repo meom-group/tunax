@@ -40,7 +40,7 @@ autodoc_default_options = {
     'undoc-members': False,
     'private-members': False,
     'special-members': False,
-    'inherited-members': True,
+    'inherited-members': False,
     'show-inheritance': True
 }
 # -- Napoleon configuration --------------------------------------------------
