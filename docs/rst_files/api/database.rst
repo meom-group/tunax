@@ -2,3 +2,4 @@ database
 ========
 
 .. automodule:: database
+   :members:

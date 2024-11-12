@@ -2,3 +2,4 @@ space
 =====
 
 .. automodule:: space
+   :members:

@@ -2,3 +2,4 @@ model
 =====
 
 .. automodule:: model
+   :members:

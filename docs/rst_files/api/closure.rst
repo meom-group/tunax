@@ -2,3 +2,4 @@ closure
 =======
 
 .. automodule:: closure
+   :members:

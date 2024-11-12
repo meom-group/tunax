@@ -2,3 +2,4 @@ case
 ====
 
 .. automodule:: case
+   :members:

@@ -2,3 +2,4 @@
 =====================
 
 .. automodule:: closures.k_epsilon
+   :members:
