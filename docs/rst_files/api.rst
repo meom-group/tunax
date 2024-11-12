@@ -6,9 +6,9 @@ API
 
    api/space
    api/case
-   api/closure
    api/database
    api/functions
+   api/closure
    api/closures
    api/closures_registry
    api/model
