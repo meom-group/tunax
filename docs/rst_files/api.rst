@@ -9,3 +9,4 @@ API
    api/database
    api/functions
    api/case
+   api/model
