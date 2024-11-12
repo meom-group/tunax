@@ -10,3 +10,4 @@ API
    api/database
    api/functions
    api/closures
+   api/model
