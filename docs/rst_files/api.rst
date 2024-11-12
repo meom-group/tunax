@@ -11,3 +11,4 @@ API
    api/functions
    api/closures
    api/closures_registry
+   api/model
