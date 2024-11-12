@@ -5,8 +5,8 @@ API
    :maxdepth: 2
 
    api/space
+   api/case
    api/closure
    api/database
    api/functions
-   api/case
-   api/model
+   api/closures
