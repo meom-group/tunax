@@ -106,11 +106,11 @@ class Grid(eqx.Module):
 
     """
 
-    # nz: int
-    # hbot: float
-    # zr: Float[Array, 'nz']
-    # zw: Float[Array, 'nz+1']
-    # hz: Float[Array, 'nz']
+    nz: int
+    hbot: float
+    zr: Float[Array, 'nz']
+    zw: Float[Array, 'nz+1']
+    hz: Float[Array, 'nz']
 
     def __init__(self, zr: Float[Array, 'nz'], zw: Float[Array, 'nz+1']):
         self.nz = zr.shape[0]

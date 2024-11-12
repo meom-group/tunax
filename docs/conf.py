@@ -13,7 +13,7 @@ sys.path.append(os.path.join('..'))
 
 project = 'tunax'
 author = 'Gabriel Mouttapa'
-copyright = '2024, Gabriel Mouttapa'
+copyright = '2024, Gabriel Mouttapa, Julien Le Sommer'
 version = '0.1'
 release = '0.1.0'
 
@@ -35,14 +35,14 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # autodoc_mock_imports = ["jax", "xarray", "optax", "netcdf4", "equinox", "jaxtyping"]
-autodoc_default_options = {
-    'undoc-members': False,
-    'private-members': False,
-    # 'special-members': False,
-    'inherited-members': False,
-    'show-inheritance': True,
-    'member-order': 'bysource'
-}
+# autodoc_default_options = {
+#     'undoc-members': False,
+#     'private-members': False,
+#     # 'special-members': False,
+#     'inherited-members': False,
+#     'show-inheritance': True,
+#     'member-order': 'bysource'
+# }
 # -- Napoleon configuration --------------------------------------------------
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
