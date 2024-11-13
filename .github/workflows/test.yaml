@@ -33,14 +33,10 @@ jobs:
       - name: Run tests with coverage
         run: |
           poetry run coverage run -m pytest
-          poetry run coverage report
-
-      - name: Generate HTML coverage report
-        run: |
-          poetry run coverage html  # Génère un rapport HTML
+          poetry run coverage html
 
       - name: Upload coverage report as artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: coverage-report
-          path: htmlcov  # Upload le dossier htmlcov contenant le rapport HTML
+          path: htmlcov
