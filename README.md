@@ -1,4 +1,4 @@
-![Python](https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/meom-group/tunax/master/.github/workflows/run_tests.yaml&label=Python&query=$.jobs.test.strategy.matrix["python-version"]&color=brightgreen)
+![Python](https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/meom-group/tunax/master/.github/workflows/run_tests.yaml&label=Python&query=$.jobs.test.strategy.matrix["python-version"]&color=seagreen)
 [![Documentation Status](https://readthedocs.org/projects/tunax/badge/?version=latest)](https://tunax.readthedocs.io/en/latest/?badge=latest)
 [![Tests](https://github.com/meom-group/tunax/actions/workflows/run_tests.yaml/badge.svg)](https://github.com/meom-group/tunax/actions/workflows/run_tests.yaml)
 [![License: CC-BY-NC](https://img.shields.io/badge/License-CC--BY--NC-chocolate.svg)](./LICENSE)
