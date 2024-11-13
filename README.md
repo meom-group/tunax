@@ -7,13 +7,23 @@
 # Description
 This package provides a framework for calibrating the parameters of vertical physics schemes of ocean circulation models using variational optimization. The parameters are calibrated through the minimization of an 'objective function' which compares model predictions with 'Large Eddy Simulations' (LES). *Tunax* is written in JAX in order to use automatic differentiation for computing the gradient of the objective function with respect to model parameters.
 
-# Package organisation
-The closures are implemented in the folder `tunax/closures/` and they are wrapped by a 'single column model' (SCM) implemented in `tunax/model.py`. The calibration part is in `tunax/fitter.py`. The folder `notebooks/` contains example of usage of this framework. The folder `docs/` is for the documentation configuration which is available [here] (https://tunax.readthedocs.io/en/latest/).
+# Repository organisation
+## Sources
+The source code of tunax is in the folder `tunax/`. The two main modules are `tunax/model.py` which contains the implementation of the forward Single Column Model and `tunax/fitter.py` which contains the implementation of the calibration part. The various physical closures equations that *Tunax* can calibrate are implemented in the folder `tunax/closures/`. The other modules implement the object used by the model and the callibrator and they are described in the [documentation](https://tunax.readthedocs.io/en/latest/).
+
+## Notebooks
+The folder `notebooks/` contains some notebooks of demonstration of *tunax*.
 
 # Installation
+*Tunax* is installed by default with JAX on CPU.
 ## Stable version
-*Tunax* is pip installable
+*Tunax* is pip installable the following command will install the lastest stable release :
 ```shell
 pip install tunax
 ```
-*Tunax* is installed by default with JAX on CPU.
+
+## Development release
+The most recent additions to *Tunax* since the last release are implemented in the `main` branch of this repository. To benefit from them one can clone or fork this repository and install *Tunax* with the package manager *poetry* :
+```shell
+poetry install --no-dev
+```
