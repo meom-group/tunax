@@ -1,19 +1,19 @@
-# tunax
-notebooks/*/
+# notebooks
+notebooks/k-epsilon_Kato-Phillips/
 notebooks/logbook.ipynb
 notebooks/fit_wagner.ipynb
-obs/
+
+# heavy data
 *.nc
-*jld2
-*_archive.py
-tke.py
+*.jld2
+*.npz
 
 # general
 __pycache__/
 **.DS_Store
 dist/
 
-# doc
+# doc build
 docs/_build/
 
 # pytest
