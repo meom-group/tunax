@@ -2,11 +2,11 @@
 notebooks/*/
 notebooks/logbook.ipynb
 notebooks/fit_wagner.ipynb
-obs/
 *.nc
 *jld2
 *_archive.py
-tke.py
+
+# notebooks
 
 # general
 __pycache__/
