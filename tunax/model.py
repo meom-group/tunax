@@ -70,6 +70,8 @@ class SingleColumnModel(eqx.Module):
         Name of the chosen closure, must be a key of
         :attr:`~closures_registry.CLOSURES_REGISTRY`, see its documentation
         for the available closures.
+    output_path : str, default = ''
+        cf. attribute.
 
     Attributes
     ----------
@@ -85,7 +87,9 @@ class SingleColumnModel(eqx.Module):
         Physical case and forcings of the experiment.
     closure : Closure
         Abstraction representing the chosen closure.
-    
+    output_path : str, default = ''
+        Path of the output netcdf file that will contain the trajectory. If
+        equals to '', the output is not written.
     Warnings
     --------
     - If :code:`time_frame` is not proportional to the time-step :attr:`dt`.
@@ -114,6 +118,7 @@ class SingleColumnModel(eqx.Module):
     init_state: State
     case: Case
     closure: Closure
+    output_path: str = ''
 
     def __init__(
             self,
@@ -122,7 +127,8 @@ class SingleColumnModel(eqx.Module):
             out_dt: float,
             init_state: State,
             case: Case,
-            closure_name: str
+            closure_name: str,
+            output_path: str = ''
         ) -> SingleColumnModel:
         # time parameters transformation
         n_out = out_dt/dt
@@ -154,6 +160,7 @@ class SingleColumnModel(eqx.Module):
         self.init_state = init_state
         self.case = case
         self.closure = CLOSURES_REGISTRY[closure_name]
+        self.output_path = output_path
 
     def compute_trajectory_with(
             self,
@@ -204,6 +211,12 @@ class SingleColumnModel(eqx.Module):
             self.init_state.grid, time, jnp.vstack(t_list), jnp.vstack(s_list),
             jnp.vstack(u_list), jnp.vstack(v_list)
         )
+
+        # write netcdf output
+        if self.output_path != '':
+            ds = trajectory.to_ds()
+            ds.to_netcdf(self.output_path)
+
         return trajectory
 
 
