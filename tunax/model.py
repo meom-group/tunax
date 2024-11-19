@@ -90,6 +90,7 @@ class SingleColumnModel(eqx.Module):
     output_path : str, default = ''
         Path of the output netcdf file that will contain the trajectory. If
         equals to '', the output is not written.
+
     Warnings
     --------
     - If :code:`time_frame` is not proportional to the time-step :attr:`dt`.
@@ -118,6 +119,7 @@ class SingleColumnModel(eqx.Module):
     init_state: State
     case: Case
     closure: Closure
+    do_pt: bool
     output_path: str = ''
 
     def __init__(
@@ -128,6 +130,7 @@ class SingleColumnModel(eqx.Module):
             init_state: State,
             case: Case,
             closure_name: str,
+            tracers: str = '',
             output_path: str = ''
         ) -> SingleColumnModel:
         # time parameters transformation
@@ -160,6 +163,7 @@ class SingleColumnModel(eqx.Module):
         self.init_state = init_state
         self.case = case
         self.closure = CLOSURES_REGISTRY[closure_name]
+        self.do_pt = tracers == 'pt'
         self.output_path = output_path
 
     def compute_trajectory_with(
@@ -198,7 +202,7 @@ class SingleColumnModel(eqx.Module):
                 states_list.append(state)
             state, closure_state = step(
                 self.dt, self.case, self.closure, state, closure_state,
-                closure_parameters, swr_frac
+                closure_parameters, swr_frac, self.do_pt
             )
         time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
 
@@ -207,9 +211,13 @@ class SingleColumnModel(eqx.Module):
         v_list = [s.v for s in states_list]
         t_list = [s.t for s in states_list]
         s_list = [state.s for state in states_list]
+        if self.do_pt:
+            pt = jnp.vstack([state.pt for state in states_list])
+        else:
+            pt = None
         trajectory = Trajectory(
             self.init_state.grid, time, jnp.vstack(t_list), jnp.vstack(s_list),
-            jnp.vstack(u_list), jnp.vstack(v_list)
+            jnp.vstack(u_list), jnp.vstack(v_list), pt=pt
         )
 
         # write netcdf output
@@ -220,7 +228,7 @@ class SingleColumnModel(eqx.Module):
         return trajectory
 
 
-@partial(jit, static_argnames=('dt', 'case', 'closure'))
+@partial(jit, static_argnames=('dt', 'case', 'closure', 'do_pt'))
 def step(
         dt: float,
         case: Case,
@@ -228,7 +236,8 @@ def step(
         state: State,
         closure_state: ClosureStateAbstract,
         closure_parameters: ClosureParametersAbstract,
-        swr_frac: Float[Array, 'nz+1']
+        swr_frac: Float[Array, 'nz+1'],
+        do_pt: bool
     ) -> Tuple[State, ClosureStateAbstract]:
     r"""
     Run one time-step of the model.
@@ -280,6 +289,8 @@ def step(
     t_new, s_new = advance_tra_ed(
         state.t, state.s, closure_state.akt, swr_frac, grid.hz, dt, case
     )
+    if do_pt:
+        pt_new = state.pt + 1
 
     # advance velocities
     u_new, v_new = advance_dyn_cor_ed(
@@ -291,6 +302,8 @@ def step(
     state = eqx.tree_at(lambda t: t.s, state, s_new)
     state = eqx.tree_at(lambda t: t.u, state, u_new)
     state = eqx.tree_at(lambda t: t.v, state, v_new)
+    if do_pt:
+        state = eqx.tree_at(lambda t: t.pt, state, pt_new)
 
     return state, closure_state
 

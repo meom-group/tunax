@@ -10,12 +10,16 @@ prefix :code:`tunax.space.` or directly by :code:`tunax.`.
 """
 
 from __future__ import annotations
+from typing import Optional, List
 
 import equinox as eqx
 import xarray as xr
 import jax.numpy as jnp
 from jax import vmap
 from jaxtyping import Float, Array
+
+
+TRACERS_NAMES = ['t', 's', 'b', 'pt']
 
 
 def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
@@ -281,11 +285,13 @@ class State(eqx.Module):
     grid: Grid
     u: Float[Array, 'nz']
     v: Float[Array, 'nz']
-    t: Float[Array, 'nz']
-    s: Float[Array, 'nz']
+    t: Optional[Float[Array, 'nz']] = None
+    s: Optional[Float[Array, 'nz']] = None
+    b: Optional[Float[Array, 'nz']] = None
+    pt: Optional[Float[Array, 'nz']] = None
 
     @classmethod
-    def zeros(cls, grid: Grid) -> State:
+    def zeros(cls, grid: Grid, tracers: List[str]) -> State:
         """
         Initialize an instance with all variables equals to zero from a grid.
 
@@ -299,11 +305,11 @@ class State(eqx.Module):
         state : State
             An instance defined on the grid with all variables set to 0.        
         """
-        u = jnp.zeros(grid.nz)
-        v = jnp.zeros(grid.nz)
-        t = jnp.zeros(grid.nz)
-        s = jnp.zeros(grid.nz)
-        return State(grid, u, v, t, s)
+        zero_array = jnp.zeros(grid.nz)
+        tracers_dict = {}
+        for tracer_name in tracers:
+            tracers_dict[tracer_name] = zero_array
+        return State(grid, u=zero_array, v=zero_array, **tracers_dict)
 
     def init_u(self, hmxl: float=20., u_sfc: float=0.) -> State:
         r"""
@@ -475,10 +481,12 @@ class Trajectory(eqx.Module):
 
     grid: Grid
     time: Float[Array, 'nt']
-    t: Float[Array, 'nt nz']
-    s: Float[Array, 'nt nz']
     u: Float[Array, 'nt nz']
     v: Float[Array, 'nt nz']
+    t: Optional[Float[Array, 'nt nz']] = None
+    s: Optional[Float[Array, 'nt nz']] = None
+    b: Optional[Float[Array, 'nt nz']] = None
+    pt: Optional[Float[Array, 'nt nz']] = None
 
     def to_ds(self) -> xr.Dataset:
         """
@@ -494,9 +502,11 @@ class Trajectory(eqx.Module):
             Dataset of the trajectory.
         """
         variables = {'u': (('time', 'zr'), self.u),
-                     'v': (('time', 'zr'), self.v),
-                     't': (('time', 'zr'), self.t),
-                     's': (('time', 'zr'), self.s)}
+                     'v': (('time', 'zr'), self.v)}
+        for tracer_name in TRACERS_NAMES:
+            tracer = getattr(self, tracer_name)
+            if tracer is not None:
+                variables[tracer_name] = (('time', 'zr'), tracer)
         coords = {'time': self.time,
                   'zr': self.grid.zr,
                   'zw': self.grid.zw}
@@ -516,7 +526,10 @@ class Trajectory(eqx.Module):
         state : State
             The state of the trajectory at the time of index :code:`i_time`.
         """
+        tracers_dict = {}
+        for tracer_name in TRACERS_NAMES:
+            tracer = getattr(self, tracer_name)
+            if tracer is not None:
+                tracers_dict[tracer_name] = tracer[i_time, :]
         return State(
-            self.grid, self.u[i_time, :], self.v[i_time, :], self.t[i_time, :],
-            self.s[i_time, :],
-        )
+            self.grid, self.u[i_time, :], self.v[i_time, :], **tracers_dict)
