@@ -10,13 +10,16 @@ prefix :code:`tunax.space.` or directly by :code:`tunax.`.
 """
 
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional, Tuple, List
 
 import equinox as eqx
 import xarray as xr
 import jax.numpy as jnp
 from jax import vmap
 from jaxtyping import Float, Array
+
+from tunax.case import Case
+from tunax.functions import add_boundaries
 
 
 TRACERS_NAMES = ['t', 's', 'b', 'pt']
@@ -435,6 +438,89 @@ class State(eqx.Module):
         maped_fun = vmap(_piecewise_linear_flat, in_axes=(0, None, None, None))
         s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
         return eqx.tree_at(lambda t: t.s, self, s_new)
+
+    def compute_eos(
+            self,
+            case: Case
+        ) -> Tuple[Float[Array, 'nz+1'], Float[Array, 'nz']]:
+        r"""
+        Compute density anomaly and Brunt–Väisälä frequency.
+        
+        Prognostic computation via linear Equation Of State (EOS) :
+
+        :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
+
+        :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
+
+        Parameters
+        ----------
+        case : Case
+            Physical parameters and forcings of the model run.
+
+        Returns
+        -------
+        bvf : Float[Array, 'nz+1']
+            Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
+            :math:`\left[\text s^{-2}\right]`.
+        rho : Float[Array, 'nz']
+            Density anomaly :math:`\rho` on cell interfaces 
+            :math:`\left[\text {kg} \cdot \text m^{-3}\right]`
+        """
+        rho0 = case.rho0
+        match case.eos_tracers:
+            case 't':
+                rho = rho0 * (1. - case.alpha*(self.t-case.t_rho_ref))
+            case 's':
+                rho = rho0 * (1. + case.beta*(self.s-case.s_rho_ref))
+            case 'ts':
+                rho = rho0 * (1. - case.alpha*(self.t-case.t_rho_ref) + \
+                    case.beta*(self.s-case.s_rho_ref))
+            case 'b':
+                rho = rho0*(self.b+1)
+        cff = 1./(self.grid.zr[1:]-self.grid.zr[:-1])
+        bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
+        bvf = add_boundaries(0., bvf_in, bvf_in[-1])
+        return rho, bvf
+
+    def compute_shear(
+            self,
+            u_np1: Float[Array, 'nz'],
+            v_np1: Float[Array, 'nz']
+        ) -> Float[Array, 'nz+1']:
+        r"""
+        Compute shear production term for TKE equation.
+
+        The prognostic equations are
+
+        :math:`S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}`
+
+        where :math:`U^{n+1/2}` is the mean between :math:`U^n` and
+        :math:`U^{n+1}`.
+        
+        Parameters
+        ----------
+        u_np1 : Float[~jax.Array, 'nz']
+            Zonal velocity on the center of the cells at the next time step
+            :math:`\left[\text m \cdot \text s^{-1}\right]`.
+        v_np1 : Float[~jax.Array, 'nz']
+            Meridional velocity on the center of the cells at the next time step
+            :math:`\left[\text m \cdot \text s^{-1}\right]`.            
+
+        Returns
+        -------
+        shear2 : Float[~jax.Array, 'nz+1']
+            Shear production squared :math:`S_h^2` on cell interfaces
+            :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+        """
+        u_n = self.u
+        v_n = self.v
+        cff = 1.0 / (self.grid.zr[1:] - self.grid.zr[:-1])**2
+        du = 0.5*cff * (u_np1[1:]-u_np1[:-1]) * \
+            (u_n[1:]+u_np1[1:]-u_n[:-1]-u_np1[:-1])
+        dv = 0.5*cff * (v_np1[1:]-v_np1[:-1]) * \
+            (v_n[1:]+v_np1[1:]-v_n[:-1]-v_np1[:-1])
+        shear2_in = du + dv
+        return add_boundaries(0., shear2_in, 0.)
 
 
 class Trajectory(eqx.Module):

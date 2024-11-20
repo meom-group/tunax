@@ -520,6 +520,7 @@ def keps_step(
         independant).
     case : Case
         Physical parameters and forcings of the model run.
+    CHANGE HERE
     
     Returns
     -------
@@ -544,8 +545,8 @@ def keps_step(
     hz = state.grid.hz
 
     # prognostic computations
-    _, bvf = compute_rho_eos(state.t, state.s, zr, case)
-    shear2 = compute_shear(u, v, u, v, zr)
+    _, bvf = state.compute_eos(case)
+    shear2 = state.compute_shear(u, v)
     tke_sfc_bc, tke_btm_bc, eps_sfc_bc, eps_btm_bc = compute_tke_eps_bc(
         tke, hz, keps_params, case
     )
@@ -573,102 +574,6 @@ def keps_step(
     keps_state = eqx.tree_at(lambda t: t.c_mu_prim, keps_state, c_mu_prim_new)
 
     return keps_state
-
-
-def compute_rho_eos(
-        t: Float[Array, 'nz'],
-        s: Float[Array, 'nz'],
-        zr: Float[Array, 'nz'],
-        case: Case
-    ) -> Tuple[Float[Array, 'nz+1'], Float[Array, 'nz']]:
-    r"""
-    Compute density anomaly and Brunt–Väisälä frequency.
-    
-    Prognostic computation via linear Equation Of State (EOS) :
-
-    :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
-
-    :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
-
-    Parameters
-    ----------
-    t : Float[~jax.Array, 'nz']
-        Temperature on the center of the cells :math:`[° \text C]`.
-    s : Float[~jax.Array, 'nz']
-        Salinity on the center of the cells :math:`[\text{psu}]`.
-    zr : Float[~jax.Array, 'nz']
-        Depths of cell centers from deepest to shallowest :math:`[\text m]`
-    case : Case
-        Physical parameters and forcings of the model run.
-
-    Returns
-    -------
-    bvf : Float[Array, 'nz+1']
-        Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
-        :math:`\left[\text s^{-2}\right]`.
-    rho : Float[Array, 'nz']
-        Density anomaly :math:`\rho` on cell interfaces 
-        :math:`\left[\text {kg} \cdot \text m^{-3}\right]`
-    """
-    rho0 = case.rho0
-    rho = rho0 * (1. - case.alpha*(t-case.t_rho_ref) + \
-                  case.beta*(s-case.s_rho_ref))
-    cff = 1./(zr[1:]-zr[:-1])
-    bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
-    bvf = add_boundaries(0., bvf_in, bvf_in[-1])
-
-    return rho, bvf
-
-
-def compute_shear(
-        u_n: Float[Array, 'nz'],
-        v_n: Float[Array, 'nz'],
-        u_np1: Float[Array, 'nz'],
-        v_np1: Float[Array, 'nz'],
-        zr: Float[Array, 'nz']
-    ) -> Float[Array, 'nz+1']:
-    r"""
-    Compute shear production term for TKE equation.
-
-    The prognostic equations are
-
-    :math:`S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}`
-
-    where :math:`U^{n+1/2}` is the mean between :math:`U^n` and
-    :math:`U^{n+1}`.
-    
-    Parameters
-    ----------
-    u_n : Float[~jax.Array, 'nz']
-        Current zonal velocity on the center of the cells
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v_n : Float[~jax.Array, 'nz']
-        Current meridional velocity on the center of the cells
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    u_np1 : Float[~jax.Array, 'nz']
-        Zonal velocity on the center of the cells at the next time step
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v_np1 : Float[~jax.Array, 'nz']
-        Meridional velocity on the center of the cells at the next time step
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    zr : Float[~jax.Array, 'nz']
-        Depths of cell centers from deepest to shallowest :math:`[\text m]`
-        
-
-    Returns
-    -------
-    shear2 : Float[~jax.Array, 'nz+1']
-        Shear production squared :math:`S_h^2` on cell interfaces
-        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-    """
-    cff = 1.0 / (zr[1:] - zr[:-1])**2
-    du = 0.5*cff * (u_np1[1:]-u_np1[:-1]) * \
-        (u_n[1:]+u_np1[1:]-u_n[:-1]-u_np1[:-1])
-    dv = 0.5*cff * (v_np1[1:]-v_np1[:-1]) * \
-        (v_n[1:]+v_np1[1:]-v_n[:-1]-v_np1[:-1])
-    shear2_in = du + dv
-    return add_boundaries(0., shear2_in, 0.)
-
 
 def compute_tke_eps_bc(
         tke: Float[Array, 'nz+1'],

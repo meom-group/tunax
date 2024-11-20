@@ -119,7 +119,6 @@ class SingleColumnModel(eqx.Module):
     init_state: State
     case: Case
     closure: Closure
-    do_pt: bool
     output_path: str = ''
 
     def __init__(
@@ -130,7 +129,6 @@ class SingleColumnModel(eqx.Module):
             init_state: State,
             case: Case,
             closure_name: str,
-            tracers: str = '',
             output_path: str = ''
         ) -> SingleColumnModel:
         # time parameters transformation
@@ -163,7 +161,6 @@ class SingleColumnModel(eqx.Module):
         self.init_state = init_state
         self.case = case
         self.closure = CLOSURES_REGISTRY[closure_name]
-        self.do_pt = tracers == 'pt'
         self.output_path = output_path
 
     def compute_trajectory_with(
@@ -195,6 +192,20 @@ class SingleColumnModel(eqx.Module):
             self.init_state.grid, closure_parameters
         )
         swr_frac = lmd_swfrac(self.init_state.grid.hz)
+        # WIP
+        tracers = []
+        match self.case.eos_tracers:
+            case 't':
+                tracers.append('t')
+            case 's':
+                tracers.append('s')
+            case 'ts':
+                tracers.append('t')
+                tracers.append('s')
+            case 'b':
+                tracers.append('b')
+        if self.case.do_pt:
+                tracers.append('pt')
 
         # loop the model
         for i_t in range(self.nt):
@@ -202,7 +213,7 @@ class SingleColumnModel(eqx.Module):
                 states_list.append(state)
             state, closure_state = step(
                 self.dt, self.case, self.closure, state, closure_state,
-                closure_parameters, swr_frac, self.do_pt
+                closure_parameters, swr_frac, tracers
             )
         time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
 
@@ -211,7 +222,7 @@ class SingleColumnModel(eqx.Module):
         v_list = [s.v for s in states_list]
         t_list = [s.t for s in states_list]
         s_list = [state.s for state in states_list]
-        if self.do_pt:
+        if self.case.do_pt:
             pt = jnp.vstack([state.pt for state in states_list])
         else:
             pt = None
@@ -228,7 +239,7 @@ class SingleColumnModel(eqx.Module):
         return trajectory
 
 
-@partial(jit, static_argnames=('dt', 'case', 'closure', 'do_pt'))
+@partial(jit, static_argnames=('dt', 'case', 'closure', 'tracers'))
 def step(
         dt: float,
         case: Case,
@@ -237,16 +248,15 @@ def step(
         closure_state: ClosureStateAbstract,
         closure_parameters: ClosureParametersAbstract,
         swr_frac: Float[Array, 'nz+1'],
-        do_pt: bool
+        tracers: List[str]
     ) -> Tuple[State, ClosureStateAbstract]:
     r"""
     Run one time-step of the model.
     
-
     This functions first call the closure to compute the eddy-diffusivity and
     viscosity, and then integrate the equations of tracers and momentum. It
     modifies the :code:`state` with these new values and then returns the new
-    :code:`state` and :code:`closure_state`.
+    :code:`state` and :code:`closure_state`. CHANGE HERE
 
     Parameters
     ----------
@@ -278,32 +288,20 @@ def step(
     This function is jitted with JAX, it should make it faster, but the
     :func:`~jax.jit` decorator can be removed.
     """
-    grid = state.grid
-
     # advance closure state (compute eddy-diffusivity and viscosity)
     closure_state = closure.step_fun(
         state, closure_state, dt, closure_parameters, case
     )
 
     # advance tracers
-    t_new, s_new = advance_tra_ed(
-        state.t, state.s, closure_state.akt, swr_frac, grid.hz, dt, case
+    state = advance_tra_ed(
+        state, closure_state.akt, swr_frac, dt, case, tracers
     )
-    if do_pt:
-        pt_new = state.pt + 1
 
     # advance velocities
-    u_new, v_new = advance_dyn_cor_ed(
-        state.u, state.v, grid.hz, closure_state.akv, dt, case
+    state = advance_dyn_cor_ed(
+        state, closure_state.akv, dt, case
     )
-
-    # write the new state
-    state = eqx.tree_at(lambda tree: tree.t, state, t_new)
-    state = eqx.tree_at(lambda t: t.s, state, s_new)
-    state = eqx.tree_at(lambda t: t.u, state, u_new)
-    state = eqx.tree_at(lambda t: t.v, state, v_new)
-    if do_pt:
-        state = eqx.tree_at(lambda t: t.pt, state, pt_new)
 
     return state, closure_state
 
@@ -348,15 +346,40 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
     _, swr_frac = lax.scan(lax_step, (r1, 1.0 - r1), jnp.arange(1, nz+1))
     return jnp.concat((swr_frac[::-1], jnp.array([1.])))
 
+def tracer_flux(
+        tracer: str, # t, s, b, pt
+        case: Case,
+        swr_frac: Float[Array, 'nz+1']
+    ) -> Float[Array, 'nz']:
+    """
+    compute flux from forcings for tracers
+    """
+    match tracer:
+        case 't':
+            f = case.rflx_sfc_max * swr_frac
+            f = f.at[-1].add(case.tflx_sfc)
+            f = f.at[0].set(case.tflx_btm)
+        case 's':
+            f = jnp.zeros(swr_frac.shape[0])
+            f = f.at[-1].add(case.sflx_sfc)
+            f = f.at[0].set(case.sflx_btm)
+        case 'b':
+            f = jnp.zeros(swr_frac.shape[0])
+            f = f.at[-1].add(case.bflx_sfc)
+            f = f.at[0].set(case.bflx_btm)
+        case 'pt':
+            f = jnp.ones(swr_frac.shape[0])
+            # WIP
+    return f
+
 
 def advance_tra_ed(
-        t: Float[Array, 'nz'],
-        s: Float[Array, 'nz'],
+        state: State,
         akt: Float[Array, 'nz+1'],
         swr_frac: Float[Array, 'nz+1'],
-        hz: Float[Array, 'nz'],
         dt: float,
-        case: Case
+        case: Case,
+        tracers: List[str]
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
     Integrate vertical diffusion term for tracers.
@@ -369,21 +392,18 @@ def advance_tra_ed(
     :math:`\partial _z ( K_m \partial _z C) + \partial _t C + F = 0`
 
     where :math:`F` is the representation of the forcings.
+    CHANGE HERE
 
     Parameters
     ----------
-    t : Float[~jax.Array, 'nz']
-        Current temperature on the center of the cells :math:`[° \text C]`.
-    s : Float[~jax.Array, 'nz']
-        Current salinity on the center of the cells :math:`[\text{psu}]`.
+    state : State
+        Curent state of the water column.
     akt : Float[~jax.Array, 'nz+1']
         Current eddy-diffusivity :math:`K_m` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
     swr_frac : Float[~jax.Array, 'nz+1']
         Fraction of solar penetration throught the water column
         :math:`[\text{dimensionless}]`.
-    hz : Float[~jax.Array, 'nz']
-        Thickness of cells from deepest to shallowest :math:`[\text m]`.
     dt : float
         Time-step of the integration step :math:`[\text s]`.
     case : Case
@@ -397,34 +417,18 @@ def advance_tra_ed(
     s : Float[Array, 'nz']
         Salinity on the center of the cells at next step :math:`[\text{psu}]`.
     """
-    # 1 - Fluxes
-    # Temperature
-    fc_t = case.rflx_sfc_max * swr_frac
-    fc_t = fc_t.at[-1].add(case.tflx_sfc)
-    fc_t = fc_t.at[0].set(0.)
-    # apply flux divergence
-    dft = hz*t + dt*(fc_t[1:] - fc_t[:-1])
-    # Salinity
-    fc_s = jnp.zeros(t.shape[0]+1)
-    fc_s.at[-1].set(case.sflx_sfc)
-    # apply flux divergence
-    dfs = hz*s + dt*(fc_s[1:] - fc_s[:-1])
+    hz = state.grid.hz
+    for tracer in tracers:
+        tra = getattr(state, tracer)
+        f = tracer_flux(tracer, case, swr_frac)
+        df = hz*tra + dt*(f[1:] - f[:-1])
+        tra = diffusion_solver(akt, hz, df, dt)
+        state = eqx.tree_at(lambda t: getattr(t, tracer), state, tra)
 
-    # 2 - Implicit integration for vertical diffusion
-    # Temperature
-    dft = dft.at[0].add(-dt * case.tflx_btm)
-    t = diffusion_solver(akt, hz, dft, dt)
-    # Salinity
-    dfs = dfs.at[0].add(-dt * case.sflx_btm)
-    s = diffusion_solver(akt, hz, dfs, dt)
-
-    return t, s
-
+    return state
 
 def advance_dyn_cor_ed(
-        u: Float[Array, 'nz'],
-        v: Float[Array, 'nz'],
-        hz: Float[Array, 'nz'],
+        state: State,
         akv: Float[Array, 'nz+1'],
         dt: float,
         case: Case
@@ -440,6 +444,7 @@ def advance_dyn_cor_ed(
 
     where :math:`F_{\text{cor}}` represent the Coriolis effect, and :math:`F`
     represent the effect of the forcings.
+    CHANGE HERE
 
     Parameters
     ----------
@@ -470,6 +475,9 @@ def advance_dyn_cor_ed(
     """
     gamma_cor = 0.55
     fcor = case.fcor
+    u = state.u
+    v = state.v
+    hz = state.grid.hz
 
     # 1 - Compute Coriolis term
     cff = (dt * fcor) ** 2
@@ -487,8 +495,11 @@ def advance_dyn_cor_ed(
     u = diffusion_solver(akv, hz, fu, dt)
     v = diffusion_solver(akv, hz, fv, dt)
 
-    return u, v
+    # 4 - Update the state
+    state = eqx.tree_at(lambda t: t.u, state, u)
+    state = eqx.tree_at(lambda t: t.v, state, v)
 
+    return state
 
 def diffusion_solver(
         ak: Float[Array, 'nz+1'],

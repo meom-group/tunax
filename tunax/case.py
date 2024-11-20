@@ -74,6 +74,7 @@ class Case(eqx.Module):
     cp : float, default=3985.
         Specific heat capacity of saltwater
         :math:`[\text{J} \cdot \text{kg}^{-1} \cdot \text{K}^{-1}]`.
+    eos_tracers: CHANGER HERE
     alpha : float, default=2e-4
         Thermal expansion coefficient :math:`[\text{K}^{-1}]`.
     beta : float, default=8e-4
@@ -119,22 +120,27 @@ class Case(eqx.Module):
     rho0: float = 1024.
     grav: float = 9.81
     cp: float = 3985.
+    eos_tracers: str = 't'
     alpha: float = 2e-4
     beta: float = 8e-4
     t_rho_ref: float = 0.
     s_rho_ref: float = 35.
+    do_pt: bool = False
     vkarmn: float = 0.384
-    #forcings
+    # dynamic forcings
     fcor: float = 0.
     ustr_sfc: float = 0.
     ustr_btm: float = 0.
     vstr_sfc: float = 0.
     vstr_btm: float = 0.
+    # tracers forcings
     tflx_sfc: float = 0.
     tflx_btm: float = 0.
     sflx_sfc: float = 0.
     sflx_btm: float = 0.
     rflx_sfc_max: float = 0.
+    bflx_sfc: float = 0.
+    bflx_btm: float = 0.
 
     def set_lat(self, lat: float) -> Case:
         """
@@ -155,128 +161,28 @@ class Case(eqx.Module):
         print(fcor)
         case = eqx.tree_at(lambda t: t.fcor, self, fcor)
         return case
-
-    def set_u_wind(self, u_wind: float) -> Case:
-        r"""
-        Set the zonal wind stress with the zonal wind speed.
-
-        Parameters
-        ----------
-        u_wind : float
-            Zonal wind speed :math:`[\text m \cdot \text s ^{-1}]`.
-        
-        Returns
-        -------
-        case : Case
-            The :code:`self` object with the new value of :attr:`ustr_sfc`.
+    
+    def set_dynamic_forcing_speed(
+            self,
+            direction: str, # u or v,
+            boundary: str, # sfc or btm
+            cur_speed: float):
         """
-        case = eqx.tree_at(lambda t: t.ustr_sfc, self, u_wind**2)
+        CHANGE HERE
+        """
+        arg_name = f'{direction}str_{boundary}'
+        case = eqx.tree_at(lambda t: getattr(t, arg_name), self, cur_speed**2)
         return case
-
-    def set_u_cur(self, u_cur: float) -> Case:
-        r"""
-        Set the zonal current stress with the zonal current.
-
-        Parameters
-        ----------
-        u_cur : float
-            Zonal current speed :math:`[\text m \cdot \text s ^{-1}]`.
-        
-        Returns
-        -------
-        case : Case
-            The :code:`self` object with the new value of :attr:`ustr_btm`.
+    
+    def set_tracers_forcing_power(
+            self,
+            tracer: str, # t, s, b or pt
+            boundary: str, # sfc or btm
+            power: float):
         """
-        case = eqx.tree_at(lambda t: t.ustr_btm, self, u_cur**2)
-        return case
-
-    def set_v_wind(self, v_wind: float) -> Case:
-        r"""
-        Set the meridional wind stress with the meridional wind.
-
-        Parameters
-        ----------
-        v_wind : float
-            Meridional wind speed :math:`[\text m \cdot \text s ^{-1}]`.
-        
-        Returns
-        -------
-        case : Case
-            The :code:`self` object with the new value of :attr:`vstr_sfc`.
+        CHANGE HERE
         """
-        case = eqx.tree_at(lambda t: t.vstr_sfc, self, v_wind**2)
-        return case
-
-    def set_v_cur(self, v_cur: float) -> Case:
-        r"""
-        Set the meridional current stress with the meridional current.
-
-        Parameters
-        ----------
-        v_cur : float
-            Meridional current speed :math:`[\text m \cdot \text s ^{-1}]`.
-        
-        Returns
-        -------
-        case : Case
-            The :code:`self` object with the new value of :attr:`vstr_btm`.
-        """
-        case = eqx.tree_at(lambda t: t.vstr_btm, self, v_cur**2)
-        return case
-
-    def set_tpw_sfc(self, tpw_sfc: float) -> Case:
-        r"""
-        Set the heat flux at surface from the heat power.
-
-        Parameters
-        ----------
-        tpw_sfc : float
-            Non-penetrative heat power at the surface
-            :math:`[\text W \cdot \text m ^{-2}]`.
-        
-        Returns
-        -------
-        case : Case
-            The :code:`self` object with the new value of :attr:`tflx_sfc`.
-        """
-        tflx_sfc = tpw_sfc/(self.rho0*self.cp)
-        case = eqx.tree_at(lambda t: t.tflx_sfc, self, tflx_sfc)
-        return case
-
-    def set_tpw_btm(self, tpw_btm: float) -> Case:
-        r"""
-        Set the heat flux at bottom from the heat power.
-
-        Parameters
-        ----------
-        tpw_btm : float
-            Non-penetrative heat power at the bottom
-            :math:`[\text W \cdot \text m ^{-2}]`.
-        
-        Returns
-        -------
-        case : Case
-            The :code:`self` object with the new value of :attr:`tflx_btm`.
-        """
-        tflx_btm = tpw_btm/(self.rho0*self.cp)
-        case = eqx.tree_at(lambda t: t.tflx_btm, self, tflx_btm)
-        return case
-
-    def set_rpw_sfc_max(self, rpw_sfc_max: float) -> Case:
-        r"""
-        Set the maximum solar radiation from the solar power
-
-        Parameters
-        ----------
-        rpw_sfc_max : float
-            Maximum solar radiation power at the surface (penetrative)
-            :math:`[\text W \cdot \text m ^{-2}]`.
-        
-        Returns
-        -------
-        case : Case
-            The :code:`self` object with the new value of :attr:`rflx_sfc_max`.
-        """
-        rflx_sfc_max = rpw_sfc_max/(self.rho0*self.cp)
-        case = eqx.tree_at(lambda t: t.rflx_sfc_max, self, rflx_sfc_max)
+        arg_name = f'{tracer}flx_{boundary}'
+        flux = power/(self.rho0*self.cp)
+        case = eqx.tree_at(lambda t: getattr(t, arg_name), self, flux)
         return case
