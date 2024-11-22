@@ -451,6 +451,7 @@ class State(eqx.Module):
         :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
 
         :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
+        CHANGER HERE
 
         Parameters
         ----------
@@ -476,7 +477,7 @@ class State(eqx.Module):
                 rho = rho0 * (1. - case.alpha*(self.t-case.t_rho_ref) + \
                     case.beta*(self.s-case.s_rho_ref))
             case 'b':
-                rho = rho0*(self.b+1)
+                rho = rho0*(1-self.b/case.grav)
         cff = 1./(self.grid.zr[1:]-self.grid.zr[:-1])
         bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
         bvf = add_boundaries(0., bvf_in, bvf_in[-1])

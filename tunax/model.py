@@ -192,20 +192,6 @@ class SingleColumnModel(eqx.Module):
             self.init_state.grid, closure_parameters
         )
         swr_frac = lmd_swfrac(self.init_state.grid.hz)
-        # WIP
-        tracers = []
-        match self.case.eos_tracers:
-            case 't':
-                tracers.append('t')
-            case 's':
-                tracers.append('s')
-            case 'ts':
-                tracers.append('t')
-                tracers.append('s')
-            case 'b':
-                tracers.append('b')
-        if self.case.do_pt:
-                tracers.append('pt')
 
         # loop the model
         for i_t in range(self.nt):
@@ -213,22 +199,22 @@ class SingleColumnModel(eqx.Module):
                 states_list.append(state)
             state, closure_state = step(
                 self.dt, self.case, self.closure, state, closure_state,
-                closure_parameters, swr_frac, tracers
+                closure_parameters, swr_frac
             )
         time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
 
         # generate trajectory
         u_list = [s.u for s in states_list]
         v_list = [s.v for s in states_list]
-        t_list = [s.t for s in states_list]
-        s_list = [state.s for state in states_list]
+        tra_dict = {}
+        for tracer in self.case.eos_tracers:
+            tra_list = [getattr(s, tracer) for s in states_list]
+            tra_dict[tracer] = jnp.vstack(tra_list)
         if self.case.do_pt:
-            pt = jnp.vstack([state.pt for state in states_list])
-        else:
-            pt = None
+            tra_dict['pt'] = jnp.vstack([state.pt for state in states_list])
         trajectory = Trajectory(
-            self.init_state.grid, time, jnp.vstack(t_list), jnp.vstack(s_list),
-            jnp.vstack(u_list), jnp.vstack(v_list), pt=pt
+            self.init_state.grid, time, jnp.vstack(u_list), jnp.vstack(v_list),
+            **tra_dict
         )
 
         # write netcdf output
@@ -239,7 +225,7 @@ class SingleColumnModel(eqx.Module):
         return trajectory
 
 
-@partial(jit, static_argnames=('dt', 'case', 'closure', 'tracers'))
+@partial(jit, static_argnames=('dt', 'case', 'closure'))
 def step(
         dt: float,
         case: Case,
@@ -247,8 +233,7 @@ def step(
         state: State,
         closure_state: ClosureStateAbstract,
         closure_parameters: ClosureParametersAbstract,
-        swr_frac: Float[Array, 'nz+1'],
-        tracers: List[str]
+        swr_frac: Float[Array, 'nz+1']
     ) -> Tuple[State, ClosureStateAbstract]:
     r"""
     Run one time-step of the model.
@@ -295,7 +280,7 @@ def step(
 
     # advance tracers
     state = advance_tra_ed(
-        state, closure_state.akt, swr_frac, dt, case, tracers
+        state, closure_state.akt, swr_frac, dt, case
     )
 
     # advance velocities
@@ -368,7 +353,8 @@ def tracer_flux(
             f = f.at[-1].add(case.bflx_sfc)
             f = f.at[0].set(case.bflx_btm)
         case 'pt':
-            f = jnp.ones(swr_frac.shape[0])
+            f = jnp.zeros(swr_frac.shape[0])
+            f = f.at[0].set(1)
             # WIP
     return f
 
@@ -378,8 +364,7 @@ def advance_tra_ed(
         akt: Float[Array, 'nz+1'],
         swr_frac: Float[Array, 'nz+1'],
         dt: float,
-        case: Case,
-        tracers: List[str]
+        case: Case
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
     Integrate vertical diffusion term for tracers.
@@ -418,6 +403,9 @@ def advance_tra_ed(
         Salinity on the center of the cells at next step :math:`[\text{psu}]`.
     """
     hz = state.grid.hz
+    tracers = [tra for tra in case.eos_tracers]
+    if case.do_pt:
+        tracers.append('pt')
     for tracer in tracers:
         tra = getattr(state, tracer)
         f = tracer_flux(tracer, case, swr_frac)

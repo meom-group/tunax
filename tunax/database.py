@@ -19,7 +19,7 @@ import xarray as xr
 import equinox as eqx
 import jax.numpy as jnp
 
-from tunax.space import Grid, Trajectory
+from tunax.space import Grid, Trajectory, TRACERS_NAMES
 from tunax.case import Case
 
 
@@ -69,7 +69,9 @@ class Obs(eqx.Module):
             cls,
             nc_path: str,
             yaml_path: str,
-            var_names: Dict[str, str]
+            var_names: Dict[str, str],
+            eos_tracers: str,
+            do_pt: bool
         ) -> Obs:
         """
         Create an instance from a *netcdf* and a *yaml* files.
@@ -79,7 +81,7 @@ class Obs(eqx.Module):
         configuration file :code:`yaml_path`. :code:`var_names` is used to do
         the link between Tunax name convention and the one from the used
         database.
-
+        CHANGE HEERE
         Parameters
         ----------
         nc_path : str
@@ -119,28 +121,23 @@ class Obs(eqx.Module):
         nt, = time.shape
         nz = grid.nz
         # variables
-        t_name = var_names['t']
-        if t_name == '':
-            t = jnp.full((nt, nz), 21.)
-        else:
-            t = jnp.array(ds[var_names['t']].values)
-        s_name = var_names['s']
-        if s_name == '':
-            s = jnp.full((nt, nz), 35.)
-        else:
-            s = jnp.array(ds[var_names['s']].values)
         u_name = var_names['u']
         if u_name == '':
             u = jnp.full((nt, nz), 0.)
         else:
-            u = jnp.array(ds[var_names['u']].values)
+            u = jnp.array(ds[u_name].values)
         v_name = var_names['v']
         if v_name == '':
             v = jnp.full((nt, nz), 0.)
         else:
-            v = jnp.array(ds[var_names['v']].values)
+            v = jnp.array(ds[v_name].values)
+        tracers_dict = {}
+        for tracer in TRACERS_NAMES:
+            if tracer in var_names.keys():
+                tracers_dict[tracer] = jnp.array(ds[var_names[tracer]].values)
+        u_name = var_names['u']
         # writing trajectory
-        trajectory = Trajectory(grid, time, t, s, u, v)
+        trajectory = Trajectory(grid, time, u, v, **tracers_dict)
 
         with open(yaml_path, 'r', encoding='utf-8') as f:
             metadatas = yaml.safe_load(f)
@@ -152,6 +149,10 @@ class Obs(eqx.Module):
                 case = eqx.tree_at(
                     lambda t: getattr(t, att), case,
                     metadatas[var_names[att]])
+        case = eqx.tree_at(
+            lambda t: getattr(t, 'eos_tracers'), case, eos_tracers
+        )
+        case = eqx.tree_at(lambda t: getattr(t, 'do_pt'), case, do_pt)
 
         return cls(trajectory, case)
 
