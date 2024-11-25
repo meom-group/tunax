@@ -137,7 +137,7 @@ class SingleColumnModel(eqx.Module):
 
         # warnings and errors on time parameters coherence
         if not n_out.is_integer():
-            raise ValueError('`out_dt` should be a multiple of `dt`.')
+            raise ValueError('`out_dt` must be a multiple of `dt`.')
         if not nt % n_out == 0:
             warnings.warn(_format_to_single_line("""
                 The `time_frame`is not proportional to the out time-step

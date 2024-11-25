@@ -24,6 +24,7 @@ netcdf4 = "^1.7.1.post2"
 jax = "^0.4.34"
 jaxtyping = "^0.2.34"
 pyyaml = "^6.0.2"
+h5py = "^3.12.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.1.1"

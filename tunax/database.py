@@ -12,15 +12,53 @@ can be obtained by the prefix :code:`tunax.database.` or directly by
 """
 
 from __future__ import annotations
-from typing import List, Dict
+import warnings
+from typing import Union, Optional, Tuple, TypeAlias, List, Dict
 
 import yaml
 import xarray as xr
 import equinox as eqx
 import jax.numpy as jnp
+from h5py import File as H5pyFile
+from jaxtyping import Array, Float
 
 from tunax.space import Grid, Trajectory, TRACERS_NAMES
 from tunax.case import Case
+from tunax.functions import _format_to_single_line
+
+
+DimsType: TypeAlias = Tuple[Optional[int]]
+
+
+def get_var_jl(
+        jl_file: H5pyFile,
+        var_names: Dict[str, str],
+        var: str,
+        n: int,
+        dims: Union[DimsType, Dict[str, DimsType]] = (None), # le numéro des indices auxquels récupérer l'array 1D et un None pour la dim de cet array ou alors un dictionnaire où on récupère le tuple à partir du nom de la variable
+        suffix: str = '' # pour rajouter les temps
+    ) -> Float[Array, 'n']:
+    jl_var = jl_file[f'{var_names[var]}{suffix}']
+    if len(jl_var.shape) != len(dims):
+        raise ValueError(_format_to_single_line("""
+            `dims` must the length of the number of dimension of the
+            corresponding `var` array in the `jl_file`.
+        """))
+    if isinstance(dims, dict):
+        dims = dims[var]
+    dims_slice = tuple(slice(None) if x is None else x for x in dims)
+    jl_var_1d = jl_var[dims_slice]
+    double_shift = jl_var_1d.shape[0] - n
+    shift = double_shift//2
+    if double_shift%2 == 1:
+        warnings.warn(_format_to_single_line("""
+            The length array from the `jl_file` of the variable `var` minus
+            `n` is an odd number : the removed boundaries are taken 1 point
+            thinner on the bottom side than on the surface side.
+        """))
+        return jl_var_1d[shift:-shift-1]
+    else:
+        return jl_var_1d[shift:-shift]
 
 
 class Obs(eqx.Module):
@@ -65,13 +103,13 @@ class Obs(eqx.Module):
         self.case = case
 
     @classmethod
-    def from_files(
+    def from_nc_yaml(
             cls,
             nc_path: str,
             yaml_path: str,
             var_names: Dict[str, str],
-            eos_tracers: str,
-            do_pt: bool
+            eos_tracers: str = 't',
+            do_pt: bool = False
         ) -> Obs:
         """
         Create an instance from a *netcdf* and a *yaml* files.
@@ -153,6 +191,55 @@ class Obs(eqx.Module):
             lambda t: getattr(t, 'eos_tracers'), case, eos_tracers
         )
         case = eqx.tree_at(lambda t: getattr(t, 'do_pt'), case, do_pt)
+
+        return cls(trajectory, case)
+
+    @classmethod
+    def from_jld2(
+            cls,
+            jl2d_path: str,
+            var_names: Dict[str, str], # il faut séparer les groupes avec de /
+            nz: Optional[int] = None, # si pas indiqué, il faut qu'il soit dans var_names, ensuite on prend la partie "centrale" de longueur nz ou nz+1 pour chaque variable, avec un shift plus petit du côté profond si jamais c'est pas symétrique (avec un warning)
+            dims: Union[DimsType, Dict[str, DimsType]] = (None),
+            eos_tracers: str = 't',
+            do_pt: bool = False
+        ) -> Obs:
+        """
+        conditions :
+        les timeseries doivent être des arrays spatiaux dans des groupes avec des temps différents
+        c'est pareil pour l'array des valeurs des temps
+        """
+        jl = H5pyFile(jl2d_path, 'r')
+        # récupération de la bonne valeur de nz
+        if nz is None:
+            nz = jl[var_names['nz']]
+        # variables grid et time
+        zr = get_var_jl(jl, var_names, 'zr', nz, dims)
+        zw = get_var_jl(jl, var_names, 'zw', nz, dims)
+        time_group = var_names['time']
+        time_str_list = float(jl[time_group].keys())
+        time_float_list = []
+        for time_str in time_str_list:
+            time_val = [jl[var_names[f'{time_group}/{time_str}']]]
+            time_float_list.append(float(time_val))
+        time = jnp.array(time_float_list)
+        # variables
+        variables_dict = {}
+        for var_name in ['u', 'v'] + TRACERS_NAMES:
+            if var_name not in var_names:
+                continue
+            var_list = []
+            for time_str in time_str_list:
+                var_time = get_var_jl(
+                    jl, var_names, var_name, nz, dims, f'/{time_str}'
+                )
+                var_list.append(var_time)
+            variables_dict[var_name] = jnp.vstack(var_list)
+        # trajectory
+        trajectory = Trajectory(Grid(zr, zw), time, **variables_dict)
+
+        # parameters
+        case = Case(eos_tracers=eos_tracers, do_pt=do_pt)
 
         return cls(trajectory, case)
 
