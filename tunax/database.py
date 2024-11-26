@@ -39,18 +39,23 @@ def get_var_jl(
         suffix: str = '' # pour rajouter les temps
     ) -> Float[Array, 'n']:
     jl_var = jl_file[f'{var_names[var]}{suffix}']
+    # sélection éventuelle du bon tuple de dims (cas où on donne un dictionnaire de dims pour chaque varialbe)
+    if isinstance(dims, dict):
+        dims = dims[var]
     if len(jl_var.shape) != len(dims):
+        print(jl_var.shape)
+        print(dims)
+        print(var)
         raise ValueError(_format_to_single_line("""
             `dims` must the length of the number of dimension of the
             corresponding `var` array in the `jl_file`.
         """))
-    if isinstance(dims, dict):
-        dims = dims[var]
     dims_slice = tuple(slice(None) if x is None else x for x in dims)
     jl_var_1d = jl_var[dims_slice]
     double_shift = jl_var_1d.shape[0] - n
     shift = double_shift//2
     if double_shift%2 == 1:
+        print(var)
         warnings.warn(_format_to_single_line("""
             The length array from the `jl_file` of the variable `var` minus
             `n` is an odd number : the removed boundaries are taken 1 point
@@ -98,6 +103,7 @@ class Obs(eqx.Module):
         time = trajectory.time
         steps = time[1:] - time[:-1]
         if not jnp.all(steps == steps[0]):
+            print(steps)
             raise ValueError('Tunax only handle constant output time-steps')
         self.trajectory = trajectory
         self.case = case
@@ -212,15 +218,18 @@ class Obs(eqx.Module):
         jl = H5pyFile(jl2d_path, 'r')
         # récupération de la bonne valeur de nz
         if nz is None:
-            nz = jl[var_names['nz']]
+            nz = int(jl[var_names['nz']][()])
         # variables grid et time
         zr = get_var_jl(jl, var_names, 'zr', nz, dims)
-        zw = get_var_jl(jl, var_names, 'zw', nz, dims)
+        zw = get_var_jl(jl, var_names, 'zw', nz+1, dims)
         time_group = var_names['time']
-        time_str_list = float(jl[time_group].keys())
+        time_str_list = list(jl[time_group].keys())
+        time_str_list = [int(i) for i in time_str_list]
+        time_str_list.sort()
+        time_str_list = [str(i) for i in time_str_list]
         time_float_list = []
         for time_str in time_str_list:
-            time_val = [jl[var_names[f'{time_group}/{time_str}']]]
+            time_val = jl[f'{time_group}/{time_str}'][()]
             time_float_list.append(float(time_val))
         time = jnp.array(time_float_list)
         # variables
@@ -239,7 +248,12 @@ class Obs(eqx.Module):
         trajectory = Trajectory(Grid(zr, zw), time, **variables_dict)
 
         # parameters
-        case = Case(eos_tracers=eos_tracers, do_pt=do_pt)
+        params = {}
+        case_params_list = [nom for nom in vars(Case).keys()]
+        for par_name in case_params_list:
+            if par_name in var_names.keys():
+                params[par_name] = float(jl[var_names[par_name]][()])
+        case = Case(eos_tracers=eos_tracers, do_pt=do_pt, **params)
 
         return cls(trajectory, case)
 
