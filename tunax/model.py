@@ -28,11 +28,11 @@ from functools import partial
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import lax, jit
+from jax import lax, jit, vmap
 from jaxtyping import Float, Array
 
 from tunax.case import Case
-from tunax.space import State, Trajectory
+from tunax.space import Grid, State, Trajectory
 from tunax.functions import (
     tridiag_solve, add_boundaries, _format_to_single_line
 )
@@ -191,16 +191,17 @@ class SingleColumnModel(eqx.Module):
         closure_state = self.closure.state_class(
             self.init_state.grid, closure_parameters
         )
-        swr_frac = lmd_swfrac(self.init_state.grid.hz)
 
         # loop the model
+        cur_time = 0
         for i_t in range(self.nt):
             if i_t % self.n_out == 0:
                 states_list.append(state)
             state, closure_state = step(
                 self.dt, self.case, self.closure, state, closure_state,
-                closure_parameters, swr_frac
+                closure_parameters, cur_time
             )
+            cur_time += self.dt
         time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
 
         # generate trajectory
@@ -233,7 +234,7 @@ def step(
         state: State,
         closure_state: ClosureStateAbstract,
         closure_parameters: ClosureParametersAbstract,
-        swr_frac: Float[Array, 'nz+1']
+        time: float
     ) -> Tuple[State, ClosureStateAbstract]:
     r"""
     Run one time-step of the model.
@@ -257,10 +258,7 @@ def step(
         Curent state of the water column for the closure variables.
     closure_parameters : ClosureParametersAbstract
         A set of parameters of the used with the :code:`closure`.
-    swr_frac : Float[~jax.Array, 'nz+1']
-        Fraction of solar penetration throught the water column
-        :math:`[\text{dimensionless}]`.
-
+CHANGE HERE
     Returns
     -------
     state : State
@@ -280,7 +278,7 @@ def step(
 
     # advance tracers
     state = advance_tra_ed(
-        state, closure_state.akt, swr_frac, dt, case
+        state, closure_state.akt, dt, case, time
     )
 
     # advance velocities
@@ -334,37 +332,32 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
 def tracer_flux(
         tracer: str, # t, s, b, pt
         case: Case,
-        swr_frac: Float[Array, 'nz+1']
+        grid: Grid,
+        time: float
     ) -> Float[Array, 'nz']:
     """
     compute flux from forcings for tracers
     """
-    match tracer:
-        case 't':
-            f = case.rflx_sfc_max * swr_frac
-            f = f.at[-1].add(case.tflx_sfc)
-            f = f.at[0].set(case.tflx_btm)
-        case 's':
-            f = jnp.zeros(swr_frac.shape[0])
-            f = f.at[-1].add(case.sflx_sfc)
-            f = f.at[0].set(case.sflx_btm)
-        case 'b':
-            f = jnp.zeros(swr_frac.shape[0])
-            f = f.at[-1].add(case.bflx_sfc)
-            f = f.at[0].set(case.bflx_btm)
-        case 'pt':
-            f = jnp.zeros(swr_frac.shape[0])
-            f = f.at[0].set(1)
-            # WIP
-    return f
+    # forcing = getattr(case, f'{tracer}_forcing')
+    # forcing_type = getattr(case, f'{tracer}_forcing_type')
+    forcing = case.t_forcing
+    # match forcing_type:
+    #     case 'borders':
+    f = add_boundaries(forcing[0], jnp.zeros(59), forcing[1]) ######### il faut pas utiliser grid ici
+        # case 'constant':
+        #     f = forcing
+        # case 'variable':
+        #     vec_fun = vmap(lambda z: forcing(z, time))
+        #     f = vec_fun(grid.zr)
+    return jnp.zeros(51)
 
 
 def advance_tra_ed(
         state: State,
         akt: Float[Array, 'nz+1'],
-        swr_frac: Float[Array, 'nz+1'],
         dt: float,
-        case: Case
+        case: Case,
+        time: float
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
     Integrate vertical diffusion term for tracers.
@@ -386,14 +379,11 @@ def advance_tra_ed(
     akt : Float[~jax.Array, 'nz+1']
         Current eddy-diffusivity :math:`K_m` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    swr_frac : Float[~jax.Array, 'nz+1']
-        Fraction of solar penetration throught the water column
-        :math:`[\text{dimensionless}]`.
     dt : float
         Time-step of the integration step :math:`[\text s]`.
     case : Case
         Physical case and forcings of the experiment.
-
+CHANGER HERE
     Returns
     -------
     t : Float[Array, 'nz']
@@ -408,7 +398,7 @@ def advance_tra_ed(
         tracers.append('pt')
     for tracer in tracers:
         tra = getattr(state, tracer)
-        f = tracer_flux(tracer, case, swr_frac)
+        f = tracer_flux(tracer, case, state.grid, time)
         df = hz*tra + dt*(f[1:] - f[:-1])
         tra = diffusion_solver(akt, hz, df, dt)
         state = eqx.tree_at(lambda t: getattr(t, tracer), state, tra)

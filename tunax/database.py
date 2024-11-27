@@ -43,9 +43,6 @@ def get_var_jl(
     if isinstance(dims, dict):
         dims = dims[var]
     if len(jl_var.shape) != len(dims):
-        print(jl_var.shape)
-        print(dims)
-        print(var)
         raise ValueError(_format_to_single_line("""
             `dims` must the length of the number of dimension of the
             corresponding `var` array in the `jl_file`.
@@ -55,7 +52,6 @@ def get_var_jl(
     double_shift = jl_var_1d.shape[0] - n
     shift = double_shift//2
     if double_shift%2 == 1:
-        print(var)
         warnings.warn(_format_to_single_line("""
             The length array from the `jl_file` of the variable `var` minus
             `n` is an odd number : the removed boundaries are taken 1 point
@@ -103,7 +99,6 @@ class Obs(eqx.Module):
         time = trajectory.time
         steps = time[1:] - time[:-1]
         if not jnp.all(steps == steps[0]):
-            print(steps)
             raise ValueError('Tunax only handle constant output time-steps')
         self.trajectory = trajectory
         self.case = case
