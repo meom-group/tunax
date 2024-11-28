@@ -13,7 +13,7 @@ can be obtained by the prefix :code:`tunax.database.` or directly by
 
 from __future__ import annotations
 import warnings
-from typing import Union, Optional, Tuple, TypeAlias, List, Dict
+from typing import Union, Optional, Tuple, TypeAlias, List, Dict, Any
 
 import yaml
 import xarray as xr
@@ -35,11 +35,18 @@ def get_var_jl(
         var_names: Dict[str, str],
         var: str,
         n: int,
-        dims: Union[DimsType, Dict[str, DimsType]] = (None), # le numéro des indices auxquels récupérer l'array 1D et un None pour la dim de cet array ou alors un dictionnaire où on récupère le tuple à partir du nom de la variable
+        # le numéro des indices auxquels récupérer l'array 1D et un None pour
+        # la dim de cet array ou alors un dictionnaire où on récupère le tuple
+        # à partir du nom de la variable
+        dims: Union[DimsType, Dict[str, DimsType]] = (None),
         suffix: str = '' # pour rajouter les temps
     ) -> Float[Array, 'n']:
+    """
+    blabla
+    """
     jl_var = jl_file[f'{var_names[var]}{suffix}']
-    # sélection éventuelle du bon tuple de dims (cas où on donne un dictionnaire de dims pour chaque varialbe)
+    # sélection éventuelle du bon tuple de dims (cas où on donne un
+    # dictionnaire de dims pour chaque varialbe)
     if isinstance(dims, dict):
         dims = dims[var]
     if len(jl_var.shape) != len(dims):
@@ -94,14 +101,21 @@ class Obs(eqx.Module):
 
     trajectory: Trajectory
     case: Case
+    metadatas: Dict[str, float]
 
-    def __init__(self, trajectory: Trajectory, case: Case):
+    def __init__(
+            self,
+            trajectory: Trajectory,
+            case: Case,
+            metadatas: Dict[str, float]={}
+        ):
         time = trajectory.time
         steps = time[1:] - time[:-1]
         if not jnp.all(steps == steps[0]):
             raise ValueError('Tunax only handle constant output time-steps')
         self.trajectory = trajectory
         self.case = case
+        self.metadatas = metadatas
 
     @classmethod
     def from_nc_yaml(
@@ -193,14 +207,18 @@ class Obs(eqx.Module):
         )
         case = eqx.tree_at(lambda t: getattr(t, 'do_pt'), case, do_pt)
 
-        return cls(trajectory, case)
+        return cls(trajectory, case, metadatas)
 
     @classmethod
     def from_jld2(
             cls,
             jl2d_path: str,
             var_names: Dict[str, str], # il faut séparer les groupes avec de /
-            nz: Optional[int] = None, # si pas indiqué, il faut qu'il soit dans var_names, ensuite on prend la partie "centrale" de longueur nz ou nz+1 pour chaque variable, avec un shift plus petit du côté profond si jamais c'est pas symétrique (avec un warning)
+            # si pas indiqué, il faut qu'il soit dans var_names, ensuite on
+            # prend la partie "centrale" de longueur nz ou nz+1 pour chaque
+            # variable, avec un shift plus petit du côté profond si jamais
+            # c'est pas symétrique (avec un warning)
+            nz: Optional[int] = None,
             dims: Union[DimsType, Dict[str, DimsType]] = (None),
             eos_tracers: str = 't',
             do_pt: bool = False
@@ -244,10 +262,14 @@ class Obs(eqx.Module):
 
         # parameters
         params = {}
+        metadatas = {}
         case_params_list = [nom for nom in vars(Case).keys()]
-        for par_name in case_params_list:
-            if par_name in var_names.keys():
-                params[par_name] = float(jl[var_names[par_name]][()])
+        for par_name, var_name in var_names.items():
+            print(par_name, var_name)
+            if par_name in case_params_list: ##### prolbème de séparation entre variables et paramètres
+                params[par_name] = float(jl[var_name][()])
+            else:
+                metadatas[par_name] = float(jl[var_name][()])
         case = Case(eos_tracers=eos_tracers, do_pt=do_pt, **params)
 
         return cls(trajectory, case)

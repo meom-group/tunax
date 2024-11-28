@@ -196,7 +196,7 @@ class Case(eqx.Module):
                 elif callable(forcing):
                     setattr(self, tra_type_attr, 'variable')
                 else:
-                    raise ValueError(_format_to_single_line(f"""
+                    raise warnings.warn(_format_to_single_line(f"""
                         Wrong type for the focring of {tra} in the
                         initialisation of Case instance.
                     """))
