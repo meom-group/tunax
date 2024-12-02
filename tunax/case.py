@@ -9,10 +9,11 @@ This module comes down to Case class. This class can be obtained by the prefix
 from __future__ import annotations
 from typing import Union, Tuple, Callable, Optional
 import warnings
+import inspect
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import device_get
+from jax import tree_util, device_get
 from jaxtyping import Float, Array
 
 from tunax.functions import _format_to_single_line
@@ -25,7 +26,7 @@ _RAD_DEG = jnp.pi/180.
 
 ForcingType = Union[
     Tuple[float, float],
-    Float[Array, 'nz'],
+    Callable[[float], float],
     Callable[[float, float], float]
 ]
 
@@ -149,10 +150,10 @@ class Case(eqx.Module):
     s_forcing: Optional[ForcingType] = None
     b_forcing: Optional[ForcingType] = None
     pt_forcing: Optional[ForcingType] = None
-    t_forcing_type: Optional[str] = eqx.field(init=False)
-    s_forcing_type: Optional[str] = eqx.field(init=False)
-    b_forcing_type: Optional[str] = eqx.field(init=False)
-    pt_forcing_type: Optional[str] = eqx.field(init=False)
+    t_forcing_type: Optional[str] = None
+    s_forcing_type: Optional[str] = None
+    b_forcing_type: Optional[str] = None
+    pt_forcing_type: Optional[str] = None
 
     def __post_init__(self):
         for eos_tra in ['t', 's', 'b']:
@@ -191,16 +192,17 @@ class Case(eqx.Module):
             if forcing is not None:
                 if isinstance(forcing, tuple):
                     setattr(self, tra_type_attr, 'borders')
-                elif isinstance(forcing, jnp.ndarray):
-                    setattr(self, tra_type_attr, 'constant')
                 elif callable(forcing):
-                    setattr(self, tra_type_attr, 'variable')
+                    sig = inspect.signature(forcing)
+                    if len(sig.parameters) == 1:
+                        setattr(self, tra_type_attr, 'constant')
+                    elif len(sig.parameters) == 2:
+                        setattr(self, tra_type_attr, 'variable')
                 else:
-                    raise warnings.warn(_format_to_single_line(f"""
+                    warnings.warn(_format_to_single_line(f"""
                         Wrong type for the focring of {tra} in the
                         initialisation of Case instance.
                     """))
-
             else:
                 setattr(self, tra_type_attr, None)
 
@@ -222,7 +224,7 @@ class Case(eqx.Module):
         fcor = float(device_get(2.*_OMEGA*jnp.sin(_RAD_DEG*lat)))
         case = eqx.tree_at(lambda t: t.fcor, self, fcor)
         return case
-    
+
     def set_dynamic_forcing_speed(
             self,
             direction: str, # u or v,
@@ -234,7 +236,7 @@ class Case(eqx.Module):
         arg_name = f'{direction}str_{boundary}'
         case = eqx.tree_at(lambda t: getattr(t, arg_name), self, cur_speed**2)
         return case
-    
+
     def set_tracers_forcing_power(
             self,
             tracer: str, # t, s, b or pt

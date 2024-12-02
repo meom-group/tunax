@@ -18,6 +18,7 @@ from typing import Union, Optional, Tuple, TypeAlias, List, Dict, Any
 import yaml
 import xarray as xr
 import equinox as eqx
+import numpy as np
 import jax.numpy as jnp
 from h5py import File as H5pyFile
 from jaxtyping import Array, Float
@@ -213,11 +214,12 @@ class Obs(eqx.Module):
     def from_jld2(
             cls,
             jl2d_path: str,
-            var_names: Dict[str, str], # il faut séparer les groupes avec de /
+            names_mapping: Dict[str, Dict[str, str]], # il faut séparer les groupes avec de /
             # si pas indiqué, il faut qu'il soit dans var_names, ensuite on
             # prend la partie "centrale" de longueur nz ou nz+1 pour chaque
             # variable, avec un shift plus petit du côté profond si jamais
             # c'est pas symétrique (avec un warning)
+            # divisé en 3 parties : variables, parameters, metadats
             nz: Optional[int] = None,
             dims: Union[DimsType, Dict[str, DimsType]] = (None),
             eos_tracers: str = 't',
@@ -228,14 +230,17 @@ class Obs(eqx.Module):
         les timeseries doivent être des arrays spatiaux dans des groupes avec des temps différents
         c'est pareil pour l'array des valeurs des temps
         """
+        var_map = names_mapping['variables']
+        par_map = names_mapping['parameters']
+        metadata_map = names_mapping['metadatas']
         jl = H5pyFile(jl2d_path, 'r')
         # récupération de la bonne valeur de nz
         if nz is None:
-            nz = int(jl[var_names['nz']][()])
+            nz = int(jl[par_map['nz']][()])
         # variables grid et time
-        zr = get_var_jl(jl, var_names, 'zr', nz, dims)
-        zw = get_var_jl(jl, var_names, 'zw', nz+1, dims)
-        time_group = var_names['time']
+        zr = jnp.array(get_var_jl(jl, var_map, 'zr', nz, dims))
+        zw = jnp.array(get_var_jl(jl, var_map, 'zw', nz+1, dims))
+        time_group = var_map['time']
         time_str_list = list(jl[time_group].keys())
         time_str_list = [int(i) for i in time_str_list]
         time_str_list.sort()
@@ -248,12 +253,12 @@ class Obs(eqx.Module):
         # variables
         variables_dict = {}
         for var_name in ['u', 'v'] + TRACERS_NAMES:
-            if var_name not in var_names:
+            if var_name not in var_map:
                 continue
             var_list = []
             for time_str in time_str_list:
                 var_time = get_var_jl(
-                    jl, var_names, var_name, nz, dims, f'/{time_str}'
+                    jl, var_map, var_name, nz, dims, f'/{time_str}'
                 )
                 var_list.append(var_time)
             variables_dict[var_name] = jnp.vstack(var_list)
@@ -262,17 +267,20 @@ class Obs(eqx.Module):
 
         # parameters
         params = {}
-        metadatas = {}
         case_params_list = [nom for nom in vars(Case).keys()]
-        for par_name, var_name in var_names.items():
-            print(par_name, var_name)
-            if par_name in case_params_list: ##### prolbème de séparation entre variables et paramètres
-                params[par_name] = float(jl[var_name][()])
-            else:
-                metadatas[par_name] = float(jl[var_name][()])
+        for par_name, jl_name in par_map.items():
+            if par_name in case_params_list:
+                params[par_name] = float(jl[jl_name][()])
         case = Case(eos_tracers=eos_tracers, do_pt=do_pt, **params)
 
-        return cls(trajectory, case)
+        # metadatas
+        metadatas = {}
+        for metadata_name, jl_name in metadata_map.items():
+            jl_val = jl[jl_name][()]
+            if isinstance(jl_val, np.floating) or isinstance(jl_val, np.integer):
+                metadatas[metadata_name] = float(jl_val)
+
+        return cls(trajectory, case, metadatas)
 
 
 class Database(eqx.Module):

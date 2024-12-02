@@ -343,13 +343,13 @@ def tracer_flux(
     forcing = case.t_forcing
     # match forcing_type:
     #     case 'borders':
-    f = add_boundaries(forcing[0], jnp.zeros(59), forcing[1]) ######### il faut pas utiliser grid ici
+    # f = add_boundaries(forcing[0], jnp.zeros(59), forcing[1]) ######### il faut pas utiliser grid ici
         # case 'constant':
-        #     f = forcing
+        #     f = jnp.array(forcing)
         # case 'variable':
         #     vec_fun = vmap(lambda z: forcing(z, time))
         #     f = vec_fun(grid.zr)
-    return jnp.zeros(51)
+    return jnp.zeros(257)
 
 
 def advance_tra_ed(
