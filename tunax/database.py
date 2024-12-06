@@ -302,3 +302,4 @@ class Database(eqx.Module):
     """
 
     observations: List[Obs]
+    metadatas: Any

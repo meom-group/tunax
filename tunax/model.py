@@ -334,30 +334,31 @@ def tracer_flux(
         case: Case,
         grid: Grid,
         time: float
-    ) -> Float[Array, 'nz']:
+    ) -> Float[Array, 'nz+1']:
     """
-    compute flux from forcings for tracers
+    compute flux difference from forcings for tracers
     """
-    # forcing = getattr(case, f'{tracer}_forcing')
-    # forcing_type = getattr(case, f'{tracer}_forcing_type')
-    forcing = case.t_forcing
-    # match forcing_type:
-    #     case 'borders':
-    # f = add_boundaries(forcing[0], jnp.zeros(59), forcing[1]) ######### il faut pas utiliser grid ici
-        # case 'constant':
-        #     f = jnp.array(forcing)
-        # case 'variable':
-        #     vec_fun = vmap(lambda z: forcing(z, time))
-        #     f = vec_fun(grid.zr)
-    return jnp.zeros(257)
-
+    forcing = getattr(case, f'{tracer}_forcing')
+    forcing_type = getattr(case, f'{tracer}_forcing_type')
+    match forcing_type:
+        case 'borders':
+            df = add_boundaries(
+                -forcing[0], jnp.zeros(grid.zr.shape[0]-2), forcing[1]
+            )
+        case 'constant':
+            vec_fun = vmap(forcing) ###########
+            df = vec_fun(grid.zr)
+        case 'variable':
+            vec_fun = vmap(lambda z: forcing(z, time))
+            df = vec_fun(grid.zr)
+    return df
 
 def advance_tra_ed(
         state: State,
         akt: Float[Array, 'nz+1'],
         dt: float,
         case: Case,
-        time: float
+        time: float,
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
     Integrate vertical diffusion term for tracers.
@@ -398,8 +399,9 @@ CHANGER HERE
         tracers.append('pt')
     for tracer in tracers:
         tra = getattr(state, tracer)
-        f = tracer_flux(tracer, case, state.grid, time)
-        df = hz*tra + dt*(f[1:] - f[:-1])
+        df = tracer_flux(tracer, case, state.grid, time)
+        if tracer == 'pt': df = hz*(tra + dt*df)
+        else:df = hz*tra + dt*df
         tra = diffusion_solver(akt, hz, df, dt)
         state = eqx.tree_at(lambda t: getattr(t, tracer), state, tra)
 
