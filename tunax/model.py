@@ -120,6 +120,7 @@ class SingleColumnModel(eqx.Module):
     case: Case
     closure: Closure
     output_path: str = ''
+    diags: List[str]
 
     def __init__(
             self,
@@ -129,7 +130,8 @@ class SingleColumnModel(eqx.Module):
             init_state: State,
             case: Case,
             closure_name: str,
-            output_path: str = ''
+            output_path: str = '',
+            diags: List[str] = []
         ) -> SingleColumnModel:
         # time parameters transformation
         n_out = out_dt/dt
@@ -162,6 +164,7 @@ class SingleColumnModel(eqx.Module):
         self.case = case
         self.closure = CLOSURES_REGISTRY[closure_name]
         self.output_path = output_path
+        self.diags = diags
 
     def compute_trajectory_with(
             self,
@@ -187,6 +190,7 @@ class SingleColumnModel(eqx.Module):
         """
         # initialize the model
         states_list: List[State] = []
+        closure_states_list: List[ClosureStateAbstract] = []
         state = self.init_state
         closure_state = self.closure.state_class(
             self.init_state.grid, closure_parameters
@@ -197,6 +201,7 @@ class SingleColumnModel(eqx.Module):
         for i_t in range(self.nt):
             if i_t % self.n_out == 0:
                 states_list.append(state)
+                closure_states_list.append(closure_state)
             state, closure_state = step(
                 self.dt, self.case, self.closure, state, closure_state,
                 closure_parameters, cur_time
@@ -207,15 +212,22 @@ class SingleColumnModel(eqx.Module):
         # generate trajectory
         u_list = [s.u for s in states_list]
         v_list = [s.v for s in states_list]
+        # state tracers
         tra_dict = {}
         for tracer in self.case.eos_tracers:
             tra_list = [getattr(s, tracer) for s in states_list]
             tra_dict[tracer] = jnp.vstack(tra_list)
         if self.case.do_pt:
             tra_dict['pt'] = jnp.vstack([state.pt for state in states_list])
+        # diags of closure state
+        diags_dict = {}
+        for diag in self.diags:
+            diag_list = [getattr(s, diag) for s in closure_states_list]
+            diags_dict[diag] = jnp.vstack(diag_list)
+        # built trajectory
         trajectory = Trajectory(
             self.init_state.grid, time, jnp.vstack(u_list), jnp.vstack(v_list),
-            **tra_dict
+            **tra_dict, **diags_dict
         )
 
         # write netcdf output
@@ -341,16 +353,16 @@ def tracer_flux(
     forcing = getattr(case, f'{tracer}_forcing')
     forcing_type = getattr(case, f'{tracer}_forcing_type')
     match forcing_type:
-        case 'borders':
+        case 'borders': # les valeurs du forcing en tra.m.s-1
             df = add_boundaries(
                 -forcing[0], jnp.zeros(grid.zr.shape[0]-2), forcing[1]
             )
-        case 'constant':
-            vec_fun = vmap(forcing) ###########
-            df = vec_fun(grid.zr)
-        case 'variable':
+        case 'constant':# les valeurs du forcing en tra.s-1
+            vec_fun = vmap(forcing)
+            df = grid.hz*vec_fun(grid.zr)
+        case 'variable':# les valeurs du forcing en tra.s-1
             vec_fun = vmap(lambda z: forcing(z, time))
-            df = vec_fun(grid.zr)
+            df = grid.hz*vec_fun(grid.zr)
     return df
 
 def advance_tra_ed(
@@ -400,8 +412,7 @@ CHANGER HERE
     for tracer in tracers:
         tra = getattr(state, tracer)
         df = tracer_flux(tracer, case, state.grid, time)
-        if tracer == 'pt': df = hz*(tra + dt*df)
-        else:df = hz*tra + dt*df
+        df = hz*tra + dt*df
         tra = diffusion_solver(akt, hz, df, dt)
         state = eqx.tree_at(lambda t: getattr(t, tracer), state, tra)
 

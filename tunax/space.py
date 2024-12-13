@@ -23,6 +23,9 @@ from tunax.functions import add_boundaries
 
 
 TRACERS_NAMES = ['t', 's', 'b', 'pt']
+STATE_VARIABLES_NAMES = ['u', 'v', 't', 's', 'b', 'pt']
+VARIABLE_NAMES = ['u', 'v', 't', 's', 'b', 'pt', 'akt', 'akv']
+VARIABLE_SHAPES = ['zr', 'zr', 'zr', 'zr', 'zr', 'zr', 'zw', 'zw']
 
 
 def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
@@ -574,6 +577,8 @@ class Trajectory(eqx.Module):
     s: Optional[Float[Array, 'nt nz']] = None
     b: Optional[Float[Array, 'nt nz']] = None
     pt: Optional[Float[Array, 'nt nz']] = None
+    akv: Optional[Float[Array, 'nt nz']] = None
+    akt: Optional[Float[Array, 'nt nz']] = None
 
     def to_ds(self) -> xr.Dataset:
         """
@@ -588,12 +593,11 @@ class Trajectory(eqx.Module):
         ds : xarray.Dataset
             Dataset of the trajectory.
         """
-        variables = {'u': (('time', 'zr'), self.u),
-                     'v': (('time', 'zr'), self.v)}
-        for tracer_name in TRACERS_NAMES:
-            tracer = getattr(self, tracer_name)
-            if tracer is not None:
-                variables[tracer_name] = (('time', 'zr'), tracer)
+        variables = {}
+        for i_var, var_name in enumerate(VARIABLE_NAMES):
+            var = getattr(self, var_name)
+            if var is not None:
+                variables[var_name] = (('time', VARIABLE_SHAPES[i_var]), var)
         coords = {'time': self.time,
                   'zr': self.grid.zr,
                   'zw': self.grid.zw}
@@ -613,10 +617,10 @@ class Trajectory(eqx.Module):
         state : State
             The state of the trajectory at the time of index :code:`i_time`.
         """
-        tracers_dict = {}
-        for tracer_name in TRACERS_NAMES:
-            tracer = getattr(self, tracer_name)
-            if tracer is not None:
-                tracers_dict[tracer_name] = tracer[i_time, :]
+        variables = {}
+        for var_name in STATE_VARIABLES_NAMES:
+            var = getattr(self, var_name)
+            if var is not None:
+                variables[var_name] = var[i_time, :]
         return State(
-            self.grid, self.u[i_time, :], self.v[i_time, :], **tracers_dict)
+            self.grid, **variables)

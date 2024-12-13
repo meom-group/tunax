@@ -541,7 +541,6 @@ def keps_step(
     c_mu_prim = keps_state.c_mu_prim
     u = state.u
     v = state.v
-    zr = state.grid.zr
     hz = state.grid.hz
 
     # prognostic computations
@@ -903,11 +902,11 @@ def compute_diag(
     alpha_n_min = 0.5*(- (sf_d1 + sf_nb0) + jnp.sqrt((sf_d1 + sf_nb0)**2 - \
         4.0*sf_d0*(sf_d4 + sf_nb1))) / (sf_d4 + sf_nb1)
 
-    # Galperin limitation : l <= l_li
+    # # Galperin limitation : l <= l_li
     l_lim = keps_params.galp*jnp.sqrt(2.0*tke[1:-1] / \
         jnp.maximum(1e-14, bvf[1:-1]))
 
-    # limitation (use MAX because rn is negative)
+    # # limitation (use MAX because rn is negative)
     cff = c_mu0**rp * l_lim**rn * tke[1:-1]**rm
     eps = eps.at[1:-1].set(jnp.maximum(eps[1:-1], cff))
     epsilon = c_mu0**e1 * tke[1:-1]**e2 * eps[1:-1]**e3
@@ -935,8 +934,6 @@ def compute_diag(
     c_mu_prim = add_boundaries(
         keps_params.c_mu_prim_min, c_mu_prim_in, keps_params.c_mu_prim_min
     )
-    epsilon = c_mu0**e1 * tke[1:-1]**e2 * eps[1:-1]**e3
-    epsilon = jnp.maximum(epsilon, eps_min)
 
     # finalize the computation of akv and akt
     cff = tke[1:-1]**2 / epsilon
