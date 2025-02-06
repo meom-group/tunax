@@ -1,16 +1,11 @@
 # tunax
 notebooks/*/
-notebooks/logbook.ipynb
-notebooks/fit_wagner.ipynb
-obs/
 *.nc
 *jld2
-*_archive.py
-tke.py
 
 # general
 __pycache__/
-**.DS_Store
+.DS_Store
 dist/
 
 # doc
