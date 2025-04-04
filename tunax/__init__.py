@@ -15,4 +15,5 @@ from .model import (
     SingleColumnModel, step, lmd_swfrac, advance_tra_ed, advance_dyn_cor_ed,
     diffusion_solver
 )
+from .model2 import SingleColumnModel2
 from .fitter import FittableParameter, FittableParametersSet, Fitter

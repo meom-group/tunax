@@ -7,13 +7,14 @@ They can be called by the prefix :code:`tunax.functions.` or directly by
 
 """
 
+from typing import Tuple
+
 import jax.numpy as jnp
 from jax import lax, jit
 from jaxtyping import Float, Array
 
 
-@jit
-def tridiag_solve(
+def tridiag_solve2(
         a: Float[Array, 'n'],
         b: Float[Array, 'n'],
         c: Float[Array, 'n'],
@@ -48,6 +49,38 @@ def tridiag_solve(
     x : Float[~jax.Array, 'nz']
         Solution :math:`X` of tridiagonal problem.
     """
+    def forward_scan_scal(carry: Tuple[float, float], x: jnp.ndarray) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        f_im1, q_im1 = carry
+        a, b, c, f = x
+        cff = 1./(b+a*q_im1)
+        f_i = cff*(f-a*f_im1)
+        q_i = -cff*c
+        carry = f_i, q_i
+        return carry, carry
+    init = f[0]/b[0], -c[0]/b[0]
+    xs = jnp.stack([a, b, c, f])[:, 1:].T
+    _, (f, q) = lax.scan(forward_scan_scal, init, xs)
+    f = jnp.concat([jnp.array([init[0]]), f])
+    q = jnp.concat([jnp.array([init[1]]), q])
+
+    def reverse_scan_scal(carry: float, x: jnp.ndarray) -> Tuple[float, float]:
+        q_rev, f_rev = x
+        carry = f_rev + q_rev*carry
+        return carry, carry
+    init = f[-1]
+    xs = jnp.stack([q[::-1], f[::-1]])[:, 1:].T
+    _, x = lax.scan(reverse_scan_scal, init, xs)
+    x = jnp.concat([jnp.array([init]), x])
+
+    return x[::-1]
+
+@jit
+def tridiag_solve(
+        a: Float[Array, 'n'],
+        b: Float[Array, 'n'],
+        c: Float[Array, 'n'],
+        f: Float[Array, 'n']
+    ) -> Float[Array, 'n']:
     n, = a.shape
     # forward sweep
     cff = 1.0 / b[0]

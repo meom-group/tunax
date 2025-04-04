@@ -160,30 +160,30 @@ class Case(eqx.Module):
             is_eos = eos_tra in self.eos_tracers
             tra_attr = f'{eos_tra}_forcing'
             if is_eos and getattr(self, tra_attr) is None:
-                warnings.warn(_format_to_single_line(f"""
-                    The forcing of tracer {eos_tra} wasn't set at the
-                    initialisation of the Case instance, it is set to 0.
-                """))
+                # warnings.warn(_format_to_single_line(f"""
+                #     The forcing of tracer {eos_tra} wasn't set at the
+                #     initialisation of the Case instance, it is set to 0.
+                # """))
                 setattr(self, tra_attr, (0., 0.))
             if not is_eos and getattr(self, tra_attr) is not None:
-                warnings.warn(_format_to_single_line(f"""
-                    The forcing of tracer {eos_tra} was set at the
-                    initialisation of the Case instance but the tracer is not
-                    used for EOS equation, the forcing is set to None.
-                """))
+                # warnings.warn(_format_to_single_line(f"""
+                #     The forcing of tracer {eos_tra} was set at the
+                #     initialisation of the Case instance but the tracer is not
+                #     used for EOS equation, the forcing is set to None.
+                # """))
                 setattr(self, tra_attr, None)
         if self.do_pt and self.pt_forcing is None:
-            warnings.warn(_format_to_single_line("""
-                The forcing of the passive tracer wasn't set at the
-                initialisation of the Case instance, it is set to 0.
-            """))
+            # warnings.warn(_format_to_single_line("""
+            #     The forcing of the passive tracer wasn't set at the
+            #     initialisation of the Case instance, it is set to 0.
+            # """))
             self.pt_forcing = [0., 0.]
         if not self.do_pt and self.pt_forcing is not None:
-            warnings.warn(_format_to_single_line("""
-                The forcing of the passive tracer was set at the
-                initialisation of the Case instance but the passive tracer
-                computation was set to False, the forcing is set to None.
-            """))
+            # warnings.warn(_format_to_single_line("""
+            #     The forcing of the passive tracer was set at the
+            #     initialisation of the Case instance but the passive tracer
+            #     computation was set to False, the forcing is set to None.
+            # """))
             self.pt_forcing = None
         for tra in ['t', 's', 'b', 'pt']:
             tra_attr = f'{tra}_forcing'
@@ -198,11 +198,11 @@ class Case(eqx.Module):
                         setattr(self, tra_type_attr, 'constant')
                     elif len(sig.parameters) == 2:
                         setattr(self, tra_type_attr, 'variable')
-                else:
-                    warnings.warn(_format_to_single_line(f"""
-                        Wrong type for the focring of {tra} in the
-                        initialisation of Case instance.
-                    """))
+                # else:
+                    # warnings.warn(_format_to_single_line(f"""
+                    #     Wrong type for the focring of {tra} in the
+                    #     initialisation of Case instance.
+                    # """))
             else:
                 setattr(self, tra_type_attr, None)
 
