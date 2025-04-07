@@ -132,12 +132,12 @@ class Case(eqx.Module):
     rho0: float = 1024.
     grav: float = 9.81
     cp: float = 3985.
-    eos_tracers: str = 't'
+    eos_tracers: str = eqx.field(default='t', static=True)
     alpha: float = 2e-4
     beta: float = 8e-4
     t_rho_ref: float = 0.
     s_rho_ref: float = 35.
-    do_pt: bool = False
+    do_pt: bool = eqx.field(default=False, static=True)
     vkarmn: float = 0.384
     # dynamic forcings
     fcor: float = 0.
@@ -150,10 +150,10 @@ class Case(eqx.Module):
     s_forcing: Optional[ForcingType] = None
     b_forcing: Optional[ForcingType] = None
     pt_forcing: Optional[ForcingType] = None
-    t_forcing_type: Optional[str] = None
-    s_forcing_type: Optional[str] = None
-    b_forcing_type: Optional[str] = None
-    pt_forcing_type: Optional[str] = None
+    t_forcing_type: Optional[str] = eqx.field(default=None, static=True)
+    s_forcing_type: Optional[str] = eqx.field(default=None, static=True)
+    b_forcing_type: Optional[str] = eqx.field(default=None, static=True)
+    pt_forcing_type: Optional[str] = eqx.field(default=None, static=True)
 
     def __post_init__(self):
         for eos_tra in ['t', 's', 'b']:

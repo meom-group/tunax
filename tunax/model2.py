@@ -39,17 +39,17 @@ from tunax.closure import (
 from tunax.closures_registry import CLOSURES_REGISTRY
 
 StatesTime: TypeAlias = Tuple[State, ClosureStateAbstract, float]
-
+from tunax.closures.k_epsilon import keps_step
 
 class SingleColumnModel2(eqx.Module):
-    nt: int
+    nt: int = eqx.field(static=True)
     dt: float
-    p_out: int
+    p_out: int = eqx.field(static=True)
     init_state: State
     case: Case
-    closure: Closure
-    output_path: str = ''
-    diags: List[str]
+    closure: Closure = eqx.field(static=True)
+    output_path: str = eqx.field(static=True)
+    # diags: List[str]
 
     def __init__(
             self,
@@ -60,7 +60,7 @@ class SingleColumnModel2(eqx.Module):
             case: Case,
             closure_name: str,
             output_path: str = '',
-            diags: List[str] = []
+            # diags: List[str] = []
         ) -> SingleColumnModel2:
         self.nt = nt
         self.dt = dt
@@ -69,7 +69,7 @@ class SingleColumnModel2(eqx.Module):
         self.case = case
         self.closure = CLOSURES_REGISTRY[closure_name]
         self.output_path = output_path
-        self.diags = diags
+        # self.diags = diags
 
     def step(
         self,
@@ -95,7 +95,7 @@ class SingleColumnModel2(eqx.Module):
         time += self.dt
         return state, closure_state, time
     
-    # jit_step = partial(jit, )
+    jit_step = jit(step)
 
     def run_partial(
             self,
@@ -117,7 +117,29 @@ class SingleColumnModel2(eqx.Module):
         )
         return state, closure_state, time
 
-    def run(self, closure_parameters: ClosureParametersAbstract):# -> Trajectory:
+    # run partiel avec jit sur le step
+    def run_partial_jit_step(
+            self,
+            state0: State,
+            closure_state0: ClosureStateAbstract,
+            time0: float,
+            n_steps: int,
+            closure_parameters: ClosureParametersAbstract
+        ) ->  StatesTime:
+        def scan_fn(
+                carry: StatesTime,
+                _: type[None]
+            ) -> Tuple[StatesTime, type[None]]:
+            state, closure_state, time = carry
+            state, closure_state, time = self.jit_step(state, closure_state, time, closure_parameters)
+            return (state, closure_state, time), None
+        (state, closure_state, time), _ = lax.scan(
+            scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps)
+        )
+        return state, closure_state, time
+
+    # run sans aucun jit
+    def run(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
         init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
 
         def scan_fn(carry: StatesTime, _: type[None]) -> Tuple[StatesTime, StatesTime]:
@@ -139,6 +161,44 @@ class SingleColumnModel2(eqx.Module):
             tra_dict['pt'] = states.pt
 
         return Trajectory(self.init_state.grid, times, states.u, states.v, **tra_dict)
+
+    # run avec jit global
+    jit_run = jit(run)
+
+    # run avec jit seulement sur le step
+    def run_jit_step(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
+        init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
+
+        def scan_fn(carry: StatesTime, _: type[None]) -> Tuple[StatesTime, StatesTime]:
+            state, closure_state, time = carry
+            state, closure_state, time = self.run_partial_jit_step(
+                state, closure_state, time, self.p_out, closure_parameters
+            )
+            return (state, closure_state, time), (state, closure_state, time)
+
+        n_steps_out = self.nt//self.p_out
+        (_, _, _), (states, closure_states, times) = lax.scan(
+            scan_fn, (self.init_state, init_closure_state, 0.), jnp.arange(n_steps_out)
+        )
+
+        tra_dict = {}
+        for tracer in self.case.eos_tracers:
+            tra_dict[tracer] = getattr(states, tracer)
+        if self.case.do_pt:
+            tra_dict['pt'] = states.pt
+
+        return Trajectory(self.init_state.grid, times, states.u, states.v, **tra_dict)
+
+    # run sans output intermédiares sans jit
+    def run_final_state(self, closure_parameters: ClosureParametersAbstract) -> StatesTime:
+        init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
+
+        return self.run_partial(
+            self.init_state, init_closure_state, 0., self.nt, closure_parameters
+        )
+
+    # run sans output intermédiare avec jit global
+    jit_run_final_state = jit(run_final_state)
 
 
 def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:

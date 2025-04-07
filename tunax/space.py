@@ -116,7 +116,7 @@ class Grid(eqx.Module):
 
     """
 
-    nz: int
+    nz: int = eqx.field(static=True)
     hbot: float
     zr: Float[Array, 'nz']
     zw: Float[Array, 'nz+1']

@@ -32,12 +32,11 @@ References
 
 
 from __future__ import annotations
-from functools import partial
 from typing import Tuple
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import lax, jit
+from jax import lax
 from jaxtyping import Float, Array
 
 from tunax.case import Case
@@ -485,7 +484,6 @@ class KepsState(ClosureStateAbstract):
         self.c_mu_prim = jnp.full(nz+1, keps_params.c_mu_prim_min)
 
 
-@partial(jit, static_argnames=('case',))
 def keps_step(
         state: State,
         keps_state: KepsState,
@@ -527,11 +525,6 @@ def keps_step(
     keps_state : KepsState
             State of the water column for the variables used by
             :math:`k-\varepsilon` at the next time-step.
-
-    Note
-    ----
-    This function is jitted with JAX, it should make it faster, but the
-    :func:`~jax.jit` decorator can be removed.
     """
     akt = keps_state.akt
     akv = keps_state.akv
@@ -545,6 +538,7 @@ def keps_step(
 
     # prognostic computations
     _, bvf = state.compute_eos(case)
+    bvf = jnp.zeros_like(akt)
     shear2 = state.compute_shear(u, v)
     tke_sfc_bc, tke_btm_bc, eps_sfc_bc, eps_btm_bc = compute_tke_eps_bc(
         tke, hz, keps_params, case
