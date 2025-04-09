@@ -22,20 +22,21 @@ References
 """
 
 from __future__ import annotations
-from typing import Tuple, List, TypeAlias
+import inspect
+from typing import Tuple, List, TypeAlias, Union, Optional
 
 import equinox as eqx
 import jax.numpy as jnp
 from jax import lax, jit, vmap
 from jaxtyping import Float, Array
 
-from tunax_new.case import Case
-from tunax_new.space import Grid, State, Trajectory
-from tunax_new.functions import tridiag_solve, add_boundaries
-from tunax_new.closure import (
+from tunax_new_case_tracable.case import Case, CaseTracable
+from tunax_new_case_tracable.space import Grid, State, Trajectory
+from tunax_new_case_tracable.functions import tridiag_solve, add_boundaries
+from tunax_new_case_tracable.closure import (
     ClosureParametersAbstract, ClosureStateAbstract, Closure
 )
-from tunax_new.closures_registry import CLOSURES_REGISTRY
+from tunax_new_case_tracable.closures_registry import CLOSURES_REGISTRY
 
 StatesTime: TypeAlias = Tuple[State, ClosureStateAbstract, float]
 
@@ -45,7 +46,7 @@ class SingleColumnModel(eqx.Module):
     dt: float
     p_out: int = eqx.field(static=True)
     init_state: State
-    case: Case
+    case_tracable: CaseTracable
     closure: Closure = eqx.field(static=True)
 
     def __init__(
@@ -62,7 +63,29 @@ class SingleColumnModel(eqx.Module):
         self.p_out = p_out
         self.init_state = init_state
         self.closure = CLOSURES_REGISTRY[closure_name]
-        self.case = case
+        # creation of the CaseTracable class
+        grid = self.init_state.grid
+        case_attributes = {k: v for k, v in vars(case).items() if not k.startswith('__')}
+        for tra in ['t', 's', 'b', 'pt']:
+            tra_attr = f'{tra}_forcing'
+            tra_type_attr = f'{tra}_forcing_type'
+            forcing = getattr(case, tra_attr)
+            if forcing is not None:
+                if isinstance(forcing, tuple):
+                    case_attributes[tra_type_attr] = 'borders'
+                    case_attributes[tra_attr] = forcing
+                elif callable(forcing) and len(inspect.signature(forcing).parameters) == 1:
+                    case_attributes[tra_type_attr] = 'constant'
+                    vec_fun = vmap(forcing)
+                    case_attributes[tra_attr] = grid.hz*vec_fun(grid.zr)
+                elif callable(forcing) and len(inspect.signature(forcing).parameters) == 2:
+                    case_attributes[tra_type_attr] = 'variable'
+                    time = jnp.linspace(0, (self.nt-1)*self.dt, self.nt)
+                    zr_grid, time_grid = jnp.meshgrid(grid.zr, time)
+                    case_attributes[tra_attr] = grid.hz*forcing(zr_grid, time_grid)
+            else:
+                case_attributes[tra_type_attr] = None
+        self.case_tracable = CaseTracable(**case_attributes)
 
     def step(
         self,
@@ -72,25 +95,22 @@ class SingleColumnModel(eqx.Module):
         closure_parameters: ClosureParametersAbstract
     ) -> StatesTime:
         dt = self.dt
-        case = self.case
+        case_tracable = self.case_tracable
         # advance closure state (compute eddy-diffusivity and viscosity)
         closure_state = self.closure.step_fun(
-            state, closure_state, dt, closure_parameters, case
+            state, closure_state, dt, closure_parameters, case_tracable
         )
         # advance tracers
+        i_time = time/self.dt
         state = advance_tra_ed(
-            state, closure_state.akt, dt, case, time
+            state, closure_state.akt, dt, case_tracable, i_time.astype(int) # aucune chance que ça jit
         )
         # advance velocities
         state = advance_dyn_cor_ed(
-            state, closure_state.akv, dt, case
+            state, closure_state.akv, dt, case_tracable
         )
         time += self.dt
         return state, closure_state, time
-
-    @jit
-    def jit_step(self, state, closure_state, time, closure_parameters):
-        return self.step(state, closure_state, time, closure_parameters)
 
     def run_partial(
             self,
@@ -106,73 +126,6 @@ class SingleColumnModel(eqx.Module):
             ) -> Tuple[StatesTime, type[None]]:
             state, closure_state, time = carry
             state, closure_state, time = self.step(state, closure_state, time, closure_parameters)
-            return (state, closure_state, time), None
-        (state, closure_state, time), _ = lax.scan(
-            scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps)
-        )
-        return state, closure_state, time
-
-    # ancien run
-    def compute_trajectory_with(
-            self,
-            closure_parameters: ClosureParametersAbstract
-        ) -> Trajectory:
-        # initialize the model
-        states_list: List[State] = []
-        closure_states_list: List[ClosureStateAbstract] = []
-        state = self.init_state
-        closure_state = self.closure.state_class(
-            self.init_state.grid, closure_parameters
-        )
-
-        # loop the model
-        cur_time = 0.
-        for i_t in range(self.nt):
-            if i_t % self.p_out == 0:
-                states_list.append(state)
-                closure_states_list.append(closure_state)
-            state, closure_state, _ = self.jit_step(
-                state, closure_state, cur_time, closure_parameters
-            )
-            cur_time += self.dt
-        time = jnp.arange(0, self.nt*self.dt, self.p_out*self.dt)
-
-        # generate trajectory
-        u_list = [s.u for s in states_list]
-        v_list = [s.v for s in states_list]
-        # state tracers
-        tra_dict = {}
-        for tracer in self.case.eos_tracers:
-            tra_list = [getattr(s, tracer) for s in states_list]
-            tra_dict[tracer] = jnp.vstack(tra_list)
-        if self.case.do_pt:
-            tra_dict['pt'] = jnp.vstack([state.pt for state in states_list])
-
-        # built trajectory
-        trajectory = Trajectory(
-            self.init_state.grid, time, jnp.vstack(u_list), jnp.vstack(v_list),
-            **tra_dict
-        )
-
-        return trajectory
-
-    # run partiel avec jit sur le step
-    def run_partial_jit_step(
-            self,
-            state0: State,
-            closure_state0: ClosureStateAbstract,
-            time0: float,
-            n_steps: int,
-            closure_parameters: ClosureParametersAbstract
-        ) ->  StatesTime:
-        def scan_fn(
-                carry: StatesTime,
-                _: type[None]
-            ) -> Tuple[StatesTime, type[None]]:
-            state, closure_state, time = carry
-            state, closure_state, time = self.jit_step(
-                state, closure_state, time, closure_parameters
-            )
             return (state, closure_state, time), None
         (state, closure_state, time), _ = lax.scan(
             scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps)
@@ -196,9 +149,9 @@ class SingleColumnModel(eqx.Module):
         )
 
         tra_dict = {}
-        for tracer in self.case.eos_tracers:
+        for tracer in self.case_tracable.eos_tracers:
             tra_dict[tracer] = getattr(states, tracer)
-        if self.case.do_pt:
+        if self.case_tracable.do_pt:
             tra_dict['pt'] = states.pt
 
         return Trajectory(self.init_state.grid, times, states.u, states.v, **tra_dict)
@@ -207,44 +160,6 @@ class SingleColumnModel(eqx.Module):
     @jit
     def jit_run(self, closure_parameters):
         return self.run(closure_parameters)
-
-    # run avec jit seulement sur le step
-    def run_jit_step(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
-        init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
-
-        def scan_fn(carry: StatesTime, _: type[None]) -> Tuple[StatesTime, StatesTime]:
-            state, closure_state, time = carry
-            state, closure_state, time = self.run_partial_jit_step(
-                state, closure_state, time, self.p_out, closure_parameters
-            )
-            return (state, closure_state, time), (state, closure_state, time)
-
-        n_steps_out = self.nt//self.p_out
-        (_, _, _), (states, _, times) = lax.scan(
-            scan_fn, (self.init_state, init_closure_state, 0.), jnp.arange(n_steps_out)
-        )
-
-        tra_dict = {}
-        for tracer in self.case.eos_tracers:
-            tra_dict[tracer] = getattr(states, tracer)
-        if self.case.do_pt:
-            tra_dict['pt'] = states.pt
-
-        return Trajectory(self.init_state.grid, times, states.u, states.v, **tra_dict)
-
-    # run sans output intermédiares sans jit
-    def run_final_state(self, closure_parameters: ClosureParametersAbstract) -> StatesTime:
-        init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
-
-        return self.run_partial(
-            self.init_state, init_closure_state, 0., self.nt, closure_parameters
-        )
-
-    # run sans output intermédiare avec jit global
-    @jit
-    def jit_run_final_state(self, closure_parameters):
-        state, closure_state, time = self.run_final_state(closure_parameters)
-        return state
 
 
 def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
@@ -289,33 +204,31 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
 
 def tracer_flux(
         tracer: str, # t, s, b, pt
-        case: Case,
+        case_tracable: CaseTracable,
         grid: Grid,
-        time: float
+        i_time: int
     ) -> Float[Array, 'nz+1']:
     """
     compute flux difference from forcings for tracers
     """
-    forcing = getattr(case, f'{tracer}_forcing')
-    forcing_type = getattr(case, f'{tracer}_forcing_type')
+    forcing = getattr(case_tracable, f'{tracer}_forcing')
+    forcing_type = getattr(case_tracable, f'{tracer}_forcing_type')
     match forcing_type:
         case 'borders': # les valeurs du forcing en tra.m.s-1
             df = add_boundaries(
                 -forcing[0], jnp.zeros(grid.zr.shape[0]-2), forcing[1]
             )
         case 'constant':# les valeurs du forcing en tra.s-1
-            vec_fun = vmap(forcing)
-            df = grid.hz*vec_fun(grid.zr)
+            df = forcing
         case 'variable':# les valeurs du forcing en tra.s-1
-            vec_fun = vmap(lambda z: forcing(z, time))
-            df = grid.hz*vec_fun(grid.zr)
+            df = forcing[:, i_time]
     return df
 
 def advance_tra_ed(
         state: State,
         akt: Float[Array, 'nz+1'],
         dt: float,
-        case: Case,
+        case_tracable: CaseTracable,
         i_time: int,
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
@@ -340,7 +253,7 @@ def advance_tra_ed(
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
     dt : float
         Time-step of the integration step :math:`[\text s]`.
-    case : Case
+    case_tracable : Case
         Physical case and forcings of the experiment.
 CHANGER HERE
     Returns
@@ -352,12 +265,12 @@ CHANGER HERE
         Salinity on the center of the cells at next step :math:`[\text{psu}]`.
     """
     hz = state.grid.hz
-    tracers = [tra for tra in case.eos_tracers]
-    if case.do_pt:
+    tracers = [tra for tra in case_tracable.eos_tracers]
+    if case_tracable.do_pt:
         tracers.append('pt')
     for tracer in tracers:
         tra = getattr(state, tracer)
-        df = tracer_flux(tracer, case, state.grid, i_time)
+        df = tracer_flux(tracer, case_tracable, state.grid, i_time)
         df = hz*tra + dt*df
         tra = diffusion_solver(akt, hz, df, dt)
         state = eqx.tree_at(lambda t: getattr(t, tracer), state, tra)
@@ -368,7 +281,7 @@ def advance_dyn_cor_ed(
         state: State,
         akv: Float[Array, 'nz+1'],
         dt: float,
-        case: Case
+        case_tracable: CaseTracable
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
     Integrate vertical diffusion and Coriolis terms for momentum.
@@ -398,7 +311,7 @@ def advance_dyn_cor_ed(
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
     dt : float
         Time-step of the integration step :math:`[\text s]`.
-    case : Case
+    case_tracable : Case
         Physical case and forcings of the experiment.
 
     Returns
@@ -411,7 +324,7 @@ def advance_dyn_cor_ed(
         :math:`\left[\text m \cdot \text s^{-1}\right]`.
     """
     gamma_cor = 0.55
-    fcor = case.fcor
+    fcor = case_tracable.fcor
     u = state.u
     v = state.v
     hz = state.grid.hz
@@ -423,10 +336,10 @@ def advance_dyn_cor_ed(
     fv = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*v - dt*fcor*u)
 
     # 2 - Apply surface and bottom forcing
-    fu = fu.at[-1].add(dt * case.ustr_sfc)
-    fv = fv.at[-1].add(dt * case.vstr_sfc)
-    fu = fu.at[0].add(-dt * case.ustr_btm)
-    fv = fv.at[0].add(-dt * case.vstr_btm)
+    fu = fu.at[-1].add(dt * case_tracable.ustr_sfc)
+    fv = fv.at[-1].add(dt * case_tracable.vstr_sfc)
+    fu = fu.at[0].add(-dt * case_tracable.ustr_btm)
+    fv = fv.at[0].add(-dt * case_tracable.vstr_btm)
 
     # 3 - Implicit integration for vertical viscosity
     u = diffusion_solver(akv, hz, fu, dt)

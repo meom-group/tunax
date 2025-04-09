@@ -4,7 +4,7 @@ Importation of Tunax classes and functions for shortcuts.
 
 
 from .space import Grid, State, Trajectory
-from .case import Case
+from .case import Case, CaseTracable
 from .closure import (
     ClosureParametersAbstract, ClosureStateAbstract, Closure
 )

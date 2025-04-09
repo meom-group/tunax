@@ -18,8 +18,8 @@ import jax.numpy as jnp
 from jax import vmap
 from jaxtyping import Float, Array
 
-from tunax_new.case import Case
-from tunax_new.functions import add_boundaries
+from tunax_new_case_tracable.case import Case
+from tunax_new_case_tracable.functions import add_boundaries
 
 
 TRACERS_NAMES = ['t', 's', 'b', 'pt']
@@ -316,18 +316,6 @@ class State(eqx.Module):
         for tracer_name in tracers:
             tracers_dict[tracer_name] = zero_array
         return State(grid, u=zero_array, v=zero_array, **tracers_dict)
-
-    def to_nc(self, nc_path: str):
-        variables = {}
-        for i_var, var_name in enumerate(VARIABLE_NAMES):
-            if hasattr(self, var_name):
-                var = getattr(self, var_name)
-                if var is not None:
-                    variables[var_name] = ((VARIABLE_SHAPES[i_var]), var)
-        coords = {'zr': self.grid.zr,
-                  'zw': self.grid.zw}
-        ds = xr.Dataset(variables, coords)
-        ds.to_netcdf(nc_path)
 
     def init_u(self, hmxl: float=20., u_sfc: float=0.) -> State:
         r"""
