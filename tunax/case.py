@@ -146,10 +146,10 @@ class Case(eqx.Module):
     vstr_sfc: float = 0.
     vstr_btm: float = 0.
     # tracers forcings
-    t_forcing: Optional[ForcingType] = None
-    s_forcing: Optional[ForcingType] = None
-    b_forcing: Optional[ForcingType] = None
-    pt_forcing: Optional[ForcingType] = None
+    t_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
+    s_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
+    b_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
+    pt_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
     t_forcing_type: Optional[str] = eqx.field(default=None, static=True)
     s_forcing_type: Optional[str] = eqx.field(default=None, static=True)
     b_forcing_type: Optional[str] = eqx.field(default=None, static=True)

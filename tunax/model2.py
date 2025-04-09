@@ -116,6 +116,48 @@ class SingleColumnModel2(eqx.Module):
             scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps)
         )
         return state, closure_state, time
+    
+    # ancien run
+    def compute_trajectory_with(
+            self,
+            closure_parameters: ClosureParametersAbstract
+        ) -> Trajectory:
+        # initialize the model
+        states_list: List[State] = []
+        closure_states_list: List[ClosureStateAbstract] = []
+        state = self.init_state
+        closure_state = self.closure.state_class(
+            self.init_state.grid, closure_parameters
+        )
+
+        # loop the model
+        cur_time = 0.
+        for i_t in range(self.nt):
+            if i_t % self.p_out == 0:
+                states_list.append(state)
+                closure_states_list.append(closure_state)
+            state, closure_state, _ = self.jit_step(state, closure_state, cur_time, closure_parameters)
+            cur_time += self.dt
+        time = jnp.arange(0, self.nt*self.dt, self.p_out*self.dt)
+
+        # generate trajectory
+        u_list = [s.u for s in states_list]
+        v_list = [s.v for s in states_list]
+        # state tracers
+        tra_dict = {}
+        for tracer in self.case.eos_tracers:
+            tra_list = [getattr(s, tracer) for s in states_list]
+            tra_dict[tracer] = jnp.vstack(tra_list)
+        if self.case.do_pt:
+            tra_dict['pt'] = jnp.vstack([state.pt for state in states_list])
+
+        # built trajectory
+        trajectory = Trajectory(
+            self.init_state.grid, time, jnp.vstack(u_list), jnp.vstack(v_list),
+            **tra_dict
+        )
+
+        return trajectory
 
     # run partiel avec jit sur le step
     def run_partial_jit_step(
