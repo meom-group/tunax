@@ -18,8 +18,8 @@ import jax.numpy as jnp
 from jax import vmap
 from jaxtyping import Float, Array
 
-from tunax.case import Case
-from tunax.functions import add_boundaries
+from tunax_new.case import Case
+from tunax_new.functions import add_boundaries
 
 
 TRACERS_NAMES = ['t', 's', 'b', 'pt']
@@ -116,7 +116,7 @@ class Grid(eqx.Module):
 
     """
 
-    nz: int
+    nz: int = eqx.field(static=True)
     hbot: float
     zr: Float[Array, 'nz']
     zw: Float[Array, 'nz+1']
@@ -602,6 +602,18 @@ class Trajectory(eqx.Module):
                   'zr': self.grid.zr,
                   'zw': self.grid.zw}
         return xr.Dataset(variables, coords)
+
+    def to_nc(self, nc_path: str):
+        variables = {}
+        for i_var, var_name in enumerate(VARIABLE_NAMES):
+            var = getattr(self, var_name)
+            if var is not None:
+                variables[var_name] = (('time', VARIABLE_SHAPES[i_var]), var)
+        coords = {'time': self.time,
+                  'zr': self.grid.zr,
+                  'zw': self.grid.zw}
+        ds = xr.Dataset(variables, coords)
+        ds.to_netcdf(nc_path)
 
     def extract_state(self, i_time: int) -> State:
         """

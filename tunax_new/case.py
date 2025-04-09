@@ -8,15 +8,10 @@ This module comes down to Case class. This class can be obtained by the prefix
 
 from __future__ import annotations
 from typing import Union, Tuple, Callable, Optional
-import warnings
-import inspect
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import tree_util, device_get
-from jaxtyping import Float, Array
-
-from tunax.functions import _format_to_single_line
+from jax import device_get
 
 
 _OMEGA = 7.292116e-05
@@ -132,12 +127,12 @@ class Case(eqx.Module):
     rho0: float = 1024.
     grav: float = 9.81
     cp: float = 3985.
-    eos_tracers: str = 't'
+    eos_tracers: str = eqx.field(default='t', static=True)
     alpha: float = 2e-4
     beta: float = 8e-4
     t_rho_ref: float = 0.
     s_rho_ref: float = 35.
-    do_pt: bool = False
+    do_pt: bool = eqx.field(default=False, static=True)
     vkarmn: float = 0.384
     # dynamic forcings
     fcor: float = 0.
@@ -146,66 +141,10 @@ class Case(eqx.Module):
     vstr_sfc: float = 0.
     vstr_btm: float = 0.
     # tracers forcings
-    t_forcing: Optional[ForcingType] = None
-    s_forcing: Optional[ForcingType] = None
-    b_forcing: Optional[ForcingType] = None
-    pt_forcing: Optional[ForcingType] = None
-    t_forcing_type: Optional[str] = None
-    s_forcing_type: Optional[str] = None
-    b_forcing_type: Optional[str] = None
-    pt_forcing_type: Optional[str] = None
-
-    def __post_init__(self):
-        for eos_tra in ['t', 's', 'b']:
-            is_eos = eos_tra in self.eos_tracers
-            tra_attr = f'{eos_tra}_forcing'
-            if is_eos and getattr(self, tra_attr) is None:
-                warnings.warn(_format_to_single_line(f"""
-                    The forcing of tracer {eos_tra} wasn't set at the
-                    initialisation of the Case instance, it is set to 0.
-                """))
-                setattr(self, tra_attr, (0., 0.))
-            if not is_eos and getattr(self, tra_attr) is not None:
-                warnings.warn(_format_to_single_line(f"""
-                    The forcing of tracer {eos_tra} was set at the
-                    initialisation of the Case instance but the tracer is not
-                    used for EOS equation, the forcing is set to None.
-                """))
-                setattr(self, tra_attr, None)
-        if self.do_pt and self.pt_forcing is None:
-            warnings.warn(_format_to_single_line("""
-                The forcing of the passive tracer wasn't set at the
-                initialisation of the Case instance, it is set to 0.
-            """))
-            self.pt_forcing = [0., 0.]
-        if not self.do_pt and self.pt_forcing is not None:
-            warnings.warn(_format_to_single_line("""
-                The forcing of the passive tracer was set at the
-                initialisation of the Case instance but the passive tracer
-                computation was set to False, the forcing is set to None.
-            """))
-            self.pt_forcing = None
-        for tra in ['t', 's', 'b', 'pt']:
-            tra_attr = f'{tra}_forcing'
-            tra_type_attr = f'{tra}_forcing_type'
-            forcing = getattr(self, tra_attr)
-            if forcing is not None:
-                if isinstance(forcing, tuple):
-                    setattr(self, tra_type_attr, 'borders')
-                elif callable(forcing):
-                    sig = inspect.signature(forcing)
-                    if len(sig.parameters) == 1:
-                        setattr(self, tra_type_attr, 'constant')
-                    elif len(sig.parameters) == 2:
-                        setattr(self, tra_type_attr, 'variable')
-                else:
-                    warnings.warn(_format_to_single_line(f"""
-                        Wrong type for the focring of {tra} in the
-                        initialisation of Case instance.
-                    """))
-            else:
-                setattr(self, tra_type_attr, None)
-
+    t_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
+    s_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
+    b_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
+    pt_forcing: Optional[ForcingType] = eqx.field(default=None, static=True)
 
     def set_lat(self, lat: float) -> Case:
         """

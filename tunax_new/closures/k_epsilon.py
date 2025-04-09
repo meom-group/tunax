@@ -2,7 +2,7 @@ r"""
 :math:`k-\varepsilon` closure parameters, states and computation functions.
 
 This module contains the implementation of the :math:`k-\varepsilon` model
-described as a GLS case as in [1]_ as a :class:`~closure.Closure` instance. The
+described as a GLS case_tracable as in [1]_ as a :class:`~closure.Closure` instance. The
 model was traduced from Frotran to JAX with the work of Florian Lemarié and
 Manolis Perrot [2]_, the translation was done in part using the work of Anthony
 Zhou, Linnia Hawkins and Pierre Gentine [3]_. The parameters of the closure are
@@ -32,18 +32,17 @@ References
 
 
 from __future__ import annotations
-from functools import partial
 from typing import Tuple
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import lax, jit
+from jax import lax
 from jaxtyping import Float, Array
 
-from tunax.case import Case
-from tunax.space import Grid, State
-from tunax.functions import tridiag_solve, add_boundaries
-from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract
+from tunax_new.case_tracable import CaseTracable
+from tunax_new.space import Grid, State
+from tunax_new.functions import tridiag_solve, add_boundaries
+from tunax_new.closure import ClosureParametersAbstract, ClosureStateAbstract
 
 
 class KepsParameters(ClosureParametersAbstract):
@@ -343,7 +342,7 @@ class KepsParameters(ClosureParametersAbstract):
     eps_min: float = 1e-12
     c_mu_min: float = .1
     c_mu_prim_min: float = .1
-    # physical case
+    # physical case_tracable
     dir_sfc: bool = False
     dir_btm: bool = True
     # GLS coefficient for k-epsilon
@@ -485,13 +484,12 @@ class KepsState(ClosureStateAbstract):
         self.c_mu_prim = jnp.full(nz+1, keps_params.c_mu_prim_min)
 
 
-@partial(jit, static_argnames=('case',))
 def keps_step(
         state: State,
         keps_state: KepsState,
         dt: float,
         keps_params: KepsParameters,
-        case: Case
+        case_tracable: CaseTracable
     ) -> KepsState:
     r"""
     Run one time-step of the :math:`k-\varepsilon` closure.
@@ -518,7 +516,7 @@ def keps_step(
     keps_params: KepsParameters
         Values of the parameters used by :math:`k-\varepsilon` (time-
         independant).
-    case : Case
+    case_tracable : CaseTracable
         Physical parameters and forcings of the model run.
     CHANGE HERE
     
@@ -527,11 +525,6 @@ def keps_step(
     keps_state : KepsState
             State of the water column for the variables used by
             :math:`k-\varepsilon` at the next time-step.
-
-    Note
-    ----
-    This function is jitted with JAX, it should make it faster, but the
-    :func:`~jax.jit` decorator can be removed.
     """
     akt = keps_state.akt
     akv = keps_state.akv
@@ -544,10 +537,10 @@ def keps_step(
     hz = state.grid.hz
 
     # prognostic computations
-    _, bvf = state.compute_eos(case)
+    _, bvf = state.compute_eos(case_tracable)
     shear2 = state.compute_shear(u, v)
     tke_sfc_bc, tke_btm_bc, eps_sfc_bc, eps_btm_bc = compute_tke_eps_bc(
-        tke, hz, keps_params, case
+        tke, hz, keps_params, case_tracable
     )
 
     # integrations
@@ -578,7 +571,7 @@ def compute_tke_eps_bc(
         tke: Float[Array, 'nz+1'],
         hz: Float[Array, 'nz'],
         keps_params: KepsParameters,
-        case: Case
+        case_tracable: CaseTracable
     ) -> Tuple[float, float, float, float]:
     r"""
     Compute top and bottom boundary conditions for TKE and :math:`\varepsilon`.
@@ -592,7 +585,7 @@ def compute_tke_eps_bc(
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
     keps_params : KepsParameters
         Values of the parameters used by :math:`k-\varepsilon`.
-    case : Case
+    case_tracable : CaseTracable
         Physical parameters and forcings of the model run.
 
     Returns
@@ -623,13 +616,13 @@ def compute_tke_eps_bc(
     rp, rm, rn = keps_params.gls_p, keps_params.gls_m, keps_params.gls_n
     c_mu0 = keps_params.c_mu0
     cm0inv2 = 1./c_mu0**2
-    vkarmn = case.vkarmn
-    chk = keps_params.chk_grav/case.grav
+    vkarmn = case_tracable.vkarmn
+    chk = keps_params.chk_grav/case_tracable.grav
     sig_eps = keps_params.sig_eps
 
     # velocity scales
-    ustar2_sfc = jnp.sqrt(case.ustr_sfc**2 + case.vstr_sfc**2)
-    ustar2_bot = jnp.sqrt(case.ustr_btm**2 + case.vstr_btm**2)
+    ustar2_sfc = jnp.sqrt(case_tracable.ustr_sfc**2 + case_tracable.vstr_sfc**2)
+    ustar2_bot = jnp.sqrt(case_tracable.ustr_btm**2 + case_tracable.vstr_btm**2)
 
     # TKE Dirichlet boundary condition
     tke_sfc_dir = jnp.maximum(keps_params.tke_min, cm0inv2*ustar2_sfc)

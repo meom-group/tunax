@@ -538,12 +538,12 @@ version = "0.4.6"
 description = "Cross-platform colored terminal text."
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
-groups = ["main", "dev"]
+groups = ["dev"]
+markers = "(platform_system == \"Windows\" or sys_platform == \"win32\") and (python_version >= \"3.12\" or python_version <= \"3.11\")"
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
-markers = {main = "(python_version >= \"3.12\" or python_version <= \"3.11\") and platform_system == \"Windows\"", dev = "(python_version >= \"3.12\" or python_version <= \"3.11\") and sys_platform == \"win32\""}
 
 [[package]]
 name = "comm"
@@ -3496,7 +3496,7 @@ version = "4.67.1"
 description = "Fast, Extensible Progress Meter"
 optional = false
 python-versions = ">=3.7"
-groups = ["main"]
+groups = ["dev"]
 markers = "python_version <= \"3.11\" or python_version >= \"3.12\""
 files = [
     {file = "tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2"},
@@ -3704,4 +3704,4 @@ viz = ["cartopy", "matplotlib", "nc-time-axis", "seaborn"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "e2e73b476d3e388d67b60e052f66d0ead126c8939274f301d053fec1411effe3"
+content-hash = "54ccfb115cba33b8a6e37a920d468b98a6642e88326618a9af4e1125a086aef7"
