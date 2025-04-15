@@ -1,12 +1,10 @@
 """
 Abstraction for the calibration kernel.
 
-This module contain the main class :class:`Fitter` which is the code of Tunax
-for the calibration of the closure parts. The classes
-:class:`FittableParameter` and :class:`FittableParametersSet` are used to make
-a link between the optimization part and the closures structures. These class
-can be obtained by the prefix :code:`tunax.fitter.` or directly by
-:code:`tunax.`.
+This module contain the main class :class:`Fitter` which is the code of Tunax for the calibration of
+the closure parts. The classes :class:`FittableParameter` and :class:`FittableParametersSet` are
+used to make a link between the optimization part and the closures structures. These class can be
+obtained by the prefix :code:`tunax.fitter.` or directly by :code:`tunax.`.
 
 """
 
@@ -31,9 +29,8 @@ class FittableParameter(eqx.Module):
     """
     Calibration configuration for one parameter.
 
-    An instance of this class must be created for every parameter of the
-    closure that will be calibrated and for every not default values during
-    calibration.
+    An instance of this class must be created for every parameter of the closure that will be
+    calibrated and for every not default values during calibration.
 
     Parameters
     ----------
@@ -47,10 +44,9 @@ class FittableParameter(eqx.Module):
     do_fit : bool
         The parameter will be calibrated.
     val : float, default=0.
-        If :attr:`do_fit` : the initial value for calibration (at the first
-        step of the calibration) ; if :attr:`do_fit` is false : the constant
-        value to take for this parameter if it's not the default one in the
-        closure.
+        If :attr:`do_fit` : the initial value for calibration (at the first step of the
+        calibration) ; if :attr:`do_fit` is false : the constant value to take for this parameter if
+        it's not the default one in the closure.
 
     """
 
@@ -62,25 +58,23 @@ class FittableParametersSet(eqx.Module):
     """
     Complete closure calibration parameters.
 
-    This class is the set of all the configurations on the closure parameters
-    for the calibration. It makes the link between the array on which the
-    optimizer works and the closure parameters class.
+    This class is the set of all the configurations on the closure parameters for the calibration.
+    It makes the link between the array on which the optimizer works and the closure parameters
+    class.
 
     Parameters
     ----------
     coef_fit_dict : Dict[str, FittableParameter]
         cf. attribute.
     closure_name : str
-        Name of the chosen closure, must be a key of
-        :attr:`~closures_registry.CLOSURES_REGISTRY`, see its documentation
-        for the available closures.
+        Name of the chosen closure, must be a key of :attr:`~closures_registry.CLOSURES_REGISTRY`,
+        see its documentation for the available closures.
 
     Attributes
     ----------
     coef_fit_dico : Dict[str, FittableParameter]
-        The set of all the configurations of all the parameters that will be
-        calibrated and the one constants but not with the default value of the
-        closure.
+        The set of all the configurations of all the parameters that will be calibrated and the one
+        constants but not with the default value of the closure.
     closure : Closure
         The abstraction that represent the used closure.
     
@@ -113,30 +107,26 @@ class FittableParametersSet(eqx.Module):
                 nc += 1
         return nc
 
-    def fit_to_closure(
-            self,
-            x: Float[Array, 'nc']
-        ) -> ClosureParametersAbstract:
+    def fit_to_closure(self, x: Float[Array, 'nc']) -> ClosureParametersAbstract:
         """
         Transforms an fitted array in a set of closure parameters.
 
-        This method copy the fixed non-default values of :attr:`coef_fit_dict`
-        and copy the calibrated values from :code:`x`. Which is simply the
-        parameters values in the order that is indicated by
-        :attr:`coef_fit_dict`.
+        This method copy the fixed non-default values of :attr:`coef_fit_dict` and copy the
+        calibrated values from :code:`x`. Which is simply the parameters values in the order that is
+        indicated by :attr:`coef_fit_dict`.
 
         Parameters
         ----------
         x : Float[~jax.Array, 'nc']
-            The array on which the optimize works to find the best values. It
-            is the array of the parameters that are calibrated.
+            The array on which the optimize works to find the best values. It is the array of the
+            parameters that are calibrated.
 
         Returns
         -------
         clo_params : ClosureParametersAbstract
             The instance of the closure parameters class (child class of
-            :class:`~closure.ClosureParametersAbstract`) with the modifications
-            of the calibration step.
+            :class:`~closure.ClosureParametersAbstract`) with the modifications of the calibration
+            step.
         """
         clo_coef_dico = {}
         i_x = 0
@@ -152,15 +142,13 @@ class FittableParametersSet(eqx.Module):
         """
         Produce the fitted array for the first calibration step.
 
-        This method simply copy the initial values of the calibrated
-        coefficients in an array :code:`x` which will be used as the first
-        calibration step for the optimizer.
+        This method simply copy the initial values of the calibrated coefficients in an array
+        :code:`x` which will be used as the first calibration step for the optimizer.
 
         Returns
         -------
         x : Float[~jax.Array, 'nc']
-            The initial vector for the optimizer at the first step of
-            calibration.
+            The initial vector for the optimizer at the first step of calibration.
         """
         x = []
         for coef_fit in self.coef_fit_dict.values():
@@ -173,14 +161,12 @@ class Fitter(eqx.Module):
     r"""
     Reprensentation of a complete calibration configuration.
 
-    A fitter is a link between the calibrated parameters configuration
-    :attr:`coef_fit_params`, a :attr:`database` of observations to fit the
-    model on, a loss function :attr:`loss` and some optimizer parameters. An
-    instance can be call (with no parameters) to run the calibration. The
-    :code:`__init__` method build a set of models corresponding to the given
-    time-step :code:`dt` , the given closure :code:`closure_name` and the
-    different initial states and physical cases extracted from the
-    :attr:`database`.
+    A fitter is a link between the calibrated parameters configuration :attr:`coef_fit_params`, a
+    :attr:`database` of observations to fit the model on, a loss function :attr:`loss` and some
+    optimizer parameters. An instance can be call (with no parameters) to run the calibration. The
+    :code:`__init__` method build a set of models corresponding to the given time-step :code:`dt`,
+    the given closure :code:`closure_name` and the different initial states and physical cases
+    extracted from the :attr:`database`.
 
     Parameters
     ----------
@@ -189,8 +175,7 @@ class Fitter(eqx.Module):
     database : Database
         cf. attribute.
     dt : float
-        The time-step used for defininf the forward model that will be
-        calibrated :math:`[\text s]`.
+        The time-step used for defininf the forward model that will be calibrated :math:`[\text s]`.
     loss : Callable[[List[Trajectory], Database], float]
         cf. attribute.
     nloop : int, default=100
@@ -207,72 +192,64 @@ class Fitter(eqx.Module):
     Attributes
     ----------
     coef_fit_params: FittableParametersSet
-        Parametrization of the closure parameters that must be calibrated and
-        the one which are fixed with non-default values.
+        Parametrization of the closure parameters that must be calibrated and the one which are
+        fixed with non-default values.
     database: Database
-        Database of *observation* used for calibration, the optimizer will
-        make the model fit to them.
+        Database of *observation* used for calibration, the optimizer will make the model fit to
+        them.
     model_list : List[SingleColumnModel]
-        List of model instances that represent the physical case and the
-        initial condition for every *observation* in the database. At each
-        calibration step, they will be call to compute the loss function.
+        List of model instances that represent the physical case and the initial condition for every
+        *observation* in the database. At each calibration step, they will be call to compute the
+        loss function.
     loss: Callable[[List[Trajectory], Database], float]
-        Abstraction that the user create to describe its own loss function
-        which will be minimized by the fitter. The function should represent
-        how much the model with its closure fits to the :attr:`database`
+        Abstraction that the user create to describe its own loss function which will be minimized
+        by the fitter. The function should represent how much the model with its closure fits to the
+        :attr:`database`.
 
         Parameters
         ----------
         trajectories : List[Trajectory]
-            List of trajectories computed by the model and corresponding to
-            each observation of the :attr:`database` case in the same order.
+            List of trajectories computed by the model and corresponding to each observation of the
+            :attr:`database` case in the same order.
         database: Database
             cf.parameter
         
         Returns
         -------
         loss : float, positive
-            The quantity that will be minimized by the fitter. The user must
-            compute a quantity that compares the :code:`trajectories` done by
-            the forward model (with the current values for the parameters of
-            the closure at the current calibration step), and the trajectories
+            The quantity that will be minimized by the fitter. The user must compute a quantity that
+            compares the :code:`trajectories` done by the forward model (with the current values for
+            the parameters of the closure at the current calibration step), and the trajectories
             from the :attr:`database`.
 
     nloop : int
         Maximum number of calibration loops.
     nit_loss : int, default = -1
-        Number of iterations of every computation of the loss function in the
-        output for diagnostic. Set to -1 to never compute it. Useless if
-        :attr:`output_path` is :code:`None`.
+        Number of iterations of every computation of the loss function in the output for diagnostic.
+        Set to -1 to never compute it. Useless if :attr:`output_path` is :code:`None`.
     learning_rate : float, default=0.001
-        Learning rate of the optimizer algorithm : how much it is fast at each
-        step.
+        Learning rate of the optimizer algorithm : how much it is fast at each step.
     verbatim : bool, default = True
         Print in the terminal the evolution of the calibration.
     output_path : Optional[str], default = '.'
-        If :code:`None`, don't write the evolution on numpy files ; else must
-        finishes by :code:`.npz` : in this file the compressed numpy output
-        will be written.
+        If :code:`None`, don't write the evolution on numpy files ; else must finishes by
+        :code:`.npz` : in this file the compressed numpy output will be written.
 
     Note
     ----
-    - During the calibration the gradient of the loss function is computed at
-      every iterations, but not the loss function itself. The set of
-      :attr:`nit_loss` increase the cost of the iteration if the value of the
-      cost funtion is computed too often.
+    - During the calibration the gradient of the loss function is computed at every iterations, but
+      not the loss function itself. The set of :attr:`nit_loss` increase the cost of the iteration
+      if the value of the cost funtion is computed too often.
     
-    - The output is written at every step so its readable by another python
-      kernel during the calibration. To access to this data, one have to read
-      the :code:`.npz` file with the :func:`numpy.load` function (with
-      :code:`allow_pickle` set one :code:`True`), and then access to the
-      evolutions of the calibrated vector (the closures paramters that are
-      calibrated) with :code:`['x']`, to their gradients with :code:`['grads']`
-      these are 2 dimensional arrays, the first dimension being the calibration
-      iterations and the second one the parameters list. If :attr:`nit_loss` is
-      not equal to -1, one can access to the evolution of the loss function
-      with :code:`['loss_it']` which records the indexes of the iterations
-      where the loss function is computed and :code:`['loss_values']` the
-      corresponding values of the loss function.
+    - The output is written at every step so its readable by another python kernel during the
+      calibration. To access to this data, one have to read the :code:`.npz` file with the
+      :func:`numpy.load` function (with :code:`allow_pickle` set one :code:`True`), and then access
+      to the evolutions of the calibrated vector (the closures paramters that are calibrated) with
+      :code:`['x']`, to their gradients with :code:`['grads']` these are 2 dimensional arrays, the
+      first dimension being the calibration iterations and the second one the parameters list. If
+      :attr:`nit_loss` is not equal to -1, one can access to the evolution of the loss function with
+      :code:`['loss_it']` which records the indexes of the iterations where the loss function is
+      computed and :code:`['loss_values']` the corresponding values of the loss function.
 
     """
 
@@ -317,9 +294,7 @@ class Fitter(eqx.Module):
             out_dt = float(time[1] - time[0])
             time_frame = float((time[-1] + out_dt)/3600.)
             closure_name = coef_fit_params.closure.name
-            model = SingleColumnModel(
-                time_frame, dt, out_dt, init_state, obs.case, closure_name
-            )
+            model = SingleColumnModel(time_frame, dt, out_dt, init_state, obs.case, closure_name)
             model_list.append(model)
         self.model_list = model_list
         # write the initialized values
@@ -336,21 +311,19 @@ class Fitter(eqx.Module):
         """
         Wrapping of :attr:`loss` that takes only an array in argument.
 
-        This method runs every model for each observations with the set of
-        closure parameters corresponding to x, then it computes and returns the
-        the value of the loss function.
+        This method runs every model for each observations with the set of closure parameters
+        corresponding to x, then it computes and returns the the value of the loss function.
 
         Parameters
         ----------
         x : Float[~jax.Array, 'nc']
-            An array that represent the values of the parameters of the closure
-            that are in calibration.
+            An array that represent the values of the parameters of the closure that are in
+            calibration.
 
         Returns
         -------
         loss : float, positive
-            Value of the loss function for the :code:`x` values of the closure
-            parameters.
+            Value of the loss function for the :code:`x` values of the closure parameters.
         """
         closure_parameters = self.coef_fit_params.fit_to_closure(x)
         scm_set = []
@@ -364,17 +337,16 @@ class Fitter(eqx.Module):
         """
         Execute the callibration.
 
-        First the optimizer is selected and parametrized with optax and the
-        gradient function of the loss is computed. Then in the calibration
-        loop, the gradient is evaluated on the currents values of the closure
-        parameters, the eventual output are computed and the optax optimizer
+        First the optimizer is selected and parametrized with optax and the gradient function of the
+        loss is computed. Then in the calibration loop, the gradient is evaluated on the currents
+        values of the closure parameters, the eventual output are computed and the optax optimizer
         is updated. The optmizer used is :func:`optax.adam`.
 
         Returns
         -------
         closure_params : ClosureParametersAbstract
-            The instance of the closure parameters changed with the final
-            value of the calibrated parameters.
+            The instance of the closure parameters changed with the final value of the calibrated
+            parameters.
         """
         optimizer = optax.adam(self.learning_rate)
         x = self.coef_fit_params.gen_init_val()
@@ -385,11 +357,7 @@ class Fitter(eqx.Module):
             grads = grad_loss(x)
             # print evolution
             if self.verbatim:
-                print(f"""
-                    loop {i}
-                    x {x}
-                    grads {grads}
-                """)
+                print(f"loop {i}\nx {x}\ngrads {grads}")
             # write evolution
             if self.output_path is not None:
                 data = np.load(self.output_path, allow_pickle=True)

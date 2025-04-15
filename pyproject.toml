@@ -33,9 +33,7 @@ Issues = 'https://github.com/meom-group/tunax/issues'
 
 [tool.poetry]
 packages = [
-    { include = 'tunax' },
-    { include = 'tunax_new' },
-    { include = 'tunax_new_case_tracable' }
+    { include = 'tunax' }
 ]
 
 [tool.poetry.group.dev.dependencies]

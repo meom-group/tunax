@@ -2,12 +2,10 @@
 Abstraction for calibration databases.
 
 
-This module the objects that are used in Tunax to describe a :class:`Database`
-of observations used for a calibration. By *obersvations* (:class:`Obs`), we
-refer to a set of time-series representing a physical experiment, a measurment
-or a simulation like a Large Eddy Simulation (LES) for example. These classes
-can be obtained by the prefix :code:`tunax.database.` or directly by
-:code:`tunax.`.
+This module the objects that are used in Tunax to describe a :class:`Database` of observations used
+for a calibration. By *obersvations* (:class:`Obs`), we refer to a set of time-series representing a
+physical experiment, a measurment or a simulation like a Large Eddy Simulation (LES) for example.
+These classes can be obtained by the prefix :code:`tunax.database.` or directly by :code:`tunax.`.
 
 """
 
@@ -36,14 +34,16 @@ def get_var_jl(
         var_names: Dict[str, str],
         var: str,
         n: int,
-        # le numéro des indices auxquels récupérer l'array 1D et un None pour
-        # la dim de cet array ou alors un dictionnaire où on récupère le tuple
-        # à partir du nom de la variable
         dims: Union[DimsType, Dict[str, DimsType]] = (None),
-        suffix: str = '' # pour rajouter les temps
+        suffix: str = ''
     ) -> Float[Array, 'n']:
     """
-    blabla
+    TO CHECK
+    n : int
+        le numéro des indices auxquels récupérer l'array 1D et un None pour la dim de cet array u
+        alors un dictionnaire où on récupère le tuple à partir du nom de la variable
+    suffix : str
+        pour rajouter les temps
     """
     jl_var = jl_file[f'{var_names[var]}{suffix}']
     # sélection éventuelle du bon tuple de dims (cas où on donne un
@@ -52,8 +52,8 @@ def get_var_jl(
         dims = dims[var]
     if len(jl_var.shape) != len(dims):
         raise ValueError(_format_to_single_line("""
-            `dims` must the length of the number of dimension of the
-            corresponding `var` array in the `jl_file`.
+            `dims` must the length of the number of dimension of the corresponding `var` array in
+            the `jl_file`.
         """))
     dims_slice = tuple(slice(None) if x is None else x for x in dims)
     jl_var_1d = jl_var[dims_slice]
@@ -61,9 +61,9 @@ def get_var_jl(
     shift = double_shift//2
     if double_shift%2 == 1:
         warnings.warn(_format_to_single_line("""
-            The length array from the `jl_file` of the variable `var` minus
-            `n` is an odd number : the removed boundaries are taken 1 point
-            thinner on the bottom side than on the surface side.
+            The length array from the `jl_file` of the variable `var` minus `n` is an odd number :
+            the removed boundaries are taken 1 point thinner on the bottom side than on the surface
+            side.
         """))
         return jl_var_1d[shift:-shift-1]
     else:
@@ -74,9 +74,9 @@ class Obs(eqx.Module):
     """
     Abstraction to represent an *obersation*.
 
-    The *observations* represent every elements of a database, each one
-    represent a simulation or a measurement with their own time-series of
-    variables and the physical case which is linked to them
+    The *observations* represent every elements of a database, each one represent a simulation or a
+    measurement with their own time-series of variables and the physical case which is linked to
+    them.
 
     Parameters
     ----------
@@ -95,8 +95,8 @@ class Obs(eqx.Module):
     Raises
     ------
     ValueError
-        If the :attr:`~space.Trajectory.time` of :attr:`trajectory` is not
-        build with constant time-steps.
+        If the :attr:`~space.Trajectory.time` of :attr:`trajectory` is not build with constant
+        time-steps.
 
     """
 
@@ -104,12 +104,7 @@ class Obs(eqx.Module):
     case: Case
     metadatas: Dict[str, float]
 
-    def __init__(
-            self,
-            trajectory: Trajectory,
-            case: Case,
-            metadatas: Dict[str, float]={}
-        ):
+    def __init__(self, trajectory: Trajectory, case: Case, metadatas: Dict[str, float]=None) -> Obs:
         time = trajectory.time
         steps = time[1:] - time[:-1]
         if not jnp.all(steps == steps[0]):
@@ -130,35 +125,28 @@ class Obs(eqx.Module):
         """
         Create an instance from a *netcdf* and a *yaml* files.
 
-        This class method build a trajectory from the :code:`.nc` file
-        :code:`nc_path`, it build the physical parameters from the
-        configuration file :code:`yaml_path`. :code:`var_names` is used to do
-        the link between Tunax name convention and the one from the used
-        database.
+        This class method build a trajectory from the :code:`.nc` file :code:`nc_path`, it build the
+        physical parameters from the configuration file :code:`yaml_path`. :code:`var_names` is used
+        to do the link between Tunax name convention and the one from the used database.
         CHANGE HEERE
         Parameters
         ----------
         nc_path : str
-            Path of the *netcdf* file that contains the time-series of the
-            observation trajectory. The file should contains at least the
-            three dimensions :attr:`~space.Grid.zr` :attr:`~space.Grid.zw` and
-            :attr:`~space.Trajectory.time`. The time-series can be created with
-            default values if they are not present in the file. Otherwise, they
-            must have the good dimensions described in
-            :class:`~space.Trajectory`.
+            Path of the *netcdf* file that contains the time-series of the observation trajectory.
+            The file should contains at least the three dimensions :attr:`~space.Grid.zr`
+            :attr:`~space.Grid.zw` and :attr:`~space.Trajectory.time`. The time-series can be
+            created with default values if they are not present in the file. Otherwise, they must
+            have the good dimensions described in :class:`~space.Trajectory`.
         yaml_path : str
-            Path of the *yaml* file that contains the parameters and forcing
-            that describe the observation. The parameters should be float
-            numbers and directly accessible from the root of the file with
-            a key. Only the parameters that are described in
+            Path of the *yaml* file that contains the parameters and forcing that describe the
+            observation. The parameters should be float numbers and directly accessible from the
+            root of the file with a key. Only the parameters that are described in
             :class:`~case.Case` will be takend in account.
         var_names : Dict[str, str]
-            Link between the convention names in Tunax and the ones in the
-            database. The keys are the Tunax names and the values are the names
-            in the database. It works for variables of the
-            :class:`~space.Trajectory` and fornthe parameters of
-            :class:`~case.Case`. It must at least contains entries for
-            :attr:`~space.Grid.zr` :attr:`~space.Grid.zw` and
+            Link between the convention names in Tunax and the ones in the database. The keys are
+            the Tunax names and the values are the names in the database. It works for variables of
+            the :class:`~space.Trajectory` and fornthe parameters of :class:`~case.Case`. It must at
+            least contains entries for :attr:`~space.Grid.zr` :attr:`~space.Grid.zw` and
             :attr:`~space.Trajectory.time`
         
         Returns
@@ -198,14 +186,12 @@ class Obs(eqx.Module):
 
         case = Case()
         case_attributes = list(vars(case).keys())
+        def get_pytree_fun(att: str):
+            return lambda t: getattr(t, att)
         for att in case_attributes:
             if att in var_names.keys():
-                case = eqx.tree_at(
-                    lambda t: getattr(t, att), case,
-                    metadatas[var_names[att]])
-        case = eqx.tree_at(
-            lambda t: getattr(t, 'eos_tracers'), case, eos_tracers
-        )
+                case = eqx.tree_at(get_pytree_fun(att), case, metadatas[var_names[att]])
+        case = eqx.tree_at(lambda t: getattr(t, 'eos_tracers'), case, eos_tracers)
         case = eqx.tree_at(lambda t: getattr(t, 'do_pt'), case, do_pt)
 
         return cls(trajectory, case, metadatas)
@@ -226,9 +212,16 @@ class Obs(eqx.Module):
             do_pt: bool = False
         ) -> Obs:
         """
+        Load from a .jld2 file.
         conditions :
         les timeseries doivent être des arrays spatiaux dans des groupes avec des temps différents
         c'est pareil pour l'array des valeurs des temps
+        names_mapping : Dict[str, Dict[str, str]]
+            il faut séparer les groupes avec de / si pas indiqué, il faut qu'il soit dans var_names,
+            ensuite on prend la partie "centrale" de longueur nz ou nz+1 pour chaque variable, avec
+            un shift plus petit du côté profond si jamais c'est pas symétrique (avec un warning)
+            divisé en 3 parties : variables, parameters, metadats
+        TO CHECK
         """
         var_map = names_mapping['variables']
         par_map = names_mapping['parameters']
@@ -257,9 +250,7 @@ class Obs(eqx.Module):
                 continue
             var_list = []
             for time_str in time_str_list:
-                var_time = get_var_jl(
-                    jl, var_map, var_name, nz, dims, f'/{time_str}'
-                )
+                var_time = get_var_jl(jl, var_map, var_name, nz, dims, f'/{time_str}')
                 var_list.append(var_time)
             variables_dict[var_name] = jnp.vstack(var_list)
         # trajectory
@@ -295,9 +286,8 @@ class Database(eqx.Module):
     Attributes
     ----------
     observations : List[Obs]
-        A list of several observations with potentially various forcings,
-        geometry and time configuration.
-
+        A list of several observations with potentially various forcings, geometry and time
+        configuration.
 
     """
 
