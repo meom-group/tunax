@@ -1,18 +1,18 @@
 """
 Usefull calculation functions.
 
-Thefunctions in this module are supposed to be used in various other modules.
-They can be called by the prefix :code:`tunax.functions.` or directly by
-:code:`tunax.`.
+The functions in this module are supposed to be used in various other modules. They can be called by
+the prefix :code:`tunax.functions.` or directly by :code:`tunax.`.
 
 """
 
+from typing import Tuple
+
 import jax.numpy as jnp
-from jax import lax, jit
+from jax import lax
 from jaxtyping import Float, Array
 
 
-@jit
 def tridiag_solve(
         a: Float[Array, 'n'],
         b: Float[Array, 'n'],
@@ -28,8 +28,8 @@ def tridiag_solve(
     & \ddots & \ddots & c_{n-1} \\
     & & a_n & b_n
     \end{pmatrix}`
-    and :math:`F = \begin{pmatrix} f_1 \\ \vdots \\ f_n \end{pmatrix}`.
-    The problem is solved by recurrence using :mod:`jax.lax` 
+    and :math:`F = \begin{pmatrix} f_1 \\ \vdots \\ f_n \end{pmatrix}`. The problem is solved by
+    recurrence using :mod:`jax.lax.scan` 
 
 
     Parameters
@@ -48,31 +48,33 @@ def tridiag_solve(
     x : Float[~jax.Array, 'nz']
         Solution :math:`X` of tridiagonal problem.
     """
-    n, = a.shape
-    # forward sweep
-    cff = 1.0 / b[0]
-    f = f.at[0].multiply(cff)
-    q = jnp.zeros(n)
-    q = q.at[0].set(-c[0] * cff)
+    def forward_scan_scal(
+            carry: Tuple[float, float],
+            x: jnp.ndarray
+        ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        f_im1, q_im1 = carry
+        a, b, c, f = x
+        cff = 1./(b+a*q_im1)
+        f_i = cff*(f-a*f_im1)
+        q_i = -cff*c
+        carry = f_i, q_i
+        return carry, carry
+    init = f[0]/b[0], -c[0]/b[0]
+    xs = jnp.stack([a, b, c, f])[:, 1:].T
+    _, (f, q) = lax.scan(forward_scan_scal, init, xs)
+    f = jnp.concat([jnp.array([init[0]]), f])
+    q = jnp.concat([jnp.array([init[1]]), q])
 
-    def body_fun1(k: int, x: Float[Array, 'n']):
-        f = x[0, :]
-        q = x[1, :]
-        cff = 1.0 / (b[k] + a[k] * q[k-1])
-        q = q.at[k].set(-cff * c[k])
-        f = f.at[k].set(cff * (f[k] - a[k] * f[k-1]))
-        return jnp.stack([f, q])
-    f_q = jnp.stack([f, q])
-    f_q = lax.fori_loop(1, n, body_fun1, f_q)
-    f = f_q[0, :]
-    q = f_q[1, :]
+    def reverse_scan_scal(carry: float, x: jnp.ndarray) -> Tuple[float, float]:
+        q_rev, f_rev = x
+        carry = f_rev + q_rev*carry
+        return carry, carry
+    init = f[-1]
+    xs = jnp.stack([q[::-1], f[::-1]])[:, 1:].T
+    _, x = lax.scan(reverse_scan_scal, init, xs)
+    x = jnp.concat([jnp.array([init]), x])
 
-    # backward substitution
-    def body_fun2(k: int, x: Float[Array, 'n']):
-        return x.at[n-1-k].add(q[n-1-k] * x[n-k])
-    x = lax.fori_loop(1, n, body_fun2, f)
-
-    return x
+    return x[::-1]
 
 
 def add_boundaries(
@@ -83,8 +85,8 @@ def add_boundaries(
     """
     Concatenate the three parts of a vector : surface, bottom and inside.
 
-    This functions is made to avoid loops and make JAX more efficient by
-    writing the calculations with vectorization when possible.
+    This functions is made to avoid loops and make JAX more efficient by writing the calculations
+    with vectorization when possible.
 
     Parameters
     ----------
@@ -108,10 +110,9 @@ def _format_to_single_line(text: str) -> str:
     """
     Transforms a multiple line text in a line string by removing indentations.
 
-    In the code the error and warning messages are written on multiple lines
-    with indentations to respect the PEP8 maximum line length of 79 characters
-    and the consistency of indentations. This function is used to show
-    correctly these messages on one line and without the indentations.
+    In the code the error and warning messages are written on multiple lines with indentations to
+    respect the PEP8 maximum line length of 79 characters and the consistency of indentations. This
+    function is used to show correctly these messages on one line and without the indentations.
 
     Parameters
     ----------

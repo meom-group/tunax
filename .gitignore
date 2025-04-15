@@ -1,14 +1,9 @@
-# tunax
-notebooks/*/
-*.nc
-*jld2
-
 # general
 __pycache__/
 .DS_Store
 dist/
 
-# doc
+# doc build
 docs/_build/
 
 # pytest

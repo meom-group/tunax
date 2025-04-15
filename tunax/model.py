@@ -1,294 +1,192 @@
 """
 Single column forward model core.
 
-This module contains the main class :class:`SingleColumnModel` which is the
-core of Tunax for implementing computing the evolution of a water column of the
-ocean. It also contains functions that are used in this computation. The model
-was traduced from Frotran to JAX with the work of Florian Lemarié and Manolis
-Perrot [1]_, the translation was done in part using the work of Anthony Zhou,
-Linnia Hawkins and Pierre Gentine [2]_. this class and these functions can be
-obtained by the prefix :code:`tunax.model.` or directly by :code:`tunax.`.
+This module contains the main class :class:`SingleColumnModel` which is the core of Tunax for
+implementing computing the evolution of a water column of the ocean. It also contains functions
+that are used in this computation. The model was traduced from Frotran to JAX with the work of
+Florian Lemarié and Manolis Perrot [1]_, the translation was done in part using the work of Anthony
+Zhou, Linnia Hawkins and Pierre Gentine [2]_. this class and these functions can be obtained by the
+prefix :code:`tunax.model.` or directly by :code:`tunax.`.
 
 References
 ----------
-.. [1] M. Perrot and F. Lemarié. Energetically consistent Eddy-Diffusivity
-    Mass-Flux convective schemes. Part I: Theory and Models (2024). url :
+.. [1] M. Perrot and F. Lemarié. Energetically consistent Eddy-Diffusivity Mass-Flux convective
+    schemes. Part I: Theory and Models (2024). url :
     `hal.science/hal-04439113 <https://hal.science/hal-04439113>`_.
-.. [2] A. Zhou, L. Hawkins and P. Gentine. Proof-of-concept: Using ChatGPT to
-    Translate and Modernize an Earth System Model from Fortran to Python/JAX
-    (2024). url : `arxiv.org/abs/2405.00018
-    <https://arxiv.org/abs/2405.00018>`_.
+.. [2] A. Zhou, L. Hawkins and P. Gentine. Proof-of-concept: Using ChatGPT to Translate and
+    Modernize an Earth System Model from Fortran to Python/JAX (2024). url :
+    `arxiv.org/abs/2405.00018 <https://arxiv.org/abs/2405.00018>`_.
 
 """
 
 from __future__ import annotations
-import warnings
-from typing import Tuple, List
-from functools import partial
+import inspect
+from typing import Tuple, TypeAlias
 
 import equinox as eqx
 import jax.numpy as jnp
-from jax import lax, jit
+from jax import lax, jit, vmap
 from jaxtyping import Float, Array
 
-from tunax.case import Case
-from tunax.space import State, Trajectory
-from tunax.functions import (
-    tridiag_solve, add_boundaries, _format_to_single_line
-)
-from tunax.closure import (
-    ClosureParametersAbstract, ClosureStateAbstract, Closure
-)
+from tunax.case import Case, CaseTracable
+from tunax.space import Grid, State, Trajectory
+from tunax.functions import tridiag_solve, add_boundaries
+from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
 from tunax.closures_registry import CLOSURES_REGISTRY
+
+StatesTime: TypeAlias = Tuple[State, ClosureStateAbstract, float]
 
 
 class SingleColumnModel(eqx.Module):
     r"""
     Single column forward model core.
 
-    This forward model of tunax is the combination of 4 things : the physical
-    case :attr:`case`, an initial state of the water column
-    :attr:`init_state`, the time information with :attr:`time_frame`,
-    :attr:`dt` and :attr:`out_dt` and the abstraction of the chosen closure
-    for eddy-diffusivity :attr:`closure`. Adding a set of parameters for the
-    closure one can run the model with the method
-    :meth:`compute_trajectory_with`.
-
-    Parameters
-    ----------
-    time_frame : float
-        Total time of the simulation :math:`[\text h]`.
-    dt : float
-        Time-step of integration for every iteration :math:`[\text s]`.
-    out_dt : float
-        Time-step for the output writing :math:`[\text s]`.
-    init_state : State
-        cf. attribute.
-    case : Case
-        cf. attribute.
-    closure_name : str
-        Name of the chosen closure, must be a key of
-        :attr:`~closures_registry.CLOSURES_REGISTRY`, see its documentation
-        for the available closures.
-
-    Attributes
-    ----------
-    nt : int
-        Number of integration interations.
-    dt : float
-        Time-step of integration for every iteration :math:`[\text s]`.
-    n_out : int
-        Number of of time-steps between every output.
-    init_state : State
-        Initial physical state of the water column.
-    case : Case
-        Physical case and forcings of the experiment.
-    closure : Closure
-        Abstraction representing the chosen closure.
-    
-    Warnings
-    --------
-    - If :code:`time_frame` is not proportional to the time-step :attr:`dt`.
-    - If :code:`time_frame` is not proportional to the out time-step
-      :code:`out_dt`.
-    
-    Raises
-    ------
-    ValueError
-        If :code:`out_dt` is not proportional to the time step :attr:`dt`.
-    ValueError
-        If :code:`closure_name` is not registerd in
-        :attr:`~closures_registry.CLOSURES_REGISTRY`.
-
-    Note
-    ----
-    To make this forward model compatible with the fitter part of Tunax, the
-    parameters of the closure are only given during of the call of the run
-    with :meth:`compute_trajectory_with`.
+    This forward model of tunax is the combination of 4 things : the physical case :attr:`case`, an
+    initial state of the water column :attr:`init_state`, the time information with :attr:`nt`,
+    :attr:`dt` and :attr:`p_out` and the abstraction of the chosen closure for eddy-diffusivity
+    :attr:`closure`. Adding a set of parameters for the closure one can run the model with the
+    method :meth:`compute_trajectory_with`.
+    TO CHECK
         
     """
 
-    nt: int
+    nt: int = eqx.field(static=True)
     dt: float
-    n_out: int
+    p_out: int = eqx.field(static=True)
     init_state: State
-    case: Case
-    closure: Closure
+    case_tracable: CaseTracable
+    closure: Closure = eqx.field(static=True)
 
     def __init__(
             self,
-            time_frame: float,
+            nt: int,
             dt: float,
-            out_dt: float,
+            p_out: int,
             init_state: State,
             case: Case,
             closure_name: str
         ) -> SingleColumnModel:
-        # time parameters transformation
-        n_out = out_dt/dt
-        nt = time_frame*3600/dt
-
-        # warnings and errors on time parameters coherence
-        if not n_out.is_integer():
-            raise ValueError('`out_dt` should be a multiple of `dt`.')
-        if not nt % n_out == 0:
-            warnings.warn(_format_to_single_line("""
-                The `time_frame`is not proportional to the out time-step
-                `out_dt`, the last step will be computed a few before the
-                `time_frame`.
-            """))
-        if not nt.is_integer():
-            warnings.warn(_format_to_single_line("""
-                The `time_frame`is not proportional to the time-step `dt`, the
-                last step will be computed a few before the time_frame.
-            """))
-        if not closure_name in CLOSURES_REGISTRY:
-            raise ValueError(_format_to_single_line("""
-                `closure_name` not registerd in CLOSURES_REGISTRY.
-            """))
-
-        # write attributes
-        self.nt = int(nt)
+        self.nt = nt
         self.dt = dt
-        self.n_out = int(n_out)
+        self.p_out = p_out
         self.init_state = init_state
-        self.case = case
         self.closure = CLOSURES_REGISTRY[closure_name]
+        # creation of the CaseTracable class
+        grid = self.init_state.grid
+        case_attributes = {k: v for k, v in vars(case).items() if not k.startswith('__')}
+        for tra in ['t', 's', 'b', 'pt']:
+            tra_attr = f'{tra}_forcing'
+            tra_type_attr = f'{tra}_forcing_type'
+            forcing = getattr(case, tra_attr)
+            if forcing is not None:
+                if isinstance(forcing, tuple):
+                    case_attributes[tra_type_attr] = 'borders'
+                    case_attributes[tra_attr] = forcing
+                elif callable(forcing) and len(inspect.signature(forcing).parameters) == 1:
+                    case_attributes[tra_type_attr] = 'constant'
+                    vec_fun = vmap(forcing)
+                    case_attributes[tra_attr] = grid.hz*vec_fun(grid.zr)
+                elif callable(forcing) and len(inspect.signature(forcing).parameters) == 2:
+                    case_attributes[tra_type_attr] = 'variable'
+                    time = jnp.linspace(0, (self.nt-1)*self.dt, self.nt)
+                    zr_grid, time_grid = jnp.meshgrid(grid.zr, time)
+                    case_attributes[tra_attr] = grid.hz*forcing(zr_grid, time_grid)
+            else:
+                case_attributes[tra_type_attr] = None
+        self.case_tracable = CaseTracable(**case_attributes)
 
-    def compute_trajectory_with(
-            self,
-            closure_parameters: ClosureParametersAbstract
-        ) -> Trajectory:
-        """
-        Run the model with a specific set of closure parameters.
-
-        This method is the main one for runing the model. It calls :attr:`nt`
-        times the function :func:`step` and regulary writes the output to build
-        the :class:`~space.Trajectory` output.
-
-        Parameters
-        ----------
-        closure_parameters : ClosureParametersAbstract
-            A set of parameters of the used closure.
-
-        Returns
-        -------
-        trajectory : Trajectory
-            Timeseries of the evolution of the variables of the model every
-            :code:`out_dt`.
-        """
-        # initialize the model
-        states_list: List[State] = []
-        state = self.init_state
-        closure_state = self.closure.state_class(
-            self.init_state.grid, closure_parameters
-        )
-        swr_frac = lmd_swfrac(self.init_state.grid.hz)
-
-        # loop the model
-        for i_t in range(self.nt):
-            if i_t % self.n_out == 0:
-                states_list.append(state)
-            state, closure_state = step(
-                self.dt, self.case, self.closure, state, closure_state,
-                closure_parameters, swr_frac
-            )
-        time = jnp.arange(0, self.nt*self.dt, self.n_out*self.dt)
-
-        # generate trajectory
-        u_list = [s.u for s in states_list]
-        v_list = [s.v for s in states_list]
-        t_list = [s.t for s in states_list]
-        s_list = [state.s for state in states_list]
-        trajectory = Trajectory(
-            self.init_state.grid, time, jnp.vstack(t_list), jnp.vstack(s_list),
-            jnp.vstack(u_list), jnp.vstack(v_list)
-        )
-        return trajectory
-
-
-@partial(jit, static_argnames=('dt', 'case', 'closure'))
-def step(
-        dt: float,
-        case: Case,
-        closure: Closure,
+    def step(
+        self,
         state: State,
         closure_state: ClosureStateAbstract,
-        closure_parameters: ClosureParametersAbstract,
-        swr_frac: Float[Array, 'nz+1']
-    ) -> Tuple[State, ClosureStateAbstract]:
-    r"""
-    Run one time-step of the model.
-    
+        time: float,
+        closure_parameters: ClosureParametersAbstract
+    ) -> StatesTime:
+        r"""
+        Run one time-step of the model.
+        
 
-    This functions first call the closure to compute the eddy-diffusivity and
-    viscosity, and then integrate the equations of tracers and momentum. It
-    modifies the :code:`state` with these new values and then returns the new
-    :code:`state` and :code:`closure_state`.
+        This functions first call the closure to compute the eddy-diffusivity and viscosity, and
+        then integrate the equations of tracers and momentum. It modifies the :code:`state` with
+        these new values and then returns the new :code:`state` and :code:`closure_state`.
+        TO CHECK
+        """
+        dt = self.dt
+        case_tracable = self.case_tracable
+        # advance closure state (compute eddy-diffusivity and viscosity)
+        closure_state = self.closure.step_fun(
+            state, closure_state, dt, closure_parameters, case_tracable
+        )
+        # advance tracers
+        i_time = time/self.dt
+        state = advance_tra_ed(state, closure_state.akt, dt, case_tracable, i_time.astype(int))
+        # advance velocities
+        state = advance_dyn_cor_ed(state, closure_state.akv, dt, case_tracable)
+        time += self.dt
+        return state, closure_state, time
 
-    Parameters
-    ----------
-    dt : float
-        Time-step of integration for every iteration :math:`[\text s]`.
-    case : Case
-        Physical case and forcings of the experiment.
-    closure : Closure
-        Abstraction representing the chosen closure.
-    state : State
-        Curent state of the water column.
-    closure_state : ClosureStateAbstract
-        Curent state of the water column for the closure variables.
-    closure_parameters : ClosureParametersAbstract
-        A set of parameters of the used with the :code:`closure`.
-    swr_frac : Float[~jax.Array, 'nz+1']
-        Fraction of solar penetration throught the water column
-        :math:`[\text{dimensionless}]`.
+    def run_partial(
+            self,
+            state0: State,
+            closure_state0: ClosureStateAbstract,
+            time0: float,
+            n_steps: int,
+            closure_parameters: ClosureParametersAbstract
+        ) ->  StatesTime:
+        r"""
+        Runs a certain number of time steps.
+        TO CHECK        
+        """
+        def scan_fn(carry: StatesTime,_: type[None]) -> Tuple[StatesTime, type[None]]:
+            state, closure_state, time = carry
+            state, closure_state, time = self.step(state, closure_state, time, closure_parameters)
+            return (state, closure_state, time), None
+        carry, _ = lax.scan(scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps))
+        (state, closure_state, time) = carry
+        return state, closure_state, time
 
-    Returns
-    -------
-    state : State
-        State of the water column at next time-step.
-    closure_state : ClosureStateAbstract
-        State of the water column at next time-step for the closure variables.
+    def run(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
+        r"""
+        Run the whole model.
+        TO CHECK
+        """
+        init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
 
-    Note
-    ----
-    This function is jitted with JAX, it should make it faster, but the
-    :func:`~jax.jit` decorator can be removed.
-    """
-    grid = state.grid
+        def scan_fn(carry: StatesTime, _: type[None]) -> Tuple[StatesTime, StatesTime]:
+            state, closure_state, time = carry
+            state, closure_state, time = self.run_partial(
+                state, closure_state, time, self.p_out, closure_parameters
+            )
+            return (state, closure_state, time), (state, closure_state, time)
 
-    # advance closure state (compute eddy-diffusivity and viscosity)
-    closure_state = closure.step_fun(
-        state, closure_state, dt, closure_parameters, case
-    )
+        n_steps_out = self.nt//self.p_out
+        (_, _, _), (states, _, times) = lax.scan(
+            scan_fn, (self.init_state, init_closure_state, 0.), jnp.arange(n_steps_out)
+        )
 
-    # advance tracers
-    t_new, s_new = advance_tra_ed(
-        state.t, state.s, closure_state.akt, swr_frac, grid.hz, dt, case
-    )
+        tra_dict = {}
+        for tracer in list(self.case_tracable.eos_tracers):
+            tra_dict[tracer] = getattr(states, tracer)
+        if self.case_tracable.do_pt:
+            tra_dict['pt'] = states.pt
 
-    # advance velocities
-    u_new, v_new = advance_dyn_cor_ed(
-        state.u, state.v, grid.hz, closure_state.akv, dt, case
-    )
+        return Trajectory(self.init_state.grid, times, states.u, states.v, **tra_dict)
 
-    # write the new state
-    state = eqx.tree_at(lambda tree: tree.t, state, t_new)
-    state = eqx.tree_at(lambda t: t.s, state, s_new)
-    state = eqx.tree_at(lambda t: t.u, state, u_new)
-    state = eqx.tree_at(lambda t: t.v, state, v_new)
-
-    return state, closure_state
+    @jit
+    def jit_run(self, closure_parameters):
+        r"""
+        Jitted version of model run, to use for the direct computations.
+        TO CHECK
+        """
+        return self.run(closure_parameters)
 
 
 def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
     r"""
     Compute solar forcing.
 
-    Compute fraction of solar shortwave flux penetrating to specified depth due
-    to exponential decay in Jerlov water type. This function is called once
-    before running the model.
+    Compute fraction of solar shortwave flux penetrating to specified depth due to exponential decay
+    in Jerlov water type. This function is called once before running the model.
 
     Parameters
     ----------
@@ -298,8 +196,7 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
     Returns
     -------
     swr_frac : Float[~jax.Array, 'nz+1']
-        Fraction of solar penetration throught the water column
-        :math:`[\text{dimensionless}]`.
+        Fraction of solar penetration throught the water column :math:`[\text{dimensionless}]`.
     """
     nz, = hz.shape
     mu1 = 0.35
@@ -313,137 +210,92 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
 
     def lax_step(sdwk, k):
         sdwk1, sdwk2 = sdwk
-        sdwk1 = lax.cond(xi1[nz-k] > -20, lambda x: x*jnp.exp(xi1[nz-k]),
-                             lambda x: 0.*x, sdwk1)
-        sdwk2 = lax.cond(xi2[nz-k] > -20, lambda x: x*jnp.exp(xi2[nz-k]),
-                             lambda x: 0.*x, sdwk2)
+        sdwk1 = lax.cond(xi1[nz-k] > -20, lambda x: x*jnp.exp(xi1[nz-k]), lambda x: 0.*x, sdwk1)
+        sdwk2 = lax.cond(xi2[nz-k] > -20, lambda x: x*jnp.exp(xi2[nz-k]), lambda x: 0.*x, sdwk2)
         return (sdwk1, sdwk2), sdwk1+sdwk2
 
     _, swr_frac = lax.scan(lax_step, (r1, 1.0 - r1), jnp.arange(1, nz+1))
     return jnp.concat((swr_frac[::-1], jnp.array([1.])))
 
+def tracer_flux(
+        tracer: str,
+        case_tracable: CaseTracable,
+        grid: Grid,
+        i_time: int
+    ) -> Float[Array, 'nz+1']:
+    r"""
+    Compute flux difference from forcings for tracers.
+    TO CHECK
+    """
+    forcing = getattr(case_tracable, f'{tracer}_forcing')
+    forcing_type = getattr(case_tracable, f'{tracer}_forcing_type')
+    match forcing_type:
+        case 'borders': # les valeurs du forcing en tra.m.s-1
+            df = add_boundaries(-forcing[0], jnp.zeros(grid.zr.shape[0]-2), forcing[1])
+        case 'constant':# les valeurs du forcing en tra.s-1
+            df = forcing
+        case 'variable':# les valeurs du forcing en tra.s-1
+            df = forcing[:, i_time]
+    return df
 
 def advance_tra_ed(
-        t: Float[Array, 'nz'],
-        s: Float[Array, 'nz'],
+        state: State,
         akt: Float[Array, 'nz+1'],
-        swr_frac: Float[Array, 'nz+1'],
-        hz: Float[Array, 'nz'],
         dt: float,
-        case: Case
+        case_tracable: CaseTracable,
+        i_time: int,
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
     Integrate vertical diffusion term for tracers.
 
-    First the flux divergences are computed taking in account the forcings.
-    Then the diffusion equation of the tracers system is solved, and the
-    tracers at next time-step are returned. The solved equation is for
-    :math:`C` a tracer :
+    First the flux divergences are computed taking in account the forcings. Then the diffusion
+    equation of the tracers system is solved, and the tracers at next time-step are returned. The
+    solved equation is for :math:`C` a tracer :
 
     :math:`\partial _z ( K_m \partial _z C) + \partial _t C + F = 0`
 
     where :math:`F` is the representation of the forcings.
-
-    Parameters
-    ----------
-    t : Float[~jax.Array, 'nz']
-        Current temperature on the center of the cells :math:`[° \text C]`.
-    s : Float[~jax.Array, 'nz']
-        Current salinity on the center of the cells :math:`[\text{psu}]`.
-    akt : Float[~jax.Array, 'nz+1']
-        Current eddy-diffusivity :math:`K_m` on the interfaces of the cells
-        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    swr_frac : Float[~jax.Array, 'nz+1']
-        Fraction of solar penetration throught the water column
-        :math:`[\text{dimensionless}]`.
-    hz : Float[~jax.Array, 'nz']
-        Thickness of cells from deepest to shallowest :math:`[\text m]`.
-    dt : float
-        Time-step of the integration step :math:`[\text s]`.
-    case : Case
-        Physical case and forcings of the experiment.
-
-    Returns
-    -------
-    t : Float[Array, 'nz']
-        Temperature on the center of the cells at next step
-        :math:`[° \text C]`.
-    s : Float[Array, 'nz']
-        Salinity on the center of the cells at next step :math:`[\text{psu}]`.
+    TO CHECK
     """
-    # 1 - Fluxes
-    # Temperature
-    fc_t = case.rflx_sfc_max * swr_frac
-    fc_t = fc_t.at[-1].add(case.tflx_sfc)
-    fc_t = fc_t.at[0].set(0.)
-    # apply flux divergence
-    dft = hz*t + dt*(fc_t[1:] - fc_t[:-1])
-    # Salinity
-    fc_s = jnp.zeros(t.shape[0]+1)
-    fc_s.at[-1].set(case.sflx_sfc)
-    # apply flux divergence
-    dfs = hz*s + dt*(fc_s[1:] - fc_s[:-1])
+    hz = state.grid.hz
+    tracers = [tra for tra in case_tracable.eos_tracers]
+    if case_tracable.do_pt:
+        tracers.append('pt')
+    def get_pytree_fun(tracer: str):
+        return lambda t: getattr(t, tracer)
+    for tracer in tracers:
+        tra = getattr(state, tracer)
+        df = tracer_flux(tracer, case_tracable, state.grid, i_time)
+        df = hz*tra + dt*df
+        tra = diffusion_solver(akt, hz, df, dt)
+        state = eqx.tree_at(get_pytree_fun(tracer), state, tra)
 
-    # 2 - Implicit integration for vertical diffusion
-    # Temperature
-    dft = dft.at[0].add(-dt * case.tflx_btm)
-    t = diffusion_solver(akt, hz, dft, dt)
-    # Salinity
-    dfs = dfs.at[0].add(-dt * case.sflx_btm)
-    s = diffusion_solver(akt, hz, dfs, dt)
-
-    return t, s
-
+    return state
 
 def advance_dyn_cor_ed(
-        u: Float[Array, 'nz'],
-        v: Float[Array, 'nz'],
-        hz: Float[Array, 'nz'],
+        state: State,
         akv: Float[Array, 'nz+1'],
         dt: float,
-        case: Case
+        case_tracable: CaseTracable
     ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
     r"""
     Integrate vertical diffusion and Coriolis terms for momentum.
 
-    First the Coriolis term is computed, then the momentum forcings are applied
-    and finally, the diffusion equation is solved. The momentum at next time-
-    step is returned. The equation which is solved is :
+    First the Coriolis term is computed, then the momentum forcings are applied and finally, the
+    diffusion equation is solved. The momentum at next time-step is returned. The equation which is
+    solved is :
 
     :math:`\partial_z (K_v \partial_z U) + F_{\text{cor}}(U) + F = 0`
 
-    where :math:`F_{\text{cor}}` represent the Coriolis effect, and :math:`F`
-    represent the effect of the forcings.
-
-    Parameters
-    ----------
-    u : Float[~jax.Array, 'nz']
-        Current zonal velocity on the center of the cells
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v : Float[~jax.Array, 'nz']
-        Current meridional velocity on the center of the cells
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    akv : Float[~jax.Array, 'nz+1']
-        Current eddy-viscosity :math:`K_v` on the interfaces of the cells
-        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    hz : Float[~jax.Array, 'nz']
-        Thickness of cells from deepest to shallowest :math:`[\text m]`.
-    dt : float
-        Time-step of the integration step :math:`[\text s]`.
-    case : Case
-        Physical case and forcings of the experiment.
-
-    Returns
-    -------
-    u : Float[Array, 'nz']
-        Zonal velocity on the center of the cells at the next time step
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v : Float[Array, 'nz']
-        Meridional velocity on the center of the cells at the next time step
-        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    where :math:`F_{\text{cor}}` represent the Coriolis effect, and :math:`F` represent the effect
+    of the forcings.
+    TO CHECK
     """
     gamma_cor = 0.55
-    fcor = case.fcor
+    fcor = case_tracable.fcor
+    u = state.u
+    v = state.v
+    hz = state.grid.hz
 
     # 1 - Compute Coriolis term
     cff = (dt * fcor) ** 2
@@ -452,17 +304,20 @@ def advance_dyn_cor_ed(
     fv = cff1 * hz * ((1-gamma_cor*(1-gamma_cor)*cff)*v - dt*fcor*u)
 
     # 2 - Apply surface and bottom forcing
-    fu = fu.at[-1].add(dt * case.ustr_sfc)
-    fv = fv.at[-1].add(dt * case.vstr_sfc)
-    fu = fu.at[0].add(-dt * case.ustr_btm)
-    fv = fv.at[0].add(-dt * case.vstr_btm)
+    fu = fu.at[-1].add(dt * case_tracable.ustr_sfc)
+    fv = fv.at[-1].add(dt * case_tracable.vstr_sfc)
+    fu = fu.at[0].add(-dt * case_tracable.ustr_btm)
+    fv = fv.at[0].add(-dt * case_tracable.vstr_btm)
 
     # 3 - Implicit integration for vertical viscosity
     u = diffusion_solver(akv, hz, fu, dt)
     v = diffusion_solver(akv, hz, fv, dt)
 
-    return u, v
+    # 4 - Update the state
+    state = eqx.tree_at(lambda t: t.u, state, u)
+    state = eqx.tree_at(lambda t: t.v, state, v)
 
+    return state
 
 def diffusion_solver(
         ak: Float[Array, 'nz+1'],
@@ -477,9 +332,8 @@ def diffusion_solver(
 
     :math:`\partial _z (K \partial _z X) + \dfrac f {\Delta t \Delta x} = 0`
 
-    where we are searching for :math:`X` and where :math:`f` represents the
-    temporal derivative and forcings. This function transforms this problem in
-    a tridiagonal system and then solve it.
+    where we are searching for :math:`X` and where :math:`f` represents the temporal derivative and
+    forcings. This function transforms this problem in a tridiagonal system and then solve it.
 
     Parameters
     ----------
@@ -487,19 +341,16 @@ def diffusion_solver(
         Diffusion at the cell interfaces :math:`K` in
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
     hz : Float[~jax.Array, 'nz']
-        Thickness of cells from deepest to shallowest
-        :math:`\left[\text m\right]`.
+        Thickness of cells from deepest to shallowest :math:`\left[\text m\right]`.
     f : Float[~jax.Array, 'nz']
-        Right-hand flux of the equation :math:`f` in
-        :math:`[[X] \cdot \text m ]`.
+        Right-hand flux of the equation :math:`f` in :math:`[[X] \cdot \text m ]`.
     dt : float
         Time-step of discretisation :math:`[\text s]`.
     
     Returns
     -------
     x : Float[~jax.Array, 'nz']
-        Solution of the diffusion problem
-        :math:`X` in :math:`\left[[X]\right]`.
+        Solution of the diffusion problem :math:`X` in :math:`\left[[X]\right]`.
     """
     # fill the coefficients for the tridiagonal matrix
     a_in = -2.0 * dt * ak[1:-2] / (hz[:-2] + hz[1:-1])

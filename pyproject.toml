@@ -1,36 +1,49 @@
-[tool.poetry]
-name = "tunax"
-version = "0.1.1"
-description = "Differential calibrator of the vertical ocean turbulence closures."
-authors = ["Gabriel Mouttapa <gabriel.mouttapa@univ-grenoble-alpes.fr>", "Julien Le Sommer <julien.lesommer@univ-grenoble-alpes.fr>"]
-license = "LICENSE"
-readme = "README.md"
-repository = "https://github.com/meom-group/tunax"
-keywords = ["ocean", "closure", "calibration", "differential", "turbulence"]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
+[project]
+name = 'tunax'
+authors = [
+    {name = 'Gabriel Mouttapa', email='gabriel.mouttapa@univ-grenoble-alpes.fr'},
+    {name = 'Julien Le Sommer', email='julien.lesommer@univ-grenoble-alpes.fr'}
 ]
-packages = [
-    { include = "tunax" }
+description = 'Differential calibrator of the vertical ocean turbulence closures.'
+keywords = ['ocean', 'closure', 'calibration', 'differential', 'turbulence']
+readme = 'README.md'
+license = 'CC BY-NC 4.0'
+license-files = ['LICENSE']
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'Operating System :: OS Independent',
+]
+version = '0.1.1'
+requires-python = '>=3.10,<4.0'
+dependencies = [
+    'equinox>=0.11.7',
+    'optax>=0.2.3',
+    'xarray>=2024.9.0',
+    'netcdf4>=1.7.1.post2',
+    'jax>=0.4.34',
+    'jaxtyping>=0.2.34',
+    'h5py>=3.12.1',
+    "pyyaml (>=6.0.2,<7.0.0)"
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-equinox = "^0.11.7"
-optax = "^0.2.3"
-xarray = "^2024.9.0"
-netcdf4 = "^1.7.1.post2"
-jax = "^0.4.34"
-jaxtyping = "^0.2.34"
-pyyaml = "^6.0.2"
+[project.urls]
+Repository = 'https://github.com/meom-group/tunax'
+Documentation = 'https://tunax.readthedocs.io/en/latest/'
+Issues = 'https://github.com/meom-group/tunax/issues'
+
+[tool.poetry]
+packages = [
+    { include = 'tunax' }
+]
 
 [tool.poetry.group.dev.dependencies]
-jupyter = "^1.1.1"
-matplotlib = "^3.9.2"
-pytest = "^8.3.3"
-coverage = "^7.6.4"
+tqdm = '^4.67.1'
+jupyter = '^1.1.1'
+matplotlib = '^3.9.2'
+pytest = '^8.3.3'
+coverage = '^7.6.4'
+ipykernel = '^6.29.5'
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ['poetry-core>=1.0.0']
+build-backend = 'poetry.core.masonry.api'

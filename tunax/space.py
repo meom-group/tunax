@@ -1,21 +1,30 @@
 """
 Geometry and variables of the model.
 
-This module contains the objects that are used in Tunax to describe the
-geometry of the water column in :class:`Grid`, the variables of the water
-column at one time-step in :class:`State` and the time-series of the model
-computation in :class:`Trajectories`. These classes can be obtained by the
+This module contains the objects that are used in Tunax to describe the geometry of the water column
+in :class:`Grid`, the variables of the water column at one time-step in :class:`State` and the time-
+series of the model computation in :class:`Trajectories`. These classes can be obtained by the
 prefix :code:`tunax.space.` or directly by :code:`tunax.`.
 
 """
 
 from __future__ import annotations
+from typing import Optional, Tuple, List
 
 import equinox as eqx
 import xarray as xr
 import jax.numpy as jnp
 from jax import vmap
 from jaxtyping import Float, Array
+
+from tunax.case import Case
+from tunax.functions import add_boundaries
+
+
+TRACERS_NAMES = ['t', 's', 'b', 'pt']
+STATE_VARIABLES_NAMES = ['u', 'v', 't', 's', 'b', 'pt']
+VARIABLE_NAMES = ['u', 'v', 't', 's', 'b', 'pt', 'akt', 'akv']
+VARIABLE_SHAPES = ['zr', 'zr', 'zr', 'zr', 'zr', 'zr', 'zw', 'zw']
 
 
 def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
@@ -24,6 +33,7 @@ def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
 
     Apply to z a function linear by part and continuous :
     f(z) = 0 if z < zm and f(z) = f0 (1-z/zm) else.
+    TO CHECK (math)
 
     Parameters
     ----------
@@ -47,6 +57,7 @@ def _piecewise_linear_flat(z: float, zm: float, f0: float, sl: float) -> float:
 
     Apply to z a function linear by part and continuous :
     f(z) = f0 + s_l (z-zm) if z < z_m and f(z) = f0 else.
+    TO CHECK (math)
 
     Parameters
     ----------
@@ -72,10 +83,9 @@ class Grid(eqx.Module):
     r"""
     One dimensional spatial geometry of a water column.
 
-    This mesh is made up of a number of :attr:`nz` of cells (:attr:`zr`) of
-    potentially varying thickness (:attr:`hz`), separated by interface points
-    (:attr:`zw`) and extending from the ocean surface at a depth of :math:`0`
-    to the ocean floor at a depth of :attr:`hbot`.
+    This mesh is made up of a number of :attr:`nz` of cells (:attr:`zr`) of potentially varying
+    thickness (:attr:`hz`), separated by interface points (:attr:`zw`) and extending from the ocean
+    surface at a depth of :math:`0` to the ocean floor at a depth of :attr:`hbot`.
 
     Parameters
     ----------
@@ -87,7 +97,7 @@ class Grid(eqx.Module):
     Attributes
     ----------
     nz : int
-        Number of cells.
+        Number of cells. TO CHECK (static)
     hbot : float
         Depth of the water column :math:`[\text m]`.
     zr : Float[~jax.Array, 'nz']
@@ -99,14 +109,13 @@ class Grid(eqx.Module):
 
     Note
     ----
-    The constructor :code:`__init__` takes only :attr:`zr` and :attr:`zw` as
-    as arguments and construct the other attributes from them. The centers of
-    the cells :attr:`zr` are not necessarly the middle between the interfaces
-    :attr:`zw`.
+    The constructor :code:`__init__` takes only :attr:`zr` and :attr:`zw` as as arguments and
+    construct the other attributes from them. The centers of the cells :attr:`zr` are not necessarly
+    the middle between the interfaces :attr:`zw`.
 
     """
 
-    nz: int
+    nz: int = eqx.field(static=True)
     hbot: float
     zr: Float[Array, 'nz']
     zw: Float[Array, 'nz+1']
@@ -123,9 +132,9 @@ class Grid(eqx.Module):
         r"""
         Find the index of a depth.
 
-        Find the index :code:`i` so that the depth :code:`h` is in cell
-        :code:`i`, which means :math:`z^w_i \leqslant -h \leqslant z^w_{i+1}`
-        if :math:`h \leqslant 0` and :math:`i=-1` if :math:`h>0`.
+        Find the index :code:`i` so that the depth :code:`h` is in cell :code:`i`, which means
+        :math:`z^w_i \leqslant -h \leqslant z^w_{i+1}` if :math:`h \leqslant 0` and :math:`i=-1` if
+        :math:`h>0`.
 
         Parameters
         ----------
@@ -144,8 +153,7 @@ class Grid(eqx.Module):
         r"""
         Creates a grid with equal thickness cells.
 
-        The grid instance will have :attr:`nz` cells of equal thickness for a
-        depth of :attr:`hbot`.
+        The grid instance will have :attr:`nz` cells of equal thickness for a depth of :attr:`hbot`.
 
         Parameters
         ----------
@@ -159,19 +167,13 @@ class Grid(eqx.Module):
         return cls(zr, zw)
 
     @classmethod
-    def analytic(
-            cls,
-            nz: int,
-            hbot: float,
-            hc: float,
-            theta: float=6.5
-        ) -> Grid:
+    def analytic(cls, nz: int, hbot: float, hc: float, theta: float=6.5) -> Grid:
         r"""
         Creates a grid of type analytic.
 
-        The grid instance will have a depth of :attr:`hbot` and :attr:`nz`
-        cells of thickness almost equals above :code:`hc` and wider under, the
-        strecht parameter being defined by :code:`theta`.
+        The grid instance will have a depth of :attr:`hbot` and :attr:`nz` cells of thickness almost
+        equals above :code:`hc` and wider under, the strecht parameter being defined by
+        :code:`theta`.
 
         Parameters
         ----------
@@ -182,8 +184,7 @@ class Grid(eqx.Module):
         hc : float, positive
             Reference depth :math:`[\text m]`.
         theta : float, default=6.5
-            Stretching parameter toward the surface
-            :math:`[\text{dimensionless}]`.
+            Stretching parameter toward the surface :math:`[\text{dimensionless}]`.
         """
         sc_w = jnp.linspace(-1, 0, nz+1)
         sc_r = (sc_w[:-1] + sc_w[1:])/2
@@ -198,8 +199,8 @@ class Grid(eqx.Module):
         r"""
         Creates the ORCA 75 grid from NEMO.
 
-        The whole grid is created then levels between the depth :attr:`hbot`
-        and :math:`0` are extracted.
+        The whole grid is created then levels between the depth :attr:`hbot` and :math:`0` are
+        extracted.
 
         Parameters
         ----------
@@ -217,10 +218,10 @@ class Grid(eqx.Module):
         zacr2 = 13.
         sc_r = jnp.arange(nz_orca-0.5, 0.5, -1)
         sc_w = jnp.arange(nz_orca, 0, -1)
-        zw_orca = -(zsur + za0*sc_w + za1*zacr*jnp.log(jnp.cosh((sc_w-zkth)/\
-            zacr)) + za2*zacr2*jnp.log(jnp.cosh((sc_w-zkth2)/zacr2)))
-        zr_orca = -(zsur + za0*sc_r + za1*zacr*jnp.log(jnp.cosh((sc_r-zkth)/\
-            zacr)) + za2*zacr2*jnp.log(jnp.cosh((sc_r-zkth2)/zacr2)))
+        zw_orca = -(zsur + za0*sc_w + za1*zacr*jnp.log(jnp.cosh((sc_w-zkth)/zacr)) +\
+                    za2*zacr2*jnp.log(jnp.cosh((sc_w-zkth2)/zacr2)))
+        zr_orca = -(zsur + za0*sc_r + za1*zacr*jnp.log(jnp.cosh((sc_r-zkth)/zacr)) +\
+                    za2*zacr2*jnp.log(jnp.cosh((sc_r-zkth2)/zacr2)))
         ibot = jnp.argmin(zw_orca <= -hbot)
         if ibot == 0:
             ibot = 1
@@ -234,8 +235,8 @@ class Grid(eqx.Module):
         """
         Creates the grid defined by a dataset :code:`ds` of an observation.
 
-        The dataset must be formated to have the variables corresponding to
-        :attr:`zr` and :attr:`zw`.
+        The dataset must be formated to have the variables corresponding to :attr:`zr` and
+        :attr:`zw`.
 
         Parameters
         ----------
@@ -251,10 +252,10 @@ class State(eqx.Module):
     r"""
     Water column state at one time-step.
 
-    This state is defined on a :attr:`grid` describing the geometry, and is
-    composed of the variables of the water column : the values of the momentum
-    and the tracers on this :attr:`grid`. The call of the constructor build a
-    state on the :attr:`grid` with all the variables set to :math:`0`.
+    This state is defined on a :attr:`grid` describing the geometry, and is composed of the
+    variables of the water column : the values of the momentum and the tracers on this
+    :attr:`grid`. The call of the constructor build a state on the :attr:`grid` with all the
+    variables set to :math:`0`.
 
     Parameters
     ----------
@@ -266,26 +267,28 @@ class State(eqx.Module):
     grid : Grid
         Geometry of the water column.
     u : Float[~jax.Array, 'nz']
-        Zonal velocity on the center of the cells :math:`\left[\text m \cdot
-        \text s^{-1}\right]`.
+        Zonal velocity on the center of the cells :math:`\left[\text m \cdot \text s^{-1}\right]`.
     v : Float[~jax.Array, 'nz']
-        Meridional velocity on the center of the cells :math:`\left[\text m
-        \cdot \text s^{-1}\right]`.
+        Meridional velocity on the center of the cells :math:`\left[\text m \cdot
+        \text s^{-1}\right]`.
     t : Float[~jax.Array, 'nz']
         Temperature on the center of the cells :math:`[° \text C]`.
     s : Float[~jax.Array, 'nz']
         Salinity on the center of the cells :math:`[\text{psu}]`.
+    TO CHECK (pt)
 
     """
 
     grid: Grid
     u: Float[Array, 'nz']
     v: Float[Array, 'nz']
-    t: Float[Array, 'nz']
-    s: Float[Array, 'nz']
+    t: Optional[Float[Array, 'nz']] = None
+    s: Optional[Float[Array, 'nz']] = None
+    b: Optional[Float[Array, 'nz']] = None
+    pt: Optional[Float[Array, 'nz']] = None
 
     @classmethod
-    def zeros(cls, grid: Grid) -> State:
+    def zeros(cls, grid: Grid, tracers: List[str]) -> State:
         """
         Initialize an instance with all variables equals to zero from a grid.
 
@@ -299,11 +302,11 @@ class State(eqx.Module):
         state : State
             An instance defined on the grid with all variables set to 0.        
         """
-        u = jnp.zeros(grid.nz)
-        v = jnp.zeros(grid.nz)
-        t = jnp.zeros(grid.nz)
-        s = jnp.zeros(grid.nz)
-        return State(grid, u, v, t, s)
+        zero_array = jnp.zeros(grid.nz)
+        tracers_dict = {}
+        for tracer_name in tracers:
+            tracers_dict[tracer_name] = zero_array
+        return State(grid, u=zero_array, v=zero_array, **tracers_dict)
 
     def init_u(self, hmxl: float=20., u_sfc: float=0.) -> State:
         r"""
@@ -320,8 +323,7 @@ class State(eqx.Module):
         hmxl : float, default=20.
             Mixed layer depth :math:`[\text m]`.
         u_sfc : float, default=0.
-            Surface zonal velocity :math:`\left[\text m \cdot \text
-            s^{-1}\right]`.
+            Surface zonal velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
 
         Returns
         -------
@@ -347,25 +349,18 @@ class State(eqx.Module):
         hmxl : float, default=20.
             Mixed layer depth :math:`[\text m]`.
         u_sfc : float, default=0.
-            Surface meridional velocity :math:`\left[\text m \cdot \text
-            s^{-1}\right]`.
+            Surface meridional velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
 
         Returns
         -------
         state : State
-            The :code:`self` object with the the new value of meridional
-            velocity.
+            The :code:`self` object with the the new value of meridional velocity.
         """
         maped_fun = vmap(_piecewise_linear_ramp, in_axes=(0, None, None))
         v_new = maped_fun(self.grid.zr, -hmxl, v_sfc)
         return eqx.tree_at(lambda t: t.v, self, v_new)
 
-    def init_t(
-            self,
-            hmxl: float=20.,
-            t_sfc: float=21.,
-            strat_t: float=5.1e-2
-        ) -> State:
+    def init_t(self, hmxl: float=20., t_sfc: float=21., strat_t: float=5.1e-2) -> State:
         r"""
         Initialize temperature with a classical tracer stratification.
 
@@ -395,12 +390,7 @@ class State(eqx.Module):
         t_new = maped_fun(self.grid.zr, -hmxl, t_sfc, strat_t)
         return eqx.tree_at(lambda tree: tree.t, self, t_new)
 
-    def init_s(
-            self,
-            hmxl: float=20.,
-            s_sfc: float=35.,
-            strat_s: float=1.3e-2
-        ) -> State:
+    def init_s(self, hmxl: float=20., s_sfc: float=35., strat_s: float=1.3e-2) -> State:
         r"""
         Initialize salinity with a classical tracer stratification.
 
@@ -430,13 +420,91 @@ class State(eqx.Module):
         s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
         return eqx.tree_at(lambda t: t.s, self, s_new)
 
+    def compute_eos(self, case: Case) -> Tuple[Float[Array, 'nz+1'], Float[Array, 'nz']]:
+        r"""
+        Compute density anomaly and Brunt–Väisälä frequency.
+        
+        Prognostic computation via linear Equation Of State (EOS) :
+
+        :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
+
+        :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
+        TO CHECK
+
+        Parameters
+        ----------
+        case : Case
+            Physical parameters and forcings of the model run.
+
+        Returns
+        -------
+        bvf : Float[Array, 'nz+1']
+            Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
+            :math:`\left[\text s^{-2}\right]`.
+        rho : Float[Array, 'nz']
+            Density anomaly :math:`\rho` on cell interfaces
+            :math:`\left[\text {kg} \cdot \text m^{-3}\right]`
+        """
+        rho0 = case.rho0
+        match case.eos_tracers:
+            case 't':
+                rho = rho0 * (1. - case.alpha*(self.t-case.t_rho_ref))
+            case 's':
+                rho = rho0 * (1. + case.beta*(self.s-case.s_rho_ref))
+            case 'ts':
+                rho = rho0 * (1. - case.alpha*(self.t-case.t_rho_ref) + \
+                    case.beta*(self.s-case.s_rho_ref))
+            case 'b':
+                rho = rho0*(1-self.b/case.grav)
+        cff = 1./(self.grid.zr[1:]-self.grid.zr[:-1])
+        bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
+        bvf = add_boundaries(0., bvf_in, bvf_in[-1])
+        return rho, bvf
+
+    def compute_shear(
+            self,
+            u_np1: Float[Array, 'nz'],
+            v_np1: Float[Array, 'nz']
+        ) -> Float[Array, 'nz+1']:
+        r"""
+        Compute shear production term for TKE equation.
+
+        The prognostic equations are
+
+        :math:`S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}`
+
+        where :math:`U^{n+1/2}` is the mean between :math:`U^n` and :math:`U^{n+1}`.
+        
+        Parameters
+        ----------
+        u_np1 : Float[~jax.Array, 'nz']
+            Zonal velocity on the center of the cells at the next time step
+            :math:`\left[\text m \cdot \text s^{-1}\right]`.
+        v_np1 : Float[~jax.Array, 'nz']
+            Meridional velocity on the center of the cells at the next time step
+            :math:`\left[\text m \cdot \text s^{-1}\right]`.            
+
+        Returns
+        -------
+        shear2 : Float[~jax.Array, 'nz+1']
+            Shear production squared :math:`S_h^2` on cell interfaces
+            :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+        """
+        u_n = self.u
+        v_n = self.v
+        cff = 1.0 / (self.grid.zr[1:] - self.grid.zr[:-1])**2
+        du = 0.5*cff * (u_np1[1:]-u_np1[:-1]) * (u_n[1:]+u_np1[1:]-u_n[:-1]-u_np1[:-1])
+        dv = 0.5*cff * (v_np1[1:]-v_np1[:-1]) * (v_n[1:]+v_np1[1:]-v_n[:-1]-v_np1[:-1])
+        shear2_in = du + dv
+        return add_boundaries(0., shear2_in, 0.)
+
 
 class Trajectory(eqx.Module):
     r"""
     Define the history of a simulation or an observation.
 
-    Contains the timeseries of the momentum and the tracers throught the space
-    of the :attr:`grid` and the :attr:`time`.
+    Contains the timeseries of the momentum and the tracers throught the space of the :attr:`grid`
+    and the :attr:`time`.
 
     Parameters
     ----------
@@ -458,49 +526,72 @@ class Trajectory(eqx.Module):
     grid : Grid
         Geometry of the water column.
     time : Float[~jax.Array, 'nt']
-        Time at each steps of observation from the begining of the simulation
-        :math:`[\text s]`.
+        Time at each steps of observation from the begining of the simulation :math:`[\text s]`.
     u : Float[~jax.Array, 'nt nz']
-        Time-serie of zonal velocity :math:`\left[\text m \cdot \text
-        s^{-1}\right]`.
+        Time-serie of zonal velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
     v : Float[~jax.Array, 'nt nz']
-        Time-serie of meridional velocity :math:`\left[\text m \cdot \text
-        s^{-1}\right]`.
+        Time-serie of meridional velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
     t : Float[~jax.Array, 'nt nz']
         Time-serie of temperature :math:`[\text C°]`.
     s : Float[~jax.Array, 'nt nz']
         Time-serie of salinity :math:`[\text{psu}]`.
-
+    TO CHECK (pt, diags)
+        
     """
 
     grid: Grid
     time: Float[Array, 'nt']
-    t: Float[Array, 'nt nz']
-    s: Float[Array, 'nt nz']
     u: Float[Array, 'nt nz']
     v: Float[Array, 'nt nz']
+    t: Optional[Float[Array, 'nt nz']] = None
+    s: Optional[Float[Array, 'nt nz']] = None
+    b: Optional[Float[Array, 'nt nz']] = None
+    pt: Optional[Float[Array, 'nt nz']] = None
+    akv: Optional[Float[Array, 'nt nz']] = None
+    akt: Optional[Float[Array, 'nt nz']] = None
 
     def to_ds(self) -> xr.Dataset:
         """
         Exports the trajectory in an xarray.Dataset.
 
-        The dimensions of the dataset are :attr:`time`, :code:`grid.zr` and
-        :code:`grid.zw`, the variables are :attr:`u`, :attr:`v`, :attr:`t` and
-        :attr:`s`, all defined on the dimensions (:attr:`time`, :code:`zr`).
+        The dimensions of the dataset are :attr:`time`, :code:`grid.zr` and :code:`grid.zw`, the
+        variables are :attr:`u`, :attr:`v`, :attr:`t` and :attr:`s`, all defined on the dimensions
+        (:attr:`time`, :code:`zr`).
 
         Returns
         -------
         ds : xarray.Dataset
             Dataset of the trajectory.
         """
-        variables = {'u': (('time', 'zr'), self.u),
-                     'v': (('time', 'zr'), self.v),
-                     't': (('time', 'zr'), self.t),
-                     's': (('time', 'zr'), self.s)}
-        coords = {'time': self.time,
-                  'zr': self.grid.zr,
-                  'zw': self.grid.zw}
+        variables = {}
+        for i_var, var_name in enumerate(VARIABLE_NAMES):
+            var = getattr(self, var_name)
+            if var is not None:
+                variables[var_name] = (('time', VARIABLE_SHAPES[i_var]), var)
+        coords = {
+            'time': self.time,
+            'zr': self.grid.zr,
+            'zw': self.grid.zw
+        }
         return xr.Dataset(variables, coords)
+
+    def to_nc(self, nc_path: str):
+        r"""
+        Write on a file.
+        TO CHECK
+        """
+        variables = {}
+        for i_var, var_name in enumerate(VARIABLE_NAMES):
+            var = getattr(self, var_name)
+            if var is not None:
+                variables[var_name] = (('time', VARIABLE_SHAPES[i_var]), var)
+        coords = {
+            'time': self.time,
+            'zr': self.grid.zr,
+            'zw': self.grid.zw
+        }
+        ds = xr.Dataset(variables, coords)
+        ds.to_netcdf(nc_path)
 
     def extract_state(self, i_time: int) -> State:
         """
@@ -516,7 +607,9 @@ class Trajectory(eqx.Module):
         state : State
             The state of the trajectory at the time of index :code:`i_time`.
         """
-        return State(
-            self.grid, self.u[i_time, :], self.v[i_time, :], self.t[i_time, :],
-            self.s[i_time, :],
-        )
+        variables = {}
+        for var_name in STATE_VARIABLES_NAMES:
+            var = getattr(self, var_name)
+            if var is not None:
+                variables[var_name] = var[i_time, :]
+        return State(self.grid, **variables)
