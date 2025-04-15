@@ -1,13 +1,3 @@
-# Branch Description 🚧 
-This branch contains some improvment for next release :
-- on the model itself
-  - adding buoyancy and a passive tracer (optionnal) in the stade
-  - the possibility to chose on which tracer compute the density (choice of the Equation Of State (EOS))
-  - the possibility to have variable forcings for tracers in space and time
-- on the fitter
-  - add some metadatas on the database
-  - a `.jld2` file reader
-
 ![Python](https://img.shields.io/badge/dynamic/yaml?url=https://raw.githubusercontent.com/meom-group/tunax/master/.github/workflows/run_tests.yaml&label=Python&query=$.jobs.test.strategy.matrix["python-version"]&color=seagreen)
 [![PyPi](https://img.shields.io/badge/dynamic/xml?url=https://pypi.org/rss/project/tunax/releases.xml&label=PyPi&query=/rss/channel/item[1]/title)](https://pypi.org/project/tunax/)
 [![Documentation Status](https://readthedocs.org/projects/tunax/badge/?version=latest)](https://tunax.readthedocs.io/en/latest/?badge=latest)
