@@ -1,17 +1,6 @@
-# notebooks
-notebooks/k-epsilon_Kato-Phillips/
-notebooks/logbook.ipynb
-notebooks/fit_wagner.ipynb
-notebooks/k-epsilon_Wagner_LES/Wagner_LES_archive
-
-# heavy data
-*.nc
-*.jld2
-*.npz
-
 # general
 __pycache__/
-**.DS_Store
+.DS_Store
 dist/
 
 # doc build

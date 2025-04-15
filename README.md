@@ -37,3 +37,9 @@ The most recent additions to *Tunax* since the last release are implemented in t
 ```shell
 poetry install --no-dev
 ```
+
+## Notebook use
+To use the notebooks with the specific packages that they use, one can clone or fork the branch `main` or another of this repository and install *Tunax* with the package manager *poetry* :
+```shell
+poetry install
+```
