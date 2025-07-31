@@ -507,8 +507,8 @@ def keps_step(
     hz = state.grid.hz
 
     # prognostic computations
-    _, bvf = state.compute_eos(case_tracable)
-    shear2 = state.compute_shear(u, v)
+    _, bvf = compute_eos(state, case_tracable)
+    shear2 = compute_shear(state, u, v)
     tke_sfc_bc, tke_btm_bc, eps_sfc_bc, eps_btm_bc = compute_tke_eps_bc(
         tke, hz, keps_params, case_tracable
     )
@@ -536,6 +536,85 @@ def keps_step(
     keps_state = eqx.tree_at(lambda t: t.c_mu_prim, keps_state, c_mu_prim_new)
 
     return keps_state
+
+def compute_eos(state: State, case: CaseTracable) -> Tuple[Float[Array, 'nz+1'], Float[Array, 'nz']]:
+    r"""
+    Compute density anomaly and Brunt–Väisälä frequency.
+    
+    Prognostic computation via linear Equation Of State (EOS) :
+
+    :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
+
+    :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
+    TO CHECK
+
+    Parameters
+    ----------
+    case : CaseTracable
+        Physical parameters and forcings of the model run.
+
+    Returns
+    -------
+    bvf : Float[Array, 'nz+1']
+        Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
+        :math:`\left[\text s^{-2}\right]`.
+    rho : Float[Array, 'nz']
+        Density anomaly :math:`\rho` on cell interfaces
+        :math:`\left[\text {kg} \cdot \text m^{-3}\right]`
+    """
+    rho0 = case.rho0
+    match case.eos_tracers:
+        case 't':
+            rho = rho0 * (1. - case.alpha*(state.t-case.t_rho_ref))
+        case 's':
+            rho = rho0 * (1. + case.beta*(state.s-case.s_rho_ref))
+        case 'ts':
+            rho = rho0 * (1. - case.alpha*(state.t-case.t_rho_ref) + \
+                case.beta*(state.s-case.s_rho_ref))
+        case 'b':
+            rho = rho0*(1-state.b/case.grav)
+    cff = 1./(state.grid.zr[1:]-state.grid.zr[:-1])
+    bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
+    bvf = add_boundaries(0., bvf_in, bvf_in[-1])
+    return rho, bvf
+
+def compute_shear(
+        state: State,
+        u_np1: Float[Array, 'nz'],
+        v_np1: Float[Array, 'nz']
+    ) -> Float[Array, 'nz+1']:
+    r"""
+    Compute shear production term for TKE equation.
+
+    The prognostic equations are
+
+    :math:`S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}`
+
+    where :math:`U^{n+1/2}` is the mean between :math:`U^n` and :math:`U^{n+1}`.
+    
+    Parameters
+    ----------
+    u_np1 : Float[~jax.Array, 'nz']
+        Zonal velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    v_np1 : Float[~jax.Array, 'nz']
+        Meridional velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.            
+
+    Returns
+    -------
+    shear2 : Float[~jax.Array, 'nz+1']
+        Shear production squared :math:`S_h^2` on cell interfaces
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    """
+    u_n = state.u
+    v_n = state.v
+    zr = state.grid.zr
+    cff = 1.0 / (zr[1:] - zr[:-1])**2
+    du = 0.5*cff * (u_np1[1:]-u_np1[:-1]) * (u_n[1:]+u_np1[1:]-u_n[:-1]-u_np1[:-1])
+    dv = 0.5*cff * (v_np1[1:]-v_np1[:-1]) * (v_n[1:]+v_np1[1:]-v_n[:-1]-v_np1[:-1])
+    shear2_in = du + dv
+    return add_boundaries(0., shear2_in, 0.)
 
 def compute_tke_eps_bc(
         tke: Float[Array, 'nz+1'],
@@ -607,14 +686,14 @@ def compute_tke_eps_bc(
     lgthsc = vkarmn*(0.5*hz[-1] + z0_s)
     tke_sfc = 0.5*(tke[-1]+tke[-2])
     eps_sfc_dir = jnp.maximum(keps_params.eps_min, c_mu0**rp * lgthsc**rn * tke_sfc**rm)
-    eps_sfc_neu = -rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_sfc**(rm+.5) * lgthsc**rn
+    eps_sfc_neu = -rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_sfc**(rm+.5) * lgthsc**rn # here
 
     # epsilon bottom conditions
     z0b = jnp.maximum(keps_params.z0b, keps_params.z0b_min)
     lgthsc = vkarmn *(0.5*hz[0] + z0b)
     tke_btm = 0.5*(tke[0]+tke[1])
     eps_btm_dir = jnp.maximum(keps_params.eps_min, c_mu0**rp * lgthsc**rn * tke_btm**rm)
-    eps_btm_neu = -rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_btm**(rm+.5) * lgthsc**rn
+    eps_btm_neu = -rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_btm**(rm+.5) * lgthsc**rn # here
 
     tke_sfc_bc = jnp.where(keps_params.dir_sfc, tke_sfc_dir, tke_sfc_neu)
     tke_btm_bc = jnp.where(keps_params.dir_btm, tke_btm_dir, tke_btm_neu)
@@ -712,7 +791,7 @@ def advance_turb(
     """
     # fill the matrix off-diagonal terms for the tridiagonal problem
     cff = -0.5*dt
-    ak_vec = jnp.where(do_tke, akv/keps_params.sig_k, akv/keps_params.sig_eps)
+    ak_vec = jnp.where(do_tke, akv/keps_params.sig_k, akv/keps_params.sig_eps) # here
     a_in = cff*(ak_vec[1:-1]+ak_vec[:-2]) / hz[:-1]
     c_in = cff*(ak_vec[1:-1]+ak_vec[2:]) / hz[1:]
 
@@ -857,7 +936,7 @@ def compute_diag(
 
     # minimum value of alpha_n to ensure that alpha_m is positive
     alpha_n_min = 0.5*(- (sf_d1 + sf_nb0) + jnp.sqrt((sf_d1 + sf_nb0)**2 - \
-        4.0*sf_d0*(sf_d4 + sf_nb1))) / (sf_d4 + sf_nb1)
+        4.0*sf_d0*(sf_d4 + sf_nb1))) / (sf_d4 + sf_nb1) # here
 
     # # Galperin limitation : l <= l_li
     l_lim = keps_params.galp*jnp.sqrt(2.0*tke[1:-1] / jnp.maximum(1e-14, bvf[1:-1]))
@@ -876,12 +955,12 @@ def compute_diag(
     # limitation of alpha_n and alpha_m
     alpha_n = jnp.minimum(jnp.maximum(0.73*alpha_n_min, alpha_n), 1e10)
     alpha_m_max = (lim_am0 + lim_am1*alpha_n + lim_am2*alpha_n**2 + lim_am3*alpha_n**3) / \
-        (lim_am4 + lim_am5*alpha_n + lim_am6*alpha_n**2)
+        (lim_am4 + lim_am5*alpha_n + lim_am6*alpha_n**2) # here
     alpha_m = jnp.minimum(alpha_m, alpha_m_max)
 
     # compute stability functions
     denom = sf_d0 + sf_d1*alpha_n + sf_d2*alpha_m + sf_d3*alpha_n*alpha_m + sf_d4*alpha_n**2 + \
-        sf_d5*alpha_m**2
+        sf_d5*alpha_m**2 # here
     cff = 1./denom
     c_mu_in = cff*(sf_n0 + sf_n1*alpha_n + sf_n2*alpha_m)
     c_mu = add_boundaries(keps_params.c_mu_min, c_mu_in, keps_params.c_mu_min)

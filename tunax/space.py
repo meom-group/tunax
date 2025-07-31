@@ -10,21 +10,28 @@ prefix :code:`tunax.space.` or directly by :code:`tunax.`.
 
 from __future__ import annotations
 from typing import Optional, Tuple, List
+import warnings
 
 import equinox as eqx
 import xarray as xr
 import jax.numpy as jnp
-from jax import vmap
+from jax import vmap, lax
 from jaxtyping import Float, Array
 
-from tunax.case import Case
+from tunax.functions import _format_to_single_line
 from tunax.functions import add_boundaries
 
 
 TRACERS_NAMES = ['t', 's', 'b', 'pt']
-STATE_VARIABLES_NAMES = ['u', 'v', 't', 's', 'b', 'pt']
-VARIABLE_NAMES = ['u', 'v', 't', 's', 'b', 'pt', 'akt', 'akv']
-VARIABLE_SHAPES = ['zr', 'zr', 'zr', 'zr', 'zr', 'zr', 'zw', 'zw']
+VARIABLE_NAMES = ['u', 'v', 't', 's', 'b', 'pt']
+VARIABLE_SHAPES = {
+    'u': 'zr',
+    'v': 'zr',
+    't': 'zr',
+    's': 'zr',
+    'b': 'zr',
+    'pt': 'zr'
+}
 
 
 def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
@@ -420,84 +427,6 @@ class State(eqx.Module):
         s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
         return eqx.tree_at(lambda t: t.s, self, s_new)
 
-    def compute_eos(self, case: Case) -> Tuple[Float[Array, 'nz+1'], Float[Array, 'nz']]:
-        r"""
-        Compute density anomaly and Brunt–Väisälä frequency.
-        
-        Prognostic computation via linear Equation Of State (EOS) :
-
-        :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
-
-        :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
-        TO CHECK
-
-        Parameters
-        ----------
-        case : Case
-            Physical parameters and forcings of the model run.
-
-        Returns
-        -------
-        bvf : Float[Array, 'nz+1']
-            Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
-            :math:`\left[\text s^{-2}\right]`.
-        rho : Float[Array, 'nz']
-            Density anomaly :math:`\rho` on cell interfaces
-            :math:`\left[\text {kg} \cdot \text m^{-3}\right]`
-        """
-        rho0 = case.rho0
-        match case.eos_tracers:
-            case 't':
-                rho = rho0 * (1. - case.alpha*(self.t-case.t_rho_ref))
-            case 's':
-                rho = rho0 * (1. + case.beta*(self.s-case.s_rho_ref))
-            case 'ts':
-                rho = rho0 * (1. - case.alpha*(self.t-case.t_rho_ref) + \
-                    case.beta*(self.s-case.s_rho_ref))
-            case 'b':
-                rho = rho0*(1-self.b/case.grav)
-        cff = 1./(self.grid.zr[1:]-self.grid.zr[:-1])
-        bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
-        bvf = add_boundaries(0., bvf_in, bvf_in[-1])
-        return rho, bvf
-
-    def compute_shear(
-            self,
-            u_np1: Float[Array, 'nz'],
-            v_np1: Float[Array, 'nz']
-        ) -> Float[Array, 'nz+1']:
-        r"""
-        Compute shear production term for TKE equation.
-
-        The prognostic equations are
-
-        :math:`S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}`
-
-        where :math:`U^{n+1/2}` is the mean between :math:`U^n` and :math:`U^{n+1}`.
-        
-        Parameters
-        ----------
-        u_np1 : Float[~jax.Array, 'nz']
-            Zonal velocity on the center of the cells at the next time step
-            :math:`\left[\text m \cdot \text s^{-1}\right]`.
-        v_np1 : Float[~jax.Array, 'nz']
-            Meridional velocity on the center of the cells at the next time step
-            :math:`\left[\text m \cdot \text s^{-1}\right]`.            
-
-        Returns
-        -------
-        shear2 : Float[~jax.Array, 'nz+1']
-            Shear production squared :math:`S_h^2` on cell interfaces
-            :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-        """
-        u_n = self.u
-        v_n = self.v
-        cff = 1.0 / (self.grid.zr[1:] - self.grid.zr[:-1])**2
-        du = 0.5*cff * (u_np1[1:]-u_np1[:-1]) * (u_n[1:]+u_np1[1:]-u_n[:-1]-u_np1[:-1])
-        dv = 0.5*cff * (v_np1[1:]-v_np1[:-1]) * (v_n[1:]+v_np1[1:]-v_n[:-1]-v_np1[:-1])
-        shear2_in = du + dv
-        return add_boundaries(0., shear2_in, 0.)
-
 
 class Trajectory(eqx.Module):
     r"""
@@ -547,8 +476,6 @@ class Trajectory(eqx.Module):
     s: Optional[Float[Array, 'nt nz']] = None
     b: Optional[Float[Array, 'nt nz']] = None
     pt: Optional[Float[Array, 'nt nz']] = None
-    akv: Optional[Float[Array, 'nt nz']] = None
-    akt: Optional[Float[Array, 'nt nz']] = None
 
     def to_ds(self) -> xr.Dataset:
         """
@@ -567,7 +494,7 @@ class Trajectory(eqx.Module):
         for i_var, var_name in enumerate(VARIABLE_NAMES):
             var = getattr(self, var_name)
             if var is not None:
-                variables[var_name] = (('time', VARIABLE_SHAPES[i_var]), var)
+                variables[var_name] = (('time', VARIABLE_SHAPES[var_name]), var)
         coords = {
             'time': self.time,
             'zr': self.grid.zr,
@@ -584,7 +511,7 @@ class Trajectory(eqx.Module):
         for i_var, var_name in enumerate(VARIABLE_NAMES):
             var = getattr(self, var_name)
             if var is not None:
-                variables[var_name] = (('time', VARIABLE_SHAPES[i_var]), var)
+                variables[var_name] = (('time', VARIABLE_SHAPES[var_name]), var)
         coords = {
             'time': self.time,
             'zr': self.grid.zr,
@@ -608,8 +535,48 @@ class Trajectory(eqx.Module):
             The state of the trajectory at the time of index :code:`i_time`.
         """
         variables = {}
-        for var_name in STATE_VARIABLES_NAMES:
+        for var_name in VARIABLE_NAMES:
             var = getattr(self, var_name)
             if var is not None:
                 variables[var_name] = var[i_time, :]
         return State(self.grid, **variables)
+
+    def fill_end(self, n_steps_out: int, i_out_stop: int) -> Trajectory:
+        """
+        fill the the trajectory with nans everywhere from i_out_stop (not included) to n_steps_out for batching
+        if i_out_stop = -1 : fill until the end to n_steps_out
+        n_steps_out : includes time 0
+        """
+        n_nans_fill = n_steps_out-i_out_stop
+        time_fill = jnp.full((n_nans_fill, ), jnp.nan)
+        time_filled = jnp.concat([self.time[:i_out_stop+1], time_fill])
+        filled_traj = eqx.tree_at(lambda t: t.time, self, time_filled)
+        for var in VARIABLE_NAMES:
+            if getattr(self, var) is not None:
+                var_fill = jnp.full((n_nans_fill, self.grid.nz), jnp.nan)
+                var_filled = jnp.concat([getattr(self, var)[:i_out_stop+1, :], var_fill])
+                filled_traj = eqx.tree_at(lambda t: getattr(t, var), filled_traj, var_filled)
+        return filled_traj
+
+    def cut(self, out_nt_cut: int) -> List[Trajectory]:
+        """
+        Times are set to 0
+        """
+        out_nt = self.time.shape[0] - 1
+        if out_nt%out_nt_cut != 0:
+            warnings.warn(_format_to_single_line("""
+                The number of iterations in the cut is not proportionnal to the number of iterations
+                of the trajectory, the end of the trajectory will be lost
+            """))
+        traj_list = []
+        n_cuts = out_nt//out_nt_cut
+        for i_cut in range(n_cuts):
+            i_start, i_end = out_nt_cut*i_cut, out_nt_cut*(i_cut+1) + 1
+            cut_time = self.time[i_start:i_end]
+            var_dict_cut = {}
+            for var in VARIABLE_NAMES:
+                if getattr(self, var) is not None:
+                    var_dict_cut[var] = getattr(self, var)[i_start:i_end, :]
+            cut_traj = Trajectory(self.grid, cut_time, **var_dict_cut)
+            traj_list.append(cut_traj)
+        return traj_list

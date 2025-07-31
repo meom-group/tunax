@@ -21,7 +21,7 @@ References
 
 from __future__ import annotations
 import inspect
-from typing import Tuple, TypeAlias
+from typing import Tuple, Dict
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -29,12 +29,12 @@ from jax import lax, jit, vmap
 from jaxtyping import Float, Array
 
 from tunax.case import Case, CaseTracable
-from tunax.space import Grid, State, Trajectory
+from tunax.space import Grid, State, Trajectory, VARIABLE_NAMES
 from tunax.functions import tridiag_solve, add_boundaries
 from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
 from tunax.closures_registry import CLOSURES_REGISTRY
 
-StatesTime: TypeAlias = Tuple[State, ClosureStateAbstract, float]
+type StatesTime = Tuple[State, ClosureStateAbstract, float]
 
 
 class SingleColumnModel(eqx.Module):
@@ -56,6 +56,7 @@ class SingleColumnModel(eqx.Module):
     init_state: State
     case_tracable: CaseTracable
     closure: Closure = eqx.field(static=True)
+    start_time: float = 0.
 
     def __init__(
             self,
@@ -64,13 +65,18 @@ class SingleColumnModel(eqx.Module):
             p_out: int,
             init_state: State,
             case: Case,
-            closure_name: str
+            closure_name: str,
+            start_time: float=0.
         ) -> SingleColumnModel:
+        """
+        Mainly transforms the case in casetracable
+        """
         self.nt = nt
         self.dt = dt
         self.p_out = p_out
         self.init_state = init_state
         self.closure = CLOSURES_REGISTRY[closure_name]
+        self.start_time = start_time
         # creation of the CaseTracable class
         grid = self.init_state.grid
         case_attributes = {k: v for k, v in vars(case).items() if not k.startswith('__')}
@@ -94,6 +100,24 @@ class SingleColumnModel(eqx.Module):
             else:
                 case_attributes[tra_type_attr] = None
         self.case_tracable = CaseTracable(**case_attributes)
+    
+    def tra_promote(self, promotions: Dict[str, str]) -> SingleColumnModel:
+        """
+        permet d'augment la dimension d'un forcing à 1 dimension ou 2, pour pouvoir batcher plusieurs
+        models de dimensions de forcings différents
+        check des types impossibles
+        """
+        case_tracable = self.case_tracable
+        for tra, prom in promotions.items():
+            if prom == 'constant':
+                case_tracable = case_tracable.tra_promote_borders_constant(tra, self.init_state.grid)
+            elif prom == 'variable':
+                initial_type = getattr(case_tracable, f'{tra}_forcing_type') == 'borders'
+                if initial_type == 'borders':
+                    case_tracable = case_tracable.tra_promote_borders_variable(tra, self.init_state.grid)
+                elif initial_type == 'borders':
+                    case_tracable = case_tracable.tra_promote_constant_variable(tra, self.init_state.grid)
+        return eqx.tree_at(lambda t: t.case_tracable, self, case_tracable)
 
     def step(
         self,
@@ -110,6 +134,7 @@ class SingleColumnModel(eqx.Module):
         then integrate the equations of tracers and momentum. It modifies the :code:`state` with
         these new values and then returns the new :code:`state` and :code:`closure_state`.
         TO CHECK
+        TO ADD : start time for variables forcings
         """
         dt = self.dt
         case_tracable = self.case_tracable
@@ -124,7 +149,7 @@ class SingleColumnModel(eqx.Module):
         state = advance_dyn_cor_ed(state, closure_state.akv, dt, case_tracable)
         time += self.dt
         return state, closure_state, time
-
+    
     def run_partial(
             self,
             state0: State,
@@ -144,6 +169,19 @@ class SingleColumnModel(eqx.Module):
         carry, _ = lax.scan(scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps))
         (state, closure_state, time) = carry
         return state, closure_state, time
+    
+    def _state_concat_to_traj(self, states: State, times: jnp.ndarray) -> Trajectory:
+        """
+        from the output of a scan function, to a Trajectory and add the first state
+        """
+        var_dict = {}
+        for var in VARIABLE_NAMES:
+            if getattr(states, var) is not None:
+                var0 = jnp.expand_dims(getattr(self.init_state, var), 0)
+                var_computed = getattr(states, var)
+                var_dict[var] = jnp.concat([var0, var_computed])
+        times = jnp.concat([jnp.array([self.start_time]), times])
+        return Trajectory(self.init_state.grid, times, **var_dict)
 
     def run(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
         r"""
@@ -161,16 +199,39 @@ class SingleColumnModel(eqx.Module):
 
         n_steps_out = self.nt//self.p_out
         (_, _, _), (states, _, times) = lax.scan(
-            scan_fn, (self.init_state, init_closure_state, 0.), jnp.arange(n_steps_out)
+            scan_fn, (self.init_state, init_closure_state, self.start_time), jnp.arange(n_steps_out)
         )
 
-        tra_dict = {}
-        for tracer in list(self.case_tracable.eos_tracers):
-            tra_dict[tracer] = getattr(states, tracer)
-        if self.case_tracable.do_pt:
-            tra_dict['pt'] = states.pt
+        return self._state_concat_to_traj(states, times)
 
-        return Trajectory(self.init_state.grid, times, states.u, states.v, **tra_dict)
+    def run_stop(self, closure_parameters: ClosureParametersAbstract, i_out_stop: int) -> Trajectory:
+        r"""
+        Run the whole model.
+        TO CHECK
+        """
+        init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
+
+        def run_partial_true(state0, closure_state0, time0):
+            return self.run_partial(state0, closure_state0, time0, self.p_out, closure_parameters)
+
+        def run_partial_false(state0, closure_state0, time0,):
+            """
+            just a copy
+            """
+            return state0, closure_state0, time0
+
+        def scan_fn(carry: StatesTime, i_out: int) -> Tuple[StatesTime, StatesTime]:
+            state, closure_state, time = carry
+            operands = (state, closure_state, time)
+            state, closure_state, time = lax.cond(i_out<=i_out_stop, run_partial_true, run_partial_false, *operands)
+            return (state, closure_state, time), (state, closure_state, time)
+
+        n_steps_out = self.nt//self.p_out
+        (_, _, _), (states, _, times) = lax.scan(
+            scan_fn, (self.init_state, init_closure_state, self.start_time), jnp.arange(n_steps_out)
+        )
+
+        return self._state_concat_to_traj(states, times)
 
     @jit
     def jit_run(self, closure_parameters):

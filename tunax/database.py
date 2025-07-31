@@ -11,7 +11,7 @@ These classes can be obtained by the prefix :code:`tunax.database.` or directly 
 
 from __future__ import annotations
 import warnings
-from typing import Union, Optional, Tuple, TypeAlias, List, Dict, Any
+from typing import Union, Optional, Tuple, List, Dict, Any
 
 import yaml
 import xarray as xr
@@ -24,9 +24,10 @@ from jaxtyping import Array, Float
 from tunax.space import Grid, Trajectory, TRACERS_NAMES
 from tunax.case import Case
 from tunax.functions import _format_to_single_line
+from tunax.model import SingleColumnModel
 
 
-DimsType: TypeAlias = Tuple[Optional[int]]
+type DimsType = Tuple[Optional[int]]
 
 
 def get_var_jl(
@@ -70,8 +71,9 @@ def get_var_jl(
         return jl_var_1d[shift:-shift]
 
 
-class Obs(eqx.Module):
+class Data(eqx.Module):
     """
+    CHANGE HERE
     Abstraction to represent an *obersation*.
 
     The *observations* represent every elements of a database, each one represent a simulation or a
@@ -102,7 +104,7 @@ class Obs(eqx.Module):
 
     trajectory: Trajectory
     case: Case
-    metadatas: Dict[str, float]
+    metadatas: Dict[str, float] = eqx.field(static=True)
 
     def __init__(self, trajectory: Trajectory, case: Case, metadatas: Dict[str, float]=None) -> Obs:
         time = trajectory.time
@@ -121,7 +123,7 @@ class Obs(eqx.Module):
             var_names: Dict[str, str],
             eos_tracers: str = 't',
             do_pt: bool = False
-        ) -> Obs:
+        ) -> Data:
         """
         Create an instance from a *netcdf* and a *yaml* files.
 
@@ -210,7 +212,7 @@ class Obs(eqx.Module):
             dims: Union[DimsType, Dict[str, DimsType]] = (None),
             eos_tracers: str = 't',
             do_pt: bool = False
-        ) -> Obs:
+        ) -> Data:
         """
         Load from a .jld2 file.
         conditions :
@@ -273,6 +275,46 @@ class Obs(eqx.Module):
 
         return cls(trajectory, case, metadatas)
 
+    def cut(self, out_nt_cut: int) -> List[Data]:
+        traj_list = self.trajectory.cut(out_nt_cut)
+        return [Data(traj, self.case, self.metadatas) for traj in traj_list]
+
+
+class Weights(eqx.Module):
+    weight_u: float = 0.
+    weight_v: float = 0.
+    weight_t: float = 0.
+    weight_s: float = 0.
+    weight_b: float = 0.
+    weight_pt: float = 0.
+
+class Obs(eqx.Module):
+    """
+    i_stop : index of output on which stop to compute the model, comes with a "virtual nt"
+    """
+    trajectory: Trajectory
+    model: SingleColumnModel
+    weights: Weights
+    i_out_stop: int
+
+    @classmethod
+    def from_data(cls, data: Data, dt: float, weights: Weights, stop_pars: Tuple[int, int]=(-1, -1)):
+        """
+        Create a Obs instance from a Data one adding weights and a dt$
+        TODO add warnings
+        """
+        nt, i_out_stop = stop_pars
+        time = data.trajectory.time 
+        if nt == -1:
+            nt = int((time[-1]-time[0])/dt)
+        out_dt = float(time[1] - time[0])
+        p_out = int(out_dt/dt)
+        if i_out_stop == -1:
+            i_out_stop = int(nt/p_out)
+        init_state = data.trajectory.extract_state(0)
+        start_time = time[0]
+        model = SingleColumnModel(nt, dt, p_out, init_state, data.case, 'k-epsilon', start_time)
+        return Obs(data.trajectory, model, weights, i_out_stop)
 
 class Database(eqx.Module):
     """

@@ -8,11 +8,15 @@ or directly by :code:`tunax.`.
 
 from __future__ import annotations
 from typing import Union, Tuple, Callable, Optional
+from dataclasses import replace
 
 import equinox as eqx
 import jax.numpy as jnp
 from jax import device_get
 from jaxtyping import Float, Array
+
+from tunax.functions import add_boundaries
+from tunax.space import Grid
 
 
 _OMEGA = 7.292116e-05
@@ -220,3 +224,30 @@ class CaseTracable(eqx.Module):
     s_forcing_type: Optional[str] = eqx.field(default=None, static=True)
     b_forcing_type: Optional[str] = eqx.field(default=None, static=True)
     pt_forcing_type: Optional[str] = eqx.field(default=None, static=True)
+
+    def tra_promote_borders_constant(self, tra: str, grid: Grid) -> CaseTracable:
+        """
+        permet d'augment la dimension d'un forcing à 1 dimension, pour pouvoir batcher plusieurs
+        models de dimensions de forcings différents
+        check qu'on a bien un type border
+        """
+        border_forcing = getattr(self, f'{tra}_forcing')
+        constant_forcing = add_boundaries(
+            -border_forcing[0], jnp.zeros(grid.zr.shape[0]-2), border_forcing[1]
+        )
+        case_tracable = eqx.tree_at(lambda t: getattr(t, f'{tra}_forcing'), self, constant_forcing)
+        dico = {f'{tra}_forcing_type': 'constant'}
+        case_tracable = replace(case_tracable, **dico)
+        return case_tracable
+
+    def tra_promote_borders_variable(self, tra: str, grid: Grid) -> CaseTracable:
+        """
+        TO WRITE
+        """
+        return self
+
+    def tra_promote_constant_variable(self, tra: str) -> CaseTracable:
+        """
+        TO WRITE
+        """
+        return self
