@@ -3,28 +3,33 @@ Geometry and variables of the model.
 
 This module contains the objects that are used in Tunax to describe the geometry of the water column
 in :class:`Grid`, the variables of the water column at one time-step in :class:`State` and the time-
-series of the model computation in :class:`Trajectories`. These classes can be obtained by the
+series of the model computation in :class:`Trajectory`. These classes can be obtained by the
 prefix :code:`tunax.space.` or directly by :code:`tunax.`.
 
 """
 
 from __future__ import annotations
-from typing import Optional, Tuple, List
+from typing import Optional, List, Dict, Callable, TypeAlias, cast
 import warnings
 
 import equinox as eqx
 import xarray as xr
 import jax.numpy as jnp
-from jax import vmap, lax
+from jax import vmap
 from jaxtyping import Float, Array
 
 from tunax.functions import _format_to_single_line
-from tunax.functions import add_boundaries
+
+ArrNz: TypeAlias = Float[Array, 'nz']
+ArrNzp1: TypeAlias = Float[Array, 'nz+1']
+ArrNzNt: TypeAlias = Float[Array, 'nz nt']
 
 
-TRACERS_NAMES = ['t', 's', 'b', 'pt']
-VARIABLE_NAMES = ['u', 'v', 't', 's', 'b', 'pt']
-VARIABLE_SHAPES = {
+TRACERS_NAMES: List[str] = ['t', 's', 'b', 'pt']
+"""Names of the tracers, in the order of temperature, salinity, buoyancy and passive tracer."""
+VARIABLE_NAMES: List[str] = ['u', 'v'] + TRACERS_NAMES
+"""Names of all the variables, zonal and meridionnal velocities in addition of the tracers."""
+VARIABLE_SHAPES: Dict[str, str] = {
     'u': 'zr',
     'v': 'zr',
     't': 'zr',
@@ -32,6 +37,7 @@ VARIABLE_SHAPES = {
     'b': 'zr',
     'pt': 'zr'
 }
+"""Shapes of all the variables on the water column."""
 
 
 def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
@@ -40,7 +46,6 @@ def _piecewise_linear_ramp(z: float, z0: float, f0: float)-> float:
 
     Apply to z a function linear by part and continuous :
     f(z) = 0 if z < zm and f(z) = f0 (1-z/zm) else.
-    TO CHECK (math)
 
     Parameters
     ----------
@@ -64,7 +69,6 @@ def _piecewise_linear_flat(z: float, zm: float, f0: float, sl: float) -> float:
 
     Apply to z a function linear by part and continuous :
     f(z) = f0 + s_l (z-zm) if z < z_m and f(z) = f0 else.
-    TO CHECK (math)
 
     Parameters
     ----------
@@ -107,30 +111,30 @@ class Grid(eqx.Module):
         Number of cells. TO CHECK (static)
     hbot : float
         Depth of the water column :math:`[\text m]`.
-    zr : Float[~jax.Array, 'nz']
+    zr : float :class:`~jax.Array` of shape (nz)
         Depths of cell centers from deepest to shallowest :math:`[\text m]`
-    zw : Float[~jax.Array, 'nz+1']
+    zw : float :class:`~jax.Array` of shape (nz+1)
         Depths of cell interfaces from deepest to shallowest :math:`[\text m]`.
-    hz : Float[~jax.Array, 'nz']
+    hz : float :class:`~jax.Array` of shape (nz)
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
 
     Note
     ----
     The constructor :code:`__init__` takes only :attr:`zr` and :attr:`zw` as as arguments and
     construct the other attributes from them. The centers of the cells :attr:`zr` are not necessarly
-    the middle between the interfaces :attr:`zw`.
+    the middle between the interfaces :attr:`zw` but should be between.
 
     """
 
     nz: int = eqx.field(static=True)
     hbot: float
-    zr: Float[Array, 'nz']
-    zw: Float[Array, 'nz+1']
-    hz: Float[Array, 'nz']
+    zr: ArrNz
+    zw: ArrNzp1
+    hz: ArrNz
 
-    def __init__(self, zr: Float[Array, 'nz'], zw: Float[Array, 'nz+1']):
+    def __init__(self, zr: ArrNz, zw: ArrNzp1):
         self.nz = zr.shape[0]
-        self.hbot = zw[0]
+        self.hbot = float(zw[0])
         self.zw = zw
         self.zr = zr
         self.hz = zw[1:] - zw[:-1]
@@ -260,39 +264,37 @@ class State(eqx.Module):
     Water column state at one time-step.
 
     This state is defined on a :attr:`grid` describing the geometry, and is composed of the
-    variables of the water column : the values of the momentum and the tracers on this
-    :attr:`grid`. The call of the constructor build a state on the :attr:`grid` with all the
-    variables set to :math:`0`.
-
-    Parameters
-    ----------
-    grid : Grid
-        cf. attribute.
+    variables of the water column : the values of the momentum variables :attr:`u` and :attr:`v`
+    (which are mandatory) and the tracers variables :attr:`t`, :attr:`s`, :attr:`b` and :attr:`pt`
+    (which are optionals). The constructor takes all the attributes as parameters.
 
     Attributes
     ----------
     grid : Grid
         Geometry of the water column.
-    u : Float[~jax.Array, 'nz']
+    u : float :class:`~jax.Array` of shape (nz)
         Zonal velocity on the center of the cells :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v : Float[~jax.Array, 'nz']
+    v : float :class:`~jax.Array` of shape (nz)
         Meridional velocity on the center of the cells :math:`\left[\text m \cdot
         \text s^{-1}\right]`.
-    t : Float[~jax.Array, 'nz']
+    t : float :class:`~jax.Array` of shape (nz), optionnal, default=None
         Temperature on the center of the cells :math:`[° \text C]`.
-    s : Float[~jax.Array, 'nz']
+    s : float :class:`~jax.Array` of shape (nz), optionnal, default=None
         Salinity on the center of the cells :math:`[\text{psu}]`.
-    TO CHECK (pt)
+    b : float :class:`~jax.Array` of shape (nz), optionnal, default=None
+        Buoyancy on the center of the cells :math:`[\text{dimensionless}]`.
+    pt : float :class:`~jax.Array` of shape (nz), optionnal, default=None
+        A passive tracer on the center of the cells :math:`[\text{dimensionless}]`.
 
     """
 
     grid: Grid
-    u: Float[Array, 'nz']
-    v: Float[Array, 'nz']
-    t: Optional[Float[Array, 'nz']] = None
-    s: Optional[Float[Array, 'nz']] = None
-    b: Optional[Float[Array, 'nz']] = None
-    pt: Optional[Float[Array, 'nz']] = None
+    u: ArrNz
+    v: ArrNz
+    t: Optional[ArrNz] = None
+    s: Optional[ArrNz] = None
+    b: Optional[ArrNz] = None
+    pt: Optional[ArrNz] = None
 
     @classmethod
     def zeros(cls, grid: Grid, tracers: List[str]) -> State:
@@ -338,6 +340,7 @@ class State(eqx.Module):
             The :code:`self` object with the the new value of zonal velocity.
         """
         maped_fun = vmap(_piecewise_linear_ramp, in_axes=(0, None, None))
+        maped_fun = cast(Callable[[ArrNz, float, float], ArrNz], maped_fun)
         u_new = maped_fun(self.grid.zr, -hmxl, u_sfc)
         return eqx.tree_at(lambda t: t.u, self, u_new)
 
@@ -364,6 +367,7 @@ class State(eqx.Module):
             The :code:`self` object with the the new value of meridional velocity.
         """
         maped_fun = vmap(_piecewise_linear_ramp, in_axes=(0, None, None))
+        maped_fun = cast(Callable[[ArrNz, float, float], ArrNz], maped_fun)
         v_new = maped_fun(self.grid.zr, -hmxl, v_sfc)
         return eqx.tree_at(lambda t: t.v, self, v_new)
 
@@ -394,6 +398,7 @@ class State(eqx.Module):
             The :code:`self` object with the the new value of temperature.
         """
         maped_fun = vmap(_piecewise_linear_flat, in_axes=(0, None, None, None))
+        maped_fun = cast(Callable[[ArrNz, float, float, float], ArrNz], maped_fun)
         t_new = maped_fun(self.grid.zr, -hmxl, t_sfc, strat_t)
         return eqx.tree_at(lambda tree: tree.t, self, t_new)
 
@@ -424,6 +429,7 @@ class State(eqx.Module):
             The :code:`self` object with the the new value of temperature.
         """
         maped_fun = vmap(_piecewise_linear_flat, in_axes=(0, None, None, None))
+        maped_fun = cast(Callable[[ArrNz, float, float, float], ArrNz], maped_fun)
         s_new = maped_fun(self.grid.zr, -hmxl, s_sfc, strat_s)
         return eqx.tree_at(lambda t: t.s, self, s_new)
 
@@ -432,58 +438,48 @@ class Trajectory(eqx.Module):
     r"""
     Define the history of a simulation or an observation.
 
-    Contains the timeseries of the momentum and the tracers throught the space of the :attr:`grid`
-    and the :attr:`time`.
-
-    Parameters
-    ----------
-    grid : Grid
-        cf. attribute.
-    time : Float[~jax.Array, 'nt']
-        cf. attribute.
-    u : Float[~jax.Array, 'nt nz']
-        cf. attribute.
-    v : Float[~jax.Array, 'nt nz']
-        cf. attribute.
-    t : Float[~jax.Array, 'nt nz']
-        cf. attribute.
-    s : Float[~jax.Array, 'nt nz']
-        cf. attribute.
+    Contains the timeseries of the momentum (mandatory) variables and the tracers variables
+    (optionals) throught the space of the :attr:`grid` and the :attr:`time`. The constructor takes
+    all the attributes as parameters.
 
     Attributes
     ----------
     grid : Grid
         Geometry of the water column.
-    time : Float[~jax.Array, 'nt']
+    time : float :class:`~jax.Array` of shape (nt)
         Time at each steps of observation from the begining of the simulation :math:`[\text s]`.
-    u : Float[~jax.Array, 'nt nz']
+    u : float :class:`~jax.Array` of shape (nz, nt)
         Time-serie of zonal velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v : Float[~jax.Array, 'nt nz']
+    v : float :class:`~jax.Array` of shape (nz, nt)
         Time-serie of meridional velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    t : Float[~jax.Array, 'nt nz']
+    t : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
         Time-serie of temperature :math:`[\text C°]`.
-    s : Float[~jax.Array, 'nt nz']
+    s : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
         Time-serie of salinity :math:`[\text{psu}]`.
-    TO CHECK (pt, diags)
+    b : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
+        Time-serie of buoyancy :math:`[\text{dimensionless}]`.
+    pt : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
+        Time-serie a passive tracer :math:`[\text{dimensionless}]`.
         
     """
 
     grid: Grid
     time: Float[Array, 'nt']
-    u: Float[Array, 'nt nz']
-    v: Float[Array, 'nt nz']
-    t: Optional[Float[Array, 'nt nz']] = None
-    s: Optional[Float[Array, 'nt nz']] = None
-    b: Optional[Float[Array, 'nt nz']] = None
-    pt: Optional[Float[Array, 'nt nz']] = None
+    u: ArrNzNt
+    v: ArrNzNt
+    t: Optional[ArrNzNt] = None
+    s: Optional[ArrNzNt] = None
+    b: Optional[ArrNzNt] = None
+    pt: Optional[ArrNzNt] = None
 
     def to_ds(self) -> xr.Dataset:
         """
         Exports the trajectory in an xarray.Dataset.
 
         The dimensions of the dataset are :attr:`time`, :code:`grid.zr` and :code:`grid.zw`, the
-        variables are :attr:`u`, :attr:`v`, :attr:`t` and :attr:`s`, all defined on the dimensions
-        (:attr:`time`, :code:`zr`).
+        variables are :attr:`u`, :attr:`v` and the tracers that are not set to :code:`None`, all
+        defined on the dimensions (:attr:`time`, :code:`zr`) or :code:`zw` depending on
+        :data:`VARIABLE_NAMES`.
 
         Returns
         -------
@@ -491,7 +487,7 @@ class Trajectory(eqx.Module):
             Dataset of the trajectory.
         """
         variables = {}
-        for i_var, var_name in enumerate(VARIABLE_NAMES):
+        for var_name in VARIABLE_NAMES:
             var = getattr(self, var_name)
             if var is not None:
                 variables[var_name] = (('time', VARIABLE_SHAPES[var_name]), var)
@@ -504,20 +500,18 @@ class Trajectory(eqx.Module):
 
     def to_nc(self, nc_path: str):
         r"""
-        Write on a file.
-        TO CHECK
+        Write on a NetCDF file.
+
+        The dimensions are :attr:`time`, :code:`grid.zr` and :code:`grid.zw`, the variables are
+        :attr:`u`, :attr:`v` and the tracers that are not set to :code:`None`, all defined on the
+        dimensions (:attr:`time`, :code:`zr`) or :code:`zw` depending on :data:`VARIABLE_NAMES`.
+        
+        Parameters
+        ----------
+        nc_path : str
+            Path of the file on which write the trajectory.
         """
-        variables = {}
-        for i_var, var_name in enumerate(VARIABLE_NAMES):
-            var = getattr(self, var_name)
-            if var is not None:
-                variables[var_name] = (('time', VARIABLE_SHAPES[var_name]), var)
-        coords = {
-            'time': self.time,
-            'zr': self.grid.zr,
-            'zw': self.grid.zw
-        }
-        ds = xr.Dataset(variables, coords)
+        ds = self.to_ds()
         ds.to_netcdf(nc_path)
 
     def extract_state(self, i_time: int) -> State:
@@ -541,32 +535,36 @@ class Trajectory(eqx.Module):
                 variables[var_name] = var[i_time, :]
         return State(self.grid, **variables)
 
-    def fill_end(self, n_steps_out: int, i_out_stop: int) -> Trajectory:
-        """
-        fill the the trajectory with nans everywhere from i_out_stop (not included) to n_steps_out for batching
-        if i_out_stop = -1 : fill until the end to n_steps_out
-        n_steps_out : includes time 0
-        """
-        n_nans_fill = n_steps_out-i_out_stop
-        time_fill = jnp.full((n_nans_fill, ), jnp.nan)
-        time_filled = jnp.concat([self.time[:i_out_stop+1], time_fill])
-        filled_traj = eqx.tree_at(lambda t: t.time, self, time_filled)
-        for var in VARIABLE_NAMES:
-            if getattr(self, var) is not None:
-                var_fill = jnp.full((n_nans_fill, self.grid.nz), jnp.nan)
-                var_filled = jnp.concat([getattr(self, var)[:i_out_stop+1, :], var_fill])
-                filled_traj = eqx.tree_at(lambda t: getattr(t, var), filled_traj, var_filled)
-        return filled_traj
-
     def cut(self, out_nt_cut: int) -> List[Trajectory]:
         """
-        Times are set to 0
+        Cut the trajectory in sub-trajectories of :code:`out_nt_cut` output steps.
+
+        The first and last state of two consecutive trajectories are the same. :code:`out_nt_cut`
+        is the number of output steps, it means that the time dimension of the sub-trajectories
+        have :code:`out_nt_cut`+1 elements.
+
+        Parameters
+        ----------
+        out_nt_cut : int
+            Number of output steps of the sub-trajectories.
+        
+        Returns
+        -------
+        traj_list : List[Trajectory]
+            List of the sub-trajectories in the chronological order.
+
+        Warns
+        -----
+        Lost last trajectory
+            If :code:`out_nt_cut` does not divide the number of output step of the initial
+            trajectory. In this case the last part of the trajectory (which is too short) is
+            abandonned.
         """
         out_nt = self.time.shape[0] - 1
         if out_nt%out_nt_cut != 0:
             warnings.warn(_format_to_single_line("""
-                The number of iterations in the cut is not proportionnal to the number of iterations
-                of the trajectory, the end of the trajectory will be lost
+                If out_nt_cut does not divide the number of output step of the initial trajectory.
+                In this case the last part of the trajectory (which is too short) is abandonned.
             """))
         traj_list = []
         n_cuts = out_nt//out_nt_cut
