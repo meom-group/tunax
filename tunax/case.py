@@ -100,7 +100,7 @@ class Case(eqx.Module):
           are the depth and the time and the ouput is the value of the forcing at this depth and
           this time in :math:`[\text{K} \cdot \text{s}^{-1}]`. The values of the functions represent
           the flux of the forcing (the derivative along the depth).
-          
+
     s_forcing : tuple of 2 floats or a function, optionnal, default=None
         Description of the forcing of salinity (potentially no forcing if the variable is not
         activated i.e. if :code:`'s'` is not in :code:`eos_tracers`). There are the 3 same cases as
@@ -206,19 +206,19 @@ class CaseTracable(eqx.Module):
     t_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
         Description of the temperature forcing cf. :attr:`Case.t_forcing`, the type depends on the
         forcing type :
-            - Border forcing
-                Tuple of 2 floats, the first one is the forcing at the bottom and the second one is
-                the forcing at the top of the water column, the unit is in
-                :math:`[\text{K} \cdot \text{m} \cdot \text{s}^{-1}]`.
-            - Deep constant forcing
-                Array of shape (nz) : the value of the forcing function on the geometrical
-                :class:`Grid` of the model. The values represent the forcing flux, which is for each
-                cell the difference between the forcing at the top of the cell and the forcing at
-                bottom.
-            - Deep variable forcing
-                Array of shape (nz, nt) : the value of the forcing function on the geometrical
-                :class:`Grid` and the different iteration times of the model. As for deep constant
-                forcing, the values represent the flux of the forcing at every time.
+        - **Border forcing** : tuple of 2 floats, the first one is the forcing at the bottom and the
+          second one is the forcing at the top of the water column, the unit is in
+          :math:`[\text{K} \cdot \text{m} \cdot \text{s}^{-1}]`.
+        
+        - **Deep constant forcing** : array of shape (nz) : the value of the forcing function on the
+          geometrical :class:`Grid` of the model. The values represent the forcing flux, which is
+          for each cell the difference between the forcing at the top of the cell and the forcing at
+          bottom.
+        
+        - **Deep variable forcing** : array of shape (nz, nt) : the value of the forcing function on
+          the geometrical :class:`Grid` and the different iteration times of the model. As for deep
+          constant forcing, the values represent the flux of the forcing at every time.
+
     s_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
         Same as :attr:`t_forcing` for Salinity.
     b_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
