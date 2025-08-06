@@ -12,3 +12,4 @@ jax
 jaxtyping
 jupyter
 matplotlib
+h5py
