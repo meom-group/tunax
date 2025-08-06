@@ -86,20 +86,21 @@ class Case(eqx.Module):
     t_forcing : tuple of 2 floats or a function, optionnal, default=None
         Description of the forcing of temperature (potentially no forcing if the variable is not
         activated i.e. if :code:`'t'` is not in :code:`eos_tracers`). There are 3 cases :
-            - Border forcing
-                Tuple of 2 floats, the first one is the forcing at the bottom and the second ont is
-                the forcing at the top of the water column, the unit is in
-                :math:`[\text{K} \cdot \text{m} \cdot \text{s}^{-1}]`.
-            - Deep constant forcing
-                Function of signature float->float, the parameter is the depth and the ouput is the
-                value of the forcing at this depth in :math:`[\text{K} \cdot \text{s}^{-1}]`. The
-                values of the functions represent the flux of the forcing (the derivative along the
-                depth).)
-            - Deep variable forcing
-                Function of signature (float, float)->float, the parameters are the depth and the
-                time and the ouput is the value of the forcing at this depth and this time in
-                :math:`[\text{K} \cdot \text{s}^{-1}]`. The values of the functions represent the
-                flux of the forcing (the derivative along the depth).
+
+        - **Border forcing** : tuple of 2 floats, the first one is the forcing at the bottom and the
+          second ont is the forcing at the top of the water column, the unit is in
+          :math:`[\text{K} \cdot \text{m} \cdot \text{s}^{-1}]`.
+        
+        - **Deep constant forcing** : function of signature float->float, the parameter is the depth
+          and the ouput is the value of the forcing at this depth in
+          :math:`[\text{K} \cdot \text{s}^{-1}]`. The values of the functions represent the flux of
+          the forcing (the derivative along the depth).)
+
+        - **Deep variable forcing** : function of signature (float, float)->float, the parameters
+          are the depth and the time and the ouput is the value of the forcing at this depth and
+          this time in :math:`[\text{K} \cdot \text{s}^{-1}]`. The values of the functions represent
+          the flux of the forcing (the derivative along the depth).
+          
     s_forcing : tuple of 2 floats or a function, optionnal, default=None
         Description of the forcing of salinity (potentially no forcing if the variable is not
         activated i.e. if :code:`'s'` is not in :code:`eos_tracers`). There are the 3 same cases as

@@ -271,21 +271,22 @@ class Data(eqx.Module):
         names_mapping: Dict[str, Dict[str, str]]
             Contains the link between the Tunax names of variables and the path of the variables in
             the file. There are 3 first entries :
-                - :code:`variables`
-                    For all the variables corresponding to the :class:`space.Grid` and the
-                    :class:`space.Trajectory`. For the grid attributes (:attr:`space.Grid.zr` and
-                    :attr:`space.Grid.zw`) the path should correspond directly to the array in the
-                    file. For the time and the time-series, the given path corresponds to a path
-                    with all the reference (with a number in string) of the time, and then in these
-                    path with the time, we have the array of the variable (or the float
-                    corresponding to the value of the time) at the time with this reference. Then
-                    the 2D arrays are rebuild by concatenation. The references of the time are get
-                    with the path of the time data.
-                - :code:`parameters`
-                    for all the scalar entries corresponding directly to the parameters of
-                    :class:`case.Case`
-                - :code:`metadatas`
-                    for the scalar entries that we want to keep in the :attr:`metadatas` for later.
+
+            - :code:`variables` :for all the variables corresponding to the :class:`space.Grid` and
+              the :class:`space.Trajectory`. For the grid attributes (:attr:`space.Grid.zr` and
+              :attr:`space.Grid.zw`) the path should correspond directly to the array in the file.
+              For the time and the time-series, the given path corresponds to a path with all the
+              reference (with a number in string) of the time, and then in these path with the time
+              we have the array of the variable (or the float corresponding to the value of the
+              time) at the time with this reference. Then the 2D arrays are rebuild by
+              concatenation. The references of the time are get with the path of the time data.
+
+            - :code:`parameters` : for all the scalar entries corresponding directly to the
+              parameters of :class:`case.Case`
+
+            - :code:`metadatas` : for the scalar entries that we want to keep in the
+              :attr:`metadatas` for later.
+              
         nz : int, optionnal, default=None
             Expected number of steps of the grid of the water column. The method will remove the
             borders of the raw data from the file to keep only the middle part of this lenght. If
