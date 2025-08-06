@@ -27,18 +27,16 @@ References
     
 """
 
-
 from __future__ import annotations
 from typing import Tuple
 
 import equinox as eqx
 import jax.numpy as jnp
 from jax import lax
-from jaxtyping import Float, Array
 
 from tunax.case import CaseTracable
-from tunax.space import Grid, State
-from tunax.functions import tridiag_solve, add_boundaries
+from tunax.space import Grid, State, ArrNz, ArrNzp1
+from tunax.functions import FloatJax, tridiag_solve, add_boundaries
 from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract
 
 
@@ -46,83 +44,13 @@ class KepsParameters(ClosureParametersAbstract):
     r"""
     Parameters and constants for :math:`k-\varepsilon`.
 
-    The first 17 attributes are the parameters of :math:`k-\varepsilon` that may be calibrated.
-    This class also contains some physical constants used in the closure computing. The last 19
-    attributes are the one for the stability function that are computed from the parameters of
-    :math:`k-\varepsilon`.
-
-    Parameters
-    ----------
-    c1 : float, default=5.
-        cf. attribute.
-    c2 : float, default=0.8
-        cf. attribute.
-    c3 : float, default=1.968
-        cf. attribute.
-    c4 : float, default=1.136
-        cf. attribute.
-    c5 : float, default=0.
-        cf. attribute.
-    c6 : float, default=0.4
-        cf. attribute.
-    cb1 : float, default=5.95
-        cf. attribute.
-    cb2 : float, default=.6
-        cf. attribute.
-    cb3 : float, default=1.
-        cf. attribute.
-    cb4 : float, default=0.
-        cf. attribute.
-    cb5 : float, default=0.3333
-        cf. attribute.
-    cbb : float, default=.72
-        cf. attribute.
-    c_mu0 : float, default=0.5477
-        cf. attribute.
-    sig_k : float, default=1.
-        cf. attribute.
-    sig_eps : float, default=1.3
-        cf. attribute.
-    c_eps1 : float, default=1.44
-        cf. attribute.
-    c_eps2 : float, default=1.92
-        cf. attribute.
-    c_eps3m : float, default=-0.4
-        cf. attribute.
-    c_eps3p : float, default=1.
-        cf. attribute.
-    chk_grav : float, default=1400.
-        cf. attribute.
-    galp: float, default=0.53
-        cf. attribute.
-    z0s_min : float, default=1e-2
-        cf. attribute.
-    z0b_min : float, default=1e-4
-        cf. attribute.
-    z0b : float, default=1e-14
-        cf. attribute.
-    akt_min : float, default=1e-5
-        cf. attribute.
-    akt_min : float, default=1e-4
-        cf. attribute.
-    tke_min : float, default=1e-6
-        cf. attribute.
-    eps_min : float, default=1e-12
-        cf. attribute.
-    c_mu_min : float, default=0.1
-        cf. attribute.
-    c_mu_prim_min : float, default=0.1
-        cf. attribute.
-    dir_sfc: bool, default=False
-        cf. attribute.
-    dir_btm: bool, default=True
-        cf. attribute.
-    gls_p : float, default=3
-        cf. attribute.
-    gls_m : float, default=1.5
-        cf. attribute.
-    gls_n : float, default=-1
-        cf. attribute.
+    The first 19 attributes are the parameters of :math:`k-\varepsilon` that may be calibrated.
+    This class also contains some physical constants used in the closure computing. The next 16
+    attirbutes are some physical parameters for k-epsilon that can be modified but that are not
+    specially supposed to be modified. The last 19 attributes are the one for the stability function
+    that are computed from the parameters of :math:`k-\varepsilon`. The constructor of the class
+    takes as parameters the 19 parameters of the closure and the 16 physical parameters, but not the
+    last 19 stability functions for parameters.
 
     Attributes
     ----------
@@ -280,8 +208,7 @@ class KepsParameters(ClosureParametersAbstract):
     lim_am6 : float (not a parameter, computed from the above attributes)
         Limitation coefficient for :math:`k-\varepsilon` computed from the parameters
         :math:`[\text{dimensionless}]`.
-    
-    TO CHECK (static)
+
     """
 
     # k-epsilon coefficients (Umlauf and Burchard notations)
@@ -416,36 +343,36 @@ class KepsState(ClosureStateAbstract):
     grid : Grid
         Geometry of the water column, should be the same than for the :class:`~space.State` instance
         used in the model.
-    akt : Float[~jax.Array, 'nz+1']
+    akt : float :class:`~jax.Array` of shape (nz+1)
         Eddy-diffusivity on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    akv : Float[~jax.Array, 'nz+1']
+    akv : float :class:`~jax.Array` of shape (nz+1)
         Eddy-viscosity on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    tke :  Float[~jax.Array, 'nz+1']
+    tke :  float :class:`~jax.Array` of shape (nz+1)
         Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
-    eps :  Float[~jax.Array, 'nz+1']
+    eps :  float :class:`~jax.Array` of shape (nz+1)
         TKE dissipation denoted :math:`\varepsilon` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-    c_mu :  Float[~jax.Array, 'nz+1']
+    c_mu :  float :class:`~jax.Array` of shape (nz+1)
         :math:`c_\mu` in GLS formalisim on the interfaces of the cells
         :math:`[\text{dimensionless}]`.
-    c_mu_prim :  Float[~jax.Array, 'nz+1']
+    c_mu_prim :  float :class:`~jax.Array` of shape (nz+1)
         :math:`c_\mu'` in GLS formalisim on the interfaces of the cells
         :math:`[\text{dimensionless}]`.
 
     """
 
     grid: Grid
-    akt: Float[Array, 'nz+1']
-    akv: Float[Array, 'nz+1']
-    tke: Float[Array, 'nz+1']
-    eps: Float[Array, 'nz+1']
-    c_mu: Float[Array, 'nz+1']
-    c_mu_prim: Float[Array, 'nz+1']
+    akt: ArrNzp1
+    akv: ArrNzp1
+    tke: ArrNzp1
+    eps: ArrNzp1
+    c_mu: ArrNzp1
+    c_mu_prim: ArrNzp1
 
-    def __init__(self, grid: Grid, keps_params: KepsParameters):
+    def __init__(self, grid: Grid, keps_params: KepsParameters) -> None:
         self.grid = grid
         nz = grid.nz
         self.akt = jnp.full(nz+1, keps_params.akt_min)
@@ -488,13 +415,12 @@ def keps_step(
         Values of the parameters used by :math:`k-\varepsilon` (time-independant).
     case_tracable : CaseTracable
         Physical parameters and forcings of the model run.
-    CHANGE HERE
     
     Returns
     -------
     keps_state : KepsState
-            State of the water column for the variables used by :math:`k-\varepsilon` at the next
-            time-step.
+        State of the water column for the variables used by :math:`k-\varepsilon` at the next
+        time-step.
     """
     akt = keps_state.akt
     akv = keps_state.akv
@@ -507,8 +433,8 @@ def keps_step(
     hz = state.grid.hz
 
     # prognostic computations
-    _, bvf = state.compute_eos(case_tracable)
-    shear2 = state.compute_shear(u, v)
+    _, bvf = compute_eos(state, case_tracable)
+    shear2 = compute_shear(state, u, v)
     tke_sfc_bc, tke_btm_bc, eps_sfc_bc, eps_btm_bc = compute_tke_eps_bc(
         tke, hz, keps_params, case_tracable
     )
@@ -537,21 +463,112 @@ def keps_step(
 
     return keps_state
 
+def compute_eos(state: State, case: CaseTracable) -> Tuple[ArrNzp1, ArrNz]:
+    r"""
+    Compute density anomaly and Brunt–Väisälä frequency.
+    
+    Prognostic computation via linear Equation Of State (EOS) :
+
+    :math:`\rho = \rho_0(1-\alpha (T-T_0) + \beta (S-S_0))`
+
+    :math:`N^2 = - \dfrac g {\rho_0} \partial_z \rho`
+
+    Parameters
+    ----------
+    state : State
+        Current state of the water column.
+    case : CaseTracable
+        Physical parameters and forcings of the model run.
+
+    Returns
+    -------
+    bvf : float :class:`~jax.Array` of shape (nz+1)
+        Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
+        :math:`\left[\text s^{-2}\right]`.
+    rho : Float[Array, 'nz']
+        Density anomaly :math:`\rho` on cell interfaces
+        :math:`\left[\text {kg} \cdot \text m^{-3}\right]`
+
+    Raises
+    ------
+    ValueError
+        If the value of case.eos_tracers is not one of {'t', 's', 'ts', 'b'}.
+    """
+    rho0 = case.rho0
+    match case.eos_tracers:
+        case 't':
+            rho = rho0 * (1. - case.alpha*(jnp.array(state.t)-case.t_rho_ref))
+        case 's':
+            rho = rho0 * (1. + case.beta*(jnp.array(state.s)-case.s_rho_ref))
+        case 'ts':
+            rho = rho0 * (1. - case.alpha*(jnp.array(state.t)-case.t_rho_ref) + \
+                case.beta*(jnp.array(state.s)-case.s_rho_ref))
+        case 'b':
+            rho = rho0*(1-jnp.array(state.b)/case.grav)
+        case _:
+            raise ValueError("The attribute Case.eos_tracers must be one of {'t', 's', 'ts', 'b'}.")
+    cff = 1./(state.grid.zr[1:]-state.grid.zr[:-1])
+    bvf_in = - cff*case.grav/rho0 * (rho[1:]-rho[:-1])
+    bvf = add_boundaries(0., bvf_in, float(bvf_in[-1]))
+    return rho, bvf
+
+
+def compute_shear(
+        state: State,
+        u_np1: ArrNz,
+        v_np1: ArrNz
+    ) -> ArrNzp1:
+    r"""
+    Compute shear production term for TKE equation.
+
+    The prognostic equations are
+
+    :math:`S_h^2 = \partial_Z U^n \cdot \partial_z U^{n+1/2}`
+
+    where :math:`U^{n+1/2}` is the mean between :math:`U^n` and :math:`U^{n+1}`.
+    
+    Parameters
+    ----------
+    state : State
+        Current state of the water column.
+    u_np1 : float :class:`~jax.Array` of shape (nz)
+        Zonal velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.
+    v_np1 : float :class:`~jax.Array` of shape (nz)
+        Meridional velocity on the center of the cells at the next time step
+        :math:`\left[\text m \cdot \text s^{-1}\right]`.            
+
+    Returns
+    -------
+    shear2 : float :class:`~jax.Array` of shape (nz+1)
+        Shear production squared :math:`S_h^2` on cell interfaces
+        :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
+    """
+    u_n = state.u
+    v_n = state.v
+    zr = state.grid.zr
+    cff = 1.0 / (zr[1:] - zr[:-1])**2
+    du = 0.5*cff * (u_np1[1:]-u_np1[:-1]) * (u_n[1:]+u_np1[1:]-u_n[:-1]-u_np1[:-1])
+    dv = 0.5*cff * (v_np1[1:]-v_np1[:-1]) * (v_n[1:]+v_np1[1:]-v_n[:-1]-v_np1[:-1])
+    shear2_in = du + dv
+    return add_boundaries(0., shear2_in, 0.)
+
+
 def compute_tke_eps_bc(
-        tke: Float[Array, 'nz+1'],
-        hz: Float[Array, 'nz'],
+        tke: ArrNzp1,
+        hz: ArrNz,
         keps_params: KepsParameters,
         case_tracable: CaseTracable
-    ) -> Tuple[float, float, float, float]:
+    ) -> Tuple[FloatJax, FloatJax, FloatJax, FloatJax]:
     r"""
     Compute top and bottom boundary conditions for TKE and :math:`\varepsilon`.
 
     Parameters
     ----------
-    tke : Float[~jax.Array, 'nz+1']
+    tke : float :class:`~jax.Array` of shape (nz+1)
         Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
-    hz : Float[~jax.Array, 'nz']
+    hz : float :class:`~jax.Array` of shape (nz)
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
     keps_params : KepsParameters
         Values of the parameters used by :math:`k-\varepsilon`.
@@ -607,14 +624,14 @@ def compute_tke_eps_bc(
     lgthsc = vkarmn*(0.5*hz[-1] + z0_s)
     tke_sfc = 0.5*(tke[-1]+tke[-2])
     eps_sfc_dir = jnp.maximum(keps_params.eps_min, c_mu0**rp * lgthsc**rn * tke_sfc**rm)
-    eps_sfc_neu = -rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_sfc**(rm+.5) * lgthsc**rn
+    eps_sfc_neu = float(-rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_sfc**(rm+.5) * lgthsc**rn)
 
     # epsilon bottom conditions
     z0b = jnp.maximum(keps_params.z0b, keps_params.z0b_min)
     lgthsc = vkarmn *(0.5*hz[0] + z0b)
     tke_btm = 0.5*(tke[0]+tke[1])
     eps_btm_dir = jnp.maximum(keps_params.eps_min, c_mu0**rp * lgthsc**rn * tke_btm**rm)
-    eps_btm_neu = -rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_btm**(rm+.5) * lgthsc**rn
+    eps_btm_neu = float(-rn*vkarmn/sig_eps * c_mu0**(rp+1) * tke_btm**(rm+.5) * lgthsc**rn)
 
     tke_sfc_bc = jnp.where(keps_params.dir_sfc, tke_sfc_dir, tke_sfc_neu)
     tke_btm_bc = jnp.where(keps_params.dir_btm, tke_btm_dir, tke_btm_neu)
@@ -625,24 +642,24 @@ def compute_tke_eps_bc(
 
 
 def advance_turb(
-        akt: Float[Array, 'nz+1'],
-        akv: Float[Array, 'nz+1'],
-        tke: Float[Array, 'nz+1'],
-        tke_np1: Float[Array, 'nz+1'],
-        eps: Float[Array, 'nz+1'],
-        c_mu: Float[Array, 'nz+1'],
-        c_mu_prim: Float[Array, 'nz+1'],
-        bvf: Float[Array, 'nz+1'],
-        shear2: Float[Array, 'nz+1'],
-        hz: Float[Array, 'nz'],
+        akt: ArrNzp1,
+        akv: ArrNzp1,
+        tke: ArrNzp1,
+        tke_np1: ArrNzp1,
+        eps: ArrNzp1,
+        c_mu: ArrNzp1,
+        c_mu_prim: ArrNzp1,
+        bvf: ArrNzp1,
+        shear2: ArrNzp1,
+        hz: ArrNz,
         dt: float,
-        tke_sfc_bc: float,
-        tke_btm_bc: float,
-        eps_sfc_bc: float,
-        eps_btm_bc: float,
+        tke_sfc_bc: FloatJax,
+        tke_btm_bc: FloatJax,
+        eps_sfc_bc: FloatJax,
+        eps_btm_bc: FloatJax,
         keps_params: KepsParameters,
         do_tke: bool
-    ) -> Float[Array, 'nz+1']:
+    ) -> ArrNzp1:
     r"""
     Integrate TKE or :math:`\varepsilon` quantities.
 
@@ -652,35 +669,35 @@ def advance_turb(
 
     Parameters
     ----------
-    akt : Float[~jax.Array, 'nz+1']
+    akt : float :class:`~jax.Array` of shape (nz+1)
         Current eddy-diffusivity on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    akv : Float[~jax.Array, 'nz+1']
+    akv : float :class:`~jax.Array` of shape (nz+1)
         Current eddy-viscosity on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    tke : Float[~jax.Array, 'nz+1']
+    tke : float :class:`~jax.Array` of shape (nz+1)
         Current turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
-    tke_np1 : Float[~jax.Array, 'nz+1']
+    tke_np1 : float :class:`~jax.Array` of shape (nz+1)
         Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of the cells at next step
         (usefull only for :math:`\varepsilon` integration)
         :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
-    eps : Float[~jax.Array, 'nz+1']
+    eps : float :class:`~jax.Array` of shape (nz+1)
         Current TKE dissipation denoted :math:`\varepsilon` on the interfaces of the cells
         :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-    c_mu : Float[~jax.Array, 'nz+1']
+    c_mu : float :class:`~jax.Array` of shape (nz+1)
         Current :math:`c_\mu` in GLS formalisim on the interfaces of the cells
         :math:`[\text{dimensionless}]`.
-    c_mu_prim : Float[~jax.Array, 'nz+1']
+    c_mu_prim : float :class:`~jax.Array` of shape (nz+1)
         Current :math:`c_\mu'` in GLS formalisim on the interfaces of the cells
         :math:`[\text{dimensionless}]`.
     bvf : float(nz+1)
         Current Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
         :math:`\left[\text s^{-2}\right]`.
-    shear2 : Float[~jax.Array, 'nz+1']
+    shear2 : float :class:`~jax.Array` of shape (nz+1)
         Current shear production squared :math:`S_h^2` on cell interfaces
         :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-    hz : Float[~jax.Array, 'nz']
+    hz : float :class:`~jax.Array` of shape (nz)
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
     dt : float
         Time-step of the forward model :math:`[\text s]`.
@@ -707,7 +724,7 @@ def advance_turb(
 
     Returns
     -------
-    vec : Float[~jax.Array, 'nz+1']
+    vec : float :class:`~jax.Array` of shape (nz+1)
         TKE or :math:`\varepsilon` at next step (depending on :code:`do_tke`).
     """
     # fill the matrix off-diagonal terms for the tridiagonal problem
@@ -747,17 +764,17 @@ def advance_turb(
 
     # surface boundary condition
     dir_sfc = keps_params.dir_sfc
-    a_sfc = jnp.where(dir_sfc, 0., -0.5*(ak_vec[-1] + ak_vec[-2]))
-    b_sfc = jnp.where(dir_sfc, 1., 0.5*(ak_vec[-1] + ak_vec[-2]))
+    a_sfc = float(jnp.where(dir_sfc, 0., -0.5*(ak_vec[-1] + ak_vec[-2])))
+    b_sfc = float(jnp.where(dir_sfc, 1., 0.5*(ak_vec[-1] + ak_vec[-2])))
     sfc_bc = jnp.where(do_tke, tke_sfc_bc, eps_sfc_bc)
-    f_sfc = jnp.where(dir_sfc, sfc_bc, hz[-1]*sfc_bc)
+    f_sfc = float(jnp.where(dir_sfc, sfc_bc, hz[-1]*sfc_bc))
 
     # bottom boundary condition
     dir_btm = keps_params.dir_btm
-    b_btm = jnp.where(dir_sfc, 1., -0.5*(ak_vec[0] + ak_vec[1]))
-    c_btm = jnp.where(dir_sfc, 0., 0.5*(ak_vec[0] + ak_vec[1]))
+    b_btm = float(jnp.where(dir_sfc, 1., -0.5*(ak_vec[0] + ak_vec[1])))
+    c_btm = float(jnp.where(dir_sfc, 0., 0.5*(ak_vec[0] + ak_vec[1])))
     btm_bc = jnp.where(do_tke, tke_btm_bc, eps_btm_bc)
-    f_btm = jnp.where(dir_btm, btm_bc, hz[0]*btm_bc)
+    f_btm = float(jnp.where(dir_btm, btm_bc, hz[0]*btm_bc))
 
     # vectors rassembly
     a = add_boundaries(0., a_in, a_sfc)
@@ -775,15 +792,12 @@ def advance_turb(
 
 
 def compute_diag(
-        tke: Float[Array, 'nz+1'],
-        eps: Float[Array, 'nz+1'],
-        bvf: Float[Array, 'nz+1'],
-        shear2: Float[Array, 'nz+1'],
+        tke: ArrNzp1,
+        eps: ArrNzp1,
+        bvf: ArrNzp1,
+        shear2: ArrNzp1,
         keps_params: KepsParameters
-    ) -> Tuple[
-        Float[Array, 'nz+1'], Float[Array, 'nz+1'], Float[Array, 'nz+1'], Float[Array, 'nz+1'],
-        Float[Array, 'nz+1']
-    ]:
+    ) -> Tuple[ArrNzp1, ArrNzp1, ArrNzp1, ArrNzp1, ArrNzp1]:
     r"""
     Computes the diagnostic variables of :math:`k-\varepsilon` closure.
 
@@ -793,16 +807,16 @@ def compute_diag(
 
     Parameters
     ----------
-    tke : Float[~jax.Array, 'nz+1']
+    tke : float :class:`~jax.Array` of shape (nz+1)
         Turbulent kinetic energy (TKE) denoted :math:`k` on the interfaces of the cells at next step
         :math:`\left[\text m ^2 \cdot \text s ^{-2}\right]`.
-    eps : Float[~jax.Array, 'nz+1']
+    eps : float :class:`~jax.Array` of shape (nz+1)
         TKE dissipation denoted :math:`\varepsilon` on the interfaces of the cells at next step
         :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-    bvf : Float[~jax.Array, 'nz+1']
+    bvf : float :class:`~jax.Array` of shape (nz+1)
         Current Brunt–Väisälä frequency squared :math:`N^2` on cell interfaces
         :math:`\left[\text s^{-2}\right]`.
-    shear2 : Float[~jax.Array, 'nz+1']
+    shear2 : float :class:`~jax.Array` of shape (nz+1)
         Current shear production squared :math:`S_h^2` on cell interfaces
         :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
     keps_params : KepsParameters
@@ -810,19 +824,19 @@ def compute_diag(
 
     Returns
     -------
-    akt : Float[Array, 'nz+1']
+    akt : float :class:`~jax.Array` of shape (nz+1)
         Eddy-diffusivity on the interfaces of the cells at next step
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    akv : Float[Array, 'nz+1']
+    akv : float :class:`~jax.Array` of shape (nz+1)
         Eddy-viscosity on the interfaces of the cells at next step
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    eps : Float[Array, 'nz+1']
+    eps : float :class:`~jax.Array` of shape (nz+1)
         TKE dissipation denoted :math:`\varepsilon` on the interfaces of the cells at next step
         :math:`\left[\text m ^2 \cdot \text s ^{-3}\right]`.
-    c_mu : Float[Array, 'nz+1']
+    c_mu : float :class:`~jax.Array` of shape (nz+1)
         :math:`c_\mu` in GLS formalisim on the interfaces of the cells at next step
         :math:`[\text{dimensionless}]`.
-    c_mu_prim : Float[Array, 'nz+1']
+    c_mu_prim : float :class:`~jax.Array` of shape (nz+1)
         :math:`c_\mu'` in GLS formalisim on the interfaces of the cells at next step
         :math:`[\text{dimensionless}]`.
     """
@@ -857,12 +871,12 @@ def compute_diag(
 
     # minimum value of alpha_n to ensure that alpha_m is positive
     alpha_n_min = 0.5*(- (sf_d1 + sf_nb0) + jnp.sqrt((sf_d1 + sf_nb0)**2 - \
-        4.0*sf_d0*(sf_d4 + sf_nb1))) / (sf_d4 + sf_nb1)
+        4.0*sf_d0*(sf_d4 + sf_nb1))) / (sf_d4 + sf_nb1) # CHECK
 
-    # # Galperin limitation : l <= l_li
+    # Galperin limitation : l <= l_li
     l_lim = keps_params.galp*jnp.sqrt(2.0*tke[1:-1] / jnp.maximum(1e-14, bvf[1:-1]))
 
-    # # limitation (use MAX because rn is negative)
+    # limitation (use MAX because rn is negative)
     cff = c_mu0**rp * l_lim**rn * tke[1:-1]**rm
     eps = eps.at[1:-1].set(jnp.maximum(eps[1:-1], cff))
     epsilon = c_mu0**e1 * tke[1:-1]**e2 * eps[1:-1]**e3
@@ -893,10 +907,10 @@ def compute_diag(
     akt_in = jnp.maximum(cff*c_mu_prim[1:-1], akt_min)
     akv_in = jnp.maximum(cff*c_mu[1:-1], akv_min)
 
-    akt_btm = jnp.maximum(1.5*akt_in[0] - 0.5*akt_in[1], akt_min)
-    akt_sfc = jnp.maximum(1.5*akt_in[-1] - 0.5*akt_in[-2], akt_min)
-    akv_btm = jnp.maximum(1.5*akv_in[0] - 0.5*akv_in[1], akv_min)
-    akv_sfc = jnp.maximum(1.5*akv_in[-1] - 0.5*akv_in[-2], akv_min)
+    akt_btm = float(jnp.maximum(1.5*akt_in[0] - 0.5*akt_in[1], akt_min))
+    akt_sfc = float(jnp.maximum(1.5*akt_in[-1] - 0.5*akt_in[-2], akt_min))
+    akv_btm = float(jnp.maximum(1.5*akv_in[0] - 0.5*akv_in[1], akv_min))
+    akv_sfc = float(jnp.maximum(1.5*akv_in[-1] - 0.5*akv_in[-2], akv_min))
 
     akt = add_boundaries(akt_btm, akt_in, akt_sfc)
     akv = add_boundaries(akv_btm, akv_in, akv_sfc)

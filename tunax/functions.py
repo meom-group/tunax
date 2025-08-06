@@ -6,11 +6,14 @@ the prefix :code:`tunax.functions.` or directly by :code:`tunax.`.
 
 """
 
-from typing import Tuple
+from typing import Tuple, TypeAlias
 
 import jax.numpy as jnp
 from jax import lax
 from jaxtyping import Float, Array
+
+FloatJax: TypeAlias = Float[Array, '1']
+"""Type that represent a float in a :class:`~jax.Array`, used only for the code linter."""
 
 
 def tridiag_solve(
@@ -31,27 +34,26 @@ def tridiag_solve(
     and :math:`F = \begin{pmatrix} f_1 \\ \vdots \\ f_n \end{pmatrix}`. The problem is solved by
     recurrence using :mod:`jax.lax.scan` 
 
-
     Parameters
     ----------
-    a : Float[~jax.Array, 'n']
+    a : float :class:`~jax.Array` of shape (n)
         Left diagonal of :math:`\mathbb M`, the first element is not used.
-    b : Float[~jax.Array, 'n']
+    b : float :class:`~jax.Array` of shape (n)
         Middle diagonal of :math:`\mathbb M`.
-    c : Float[~jax.Array, 'n']
+    c : float :class:`~jax.Array` of shape (n)
         Right diagonal of :math:`\mathbb M`, the last element is not used.
-    f : Float[~jax.Array, 'n']
+    f : float :class:`~jax.Array` of shape (n)
         Right hand of the equation :math:`F`.
     
     Returns
     -------
-    x : Float[~jax.Array, 'nz']
+    x : float :class:`~jax.Array` of shape (n)
         Solution :math:`X` of tridiagonal problem.
     """
     def forward_scan_scal(
-            carry: Tuple[float, float],
-            x: jnp.ndarray
-        ) -> Tuple[Tuple[float, float], Tuple[float, float]]:
+        carry: Tuple[FloatJax, FloatJax],
+        x: Float[Array, '4']
+    ) -> Tuple[Tuple[FloatJax, FloatJax], Tuple[FloatJax, FloatJax]]:
         f_im1, q_im1 = carry
         a, b, c, f = x
         cff = 1./(b+a*q_im1)
@@ -65,11 +67,11 @@ def tridiag_solve(
     f = jnp.concat([jnp.array([init[0]]), f])
     q = jnp.concat([jnp.array([init[1]]), q])
 
-    def reverse_scan_scal(carry: float, x: jnp.ndarray) -> Tuple[float, float]:
+    def reverse_scan_scal(carry: float, x: Float[Array, '2']) -> Tuple[float, float]:
         q_rev, f_rev = x
         carry = f_rev + q_rev*carry
         return carry, carry
-    init = f[-1]
+    init = float(f[-1])
     xs = jnp.stack([q[::-1], f[::-1]])[:, 1:].T
     _, x = lax.scan(reverse_scan_scal, init, xs)
     x = jnp.concat([jnp.array([init]), x])
@@ -92,15 +94,14 @@ def add_boundaries(
     ----------
     vec_btm : float
         Bottom value of the vector.
-    vec_in : Float[~jax.Array, 'n-2']
+    vec_in : float :class:`~jax.Array` of shape (n-2)
         Middle values of the vector.
     vec_sfc : float
         Surface value of the vector.
 
     Returns
     -------
-
-    vec : Float[~jax.Array, 'n']
+    vec : float :class:`~jax.Array` of shape (n)
         Concatenated vector.
     """
     return jnp.concat([jnp.array([vec_btm]), vec_in, jnp.array([vec_sfc])])
