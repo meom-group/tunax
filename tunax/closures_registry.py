@@ -1,4 +1,4 @@
-"""
+r"""
 Registry of available closures.
 
 This module only contains a constant variable which lists all the available closures. It can be
@@ -21,7 +21,7 @@ CLOSURES_REGISTRY : Dict[str, Closure]
 
     The current available closures are :
     
-    - k-epsilon
+    - :code:`k-epsilon` for :math:`k-\varepsilon` closure cf. :mod:`closures.k_epsilon`
 
 """
 

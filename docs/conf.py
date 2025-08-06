@@ -36,14 +36,16 @@ templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # autodoc_mock_imports = ["jax", "xarray", "optax", "netcdf4", "equinox", "jaxtyping"]
 autodoc_default_options = {
-    # 'undoc-members': False,
+#     'undoc-members': False,
 #     'private-members': False,
-#     # 'special-members': False,
+#     'special-members': False,
 #     'inherited-members': False,
 #     'show-inheritance': True,
+    'exclude-members': '__init__',
     'member-order': 'bysource'
 }
 # -- Napoleon configuration --------------------------------------------------
+autodoc_class_signature = "separated"
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 autodoc_typehints = "description"

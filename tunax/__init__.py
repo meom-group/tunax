@@ -12,4 +12,4 @@ from .closures_registry import CLOSURES_REGISTRY
 from .model import (
     SingleColumnModel, lmd_swfrac, advance_tra_ed, advance_dyn_cor_ed, diffusion_solver
 )
-from .fitter import FittableParameter, FittableParametersSet, Fitter
+from .fitter import FittableParameter, FittableParametersSet

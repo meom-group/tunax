@@ -21,9 +21,13 @@ from jaxtyping import Float, Array
 from tunax.functions import _format_to_single_line
 
 ArrNz: TypeAlias = Float[Array, 'nz']
+"""Type that describes a float :class:`~jax.Array` of shape (nz)."""
 ArrNzp1: TypeAlias = Float[Array, 'nz+1']
+"""Type that describes a float :class:`~jax.Array` of shape (nz+1)."""
+ArrNt: TypeAlias = Float[Array, 'nt']
+"""Type that describes a float :class:`~jax.Array` of shape (nt)."""
 ArrNzNt: TypeAlias = Float[Array, 'nz nt']
-
+"""Type that describes a float :class:`~jax.Array` of shape (nz, nt)."""
 
 TRACERS_NAMES: List[str] = ['t', 's', 'b', 'pt']
 """Names of the tracers, in the order of temperature, salinity, buoyancy and passive tracer."""
@@ -100,15 +104,15 @@ class Grid(eqx.Module):
 
     Parameters
     ----------
-    zr : Float[~jax.Array, 'nz']
-        cf. attribute.
-    zw : Float[~jax.Array, 'nz+1']
-        cf. attribute.
+    zr : float :class:`~jax.Array` of shape (nz)
+        cf. :attr:`zr`.
+    zw : float :class:`~jax.Array` of shape (nz+1)
+        cf. :attr:`zw`.
 
     Attributes
     ----------
     nz : int
-        Number of cells. TO CHECK (static)
+        Number of cells.
     hbot : float
         Depth of the water column :math:`[\text m]`.
     zr : float :class:`~jax.Array` of shape (nz)
@@ -132,7 +136,7 @@ class Grid(eqx.Module):
     zw: ArrNzp1
     hz: ArrNz
 
-    def __init__(self, zr: ArrNz, zw: ArrNzp1):
+    def __init__(self, zr: ArrNz, zw: ArrNzp1) -> None:
         self.nz = zr.shape[0]
         self.hbot = float(zw[0])
         self.zw = zw
@@ -172,6 +176,11 @@ class Grid(eqx.Module):
             Number of cells.
         hbot : float, positive
             Depth of the water column :math:`[\text m]`.
+
+        Returns
+        -------
+        grid : Grid
+            The linear grid.
         """
         zw = jnp.linspace(-hbot, 0, nz+1)
         zr = 0.5*(zw[:-1]+zw[1:])
@@ -196,6 +205,11 @@ class Grid(eqx.Module):
             Reference depth :math:`[\text m]`.
         theta : float, default=6.5
             Stretching parameter toward the surface :math:`[\text{dimensionless}]`.
+
+        Returns
+        -------
+        grid : Grid
+            The analytic grid.
         """
         sc_w = jnp.linspace(-1, 0, nz+1)
         sc_r = (sc_w[:-1] + sc_w[1:])/2
@@ -208,7 +222,7 @@ class Grid(eqx.Module):
     @classmethod
     def orca75(cls, hbot: float) -> Grid:
         r"""
-        Creates the ORCA 75 grid from NEMO.
+        Creates the ORCA75 grid from NEMO.
 
         The whole grid is created then levels between the depth :attr:`hbot` and :math:`0` are
         extracted.
@@ -217,6 +231,11 @@ class Grid(eqx.Module):
         ----------
         hbot : float, positive
             Depth of the water column :math:`[\text m]`.
+
+        Returns
+        -------
+        grid : Grid
+            The ORCA75 grid.
         """
         nz_orca = 75
         zsur = -3958.95137127683
@@ -253,6 +272,11 @@ class Grid(eqx.Module):
         ----------
         ds : xarray.Dataset
             Dataset from which to extract the grid.
+
+        Returns
+        -------
+        grid : Grid
+            The loaded grid.
         """
         zw = jnp.array(ds['zw'], dtype=jnp.float32)
         zr = jnp.array(ds['zr'], dtype=jnp.float32)
@@ -419,7 +443,7 @@ class State(eqx.Module):
             Mixed layer depth :math:`[\text m]`.
         s_sfc : float, default=21.
             Surface salinity :math:`[\text{psu}]`.
-        strat_t : float, default=5.1e-2
+        strat_s : float, default=5.1e-2
             Salinity stratification above the mixed layer noted by :math:`S_T`
             :math:`[\text{psu} \cdot \text m ^{-1}]`.
 
@@ -498,7 +522,7 @@ class Trajectory(eqx.Module):
         }
         return xr.Dataset(variables, coords)
 
-    def to_nc(self, nc_path: str):
+    def to_nc(self, nc_path: str) -> None:
         r"""
         Write on a NetCDF file.
 

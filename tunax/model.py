@@ -26,27 +26,70 @@ from typing import Tuple, Dict
 import equinox as eqx
 import jax.numpy as jnp
 from jax import lax, jit, vmap
-from jaxtyping import Float, Array
 
 from tunax.case import Case, CaseTracable
-from tunax.space import Grid, State, Trajectory, VARIABLE_NAMES
-from tunax.functions import tridiag_solve, add_boundaries
+from tunax.space import Grid, State, Trajectory, ArrNz, ArrNzp1, ArrNt, VARIABLE_NAMES
+from tunax.functions import FloatJax, tridiag_solve, add_boundaries
 from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
 from tunax.closures_registry import CLOSURES_REGISTRY
 
 type StatesTime = Tuple[State, ClosureStateAbstract, float]
+"""Type that represent the values that are transformed in an integration step of the model."""
 
 
 class SingleColumnModel(eqx.Module):
     r"""
     Single column forward model core.
 
-    This forward model of tunax is the combination of 4 things : the physical case :attr:`case`, an
-    initial state of the water column :attr:`init_state`, the time information with :attr:`nt`,
-    :attr:`dt` and :attr:`p_out` and the abstraction of the chosen closure for eddy-diffusivity
-    :attr:`closure`. Adding a set of parameters for the closure one can run the model with the
-    method :meth:`compute_trajectory_with`.
-    TO CHECK
+    This forward model of tunax is the combination of 4 things : the physical case
+    :attr:`case_tracable`, an initial state of the water column :attr:`init_state`, the time
+    information with :attr:`nt`, :attr:`dt` and :attr:`p_out` and the abstraction of the chosen
+    closure for eddy-diffusivity :attr:`closure`. Adding a set of parameters for the closure one can
+    run the model with the method :meth:`run`. The builder of this class takes the case as
+    arguments all the attributes, except for the case : the parameter is an instance of
+    :class:`~case.Case` which is transformed in a :class:`~case.CaseTracable` instance for JAX
+    purpose and for the closure : the parameter is only the name of the closure.
+
+    Parameters
+    ----------
+    nt : int
+        cf. :attr:`nt`.
+    dt : float
+        cf. :attr:`dt`.
+    p_out : int
+        cf. :attr:`p_out`.
+    init_state : State
+        cf. :attr:`init_state`.
+    case : Case
+        Physical case and forcings of the experiment.
+    closure_name : str
+        Name of the chosen closure, must be a key of
+        :attr:`~closures_registry.CLOSURES_REGISTRY`, see its documentation
+        for the available closures.
+    start_time : float, default=0.
+        cf. :attr:`start_time`.
+
+    Attributes
+    ----------
+    nt : int
+        Number of integration interations.
+    dt : float
+        Time-step of integration for every iteration :math:`[\text s]`.
+    p_out : int
+        Number of of time-steps between every output step.
+    init_state : State
+        Initial physical state of the water column.
+    case_tracable : CaseTracable
+        Physical case and forcings of the experiment, made tracable for JAX purposes.
+    closure : Closure
+        Abstraction representing the chosen closure.
+    start_time : float, default=0.
+        Value of the starting time in :math:`[\text s]`.
+
+    Note
+    ----
+    The closure parameters are given only at the end when we compute the model so that the
+    calibrations of the parameters are easier.
         
     """
 
@@ -67,10 +110,7 @@ class SingleColumnModel(eqx.Module):
             case: Case,
             closure_name: str,
             start_time: float=0.
-        ) -> SingleColumnModel:
-        """
-        Mainly transforms the case in casetracable
-        """
+        ) -> None:
         self.nt = nt
         self.dt = dt
         self.p_out = p_out
@@ -100,23 +140,38 @@ class SingleColumnModel(eqx.Module):
             else:
                 case_attributes[tra_type_attr] = None
         self.case_tracable = CaseTracable(**case_attributes)
-    
+
     def tra_promote(self, promotions: Dict[str, str]) -> SingleColumnModel:
         """
-        permet d'augment la dimension d'un forcing à 1 dimension ou 2, pour pouvoir batcher plusieurs
-        models de dimensions de forcings différents
-        check des types impossibles
+        Increase the dimension type of the tracers.
+
+        It is usefull to use :func:`~jax.vmap` on several instances of :class:`SingleColumnModel`
+        to do batch computing (run the model in parallel).
+
+        Parameters
+        ----------
+        promotions : Dict[str, str]
+            The keys of the dictionnary are the name of the tracer variables to modify the
+            dimensions of the forcing, one of {:code:`'t'`, :code:`'s'`, :code:`'b'`, :code:`'pt`'},
+            the values are the new dimensions of the forcings, possible values
+            {:code:`'constant'`, :code:`'variable'`}.
+        
+        Returns
+        -------
+        model : SingleColumnModel
+            The :code:`self` object with the several promoted forcings.
         """
         case_tracable = self.case_tracable
         for tra, prom in promotions.items():
+            grid = self.init_state.grid
             if prom == 'constant':
-                case_tracable = case_tracable.tra_promote_borders_constant(tra, self.init_state.grid)
+                case_tracable = case_tracable.tra_promote_borders_constant(tra, grid)
             elif prom == 'variable':
                 initial_type = getattr(case_tracable, f'{tra}_forcing_type') == 'borders'
                 if initial_type == 'borders':
-                    case_tracable = case_tracable.tra_promote_borders_variable(tra, self.init_state.grid)
+                    case_tracable = case_tracable.tra_promote_borders_variable(tra, grid, self.nt)
                 elif initial_type == 'borders':
-                    case_tracable = case_tracable.tra_promote_constant_variable(tra, self.init_state.grid)
+                    case_tracable = case_tracable.tra_promote_constant_variable(tra, self.nt)
         return eqx.tree_at(lambda t: t.case_tracable, self, case_tracable)
 
     def step(
@@ -127,14 +182,32 @@ class SingleColumnModel(eqx.Module):
         closure_parameters: ClosureParametersAbstract
     ) -> StatesTime:
         r"""
-        Run one time-step of the model.
+        Runs one time-step of the model.
         
 
         This functions first call the closure to compute the eddy-diffusivity and viscosity, and
         then integrate the equations of tracers and momentum. It modifies the :code:`state` with
         these new values and then returns the new :code:`state` and :code:`closure_state`.
-        TO CHECK
-        TO ADD : start time for variables forcings
+        
+        Parameters
+        ----------
+        state : State
+            State of the water column at the current :code:`time`.
+        closure_state : ClosureStateAbstract
+            State of the water column for the closure variables at the current :code:`time`.
+        time : float
+            Time of the current iteration (the mehtod integrates from this time to the next one).
+        closure_parameters : ClosureParametersAbstract
+            A set of parameters of the used closure.
+        
+        Returns
+        -------
+        state : State
+            State of the water column after the integration.
+        closure_state : ClosureStateAbstract
+            State of the water column for the closure variables after the integration.
+        time : float
+            Value of the time after the integration.
         """
         dt = self.dt
         case_tracable = self.case_tracable
@@ -143,13 +216,13 @@ class SingleColumnModel(eqx.Module):
             state, closure_state, dt, closure_parameters, case_tracable
         )
         # advance tracers
-        i_time = time/self.dt
-        state = advance_tra_ed(state, closure_state.akt, dt, case_tracable, i_time.astype(int))
+        i_time = int(time/self.dt)
+        state = advance_tra_ed(state, closure_state.akt, dt, case_tracable, i_time)
         # advance velocities
         state = advance_dyn_cor_ed(state, closure_state.akv, dt, case_tracable)
         time += self.dt
         return state, closure_state, time
-    
+
     def run_partial(
             self,
             state0: State,
@@ -160,19 +233,62 @@ class SingleColumnModel(eqx.Module):
         ) ->  StatesTime:
         r"""
         Runs a certain number of time steps.
-        TO CHECK        
+
+        Computes a loop of integration for a number of time steps of :code:`n_steps`, and return
+        the last states of the loop.
+        
+        Parameters
+        ----------
+        state0 : State
+            State of the water column at the beginning of the integration loop.
+        closure_state : ClosureStateAbstract
+            State of the water column for the closure variables at the beginning of the integration
+            loop.
+        time0 : float
+            Begining time of the integration loop.
+        n_steps : int
+            Number of integration steps.
+        closure_parameters : ClosureParametersAbstract
+            A set of parameters of the used closure.    
+        
+        Returns
+        -------
+        state : State
+            State of the water column after a number of :code:`n_steps` integration steps.
+        closure_state : ClosureStateAbstract
+            State of the water column for the closure variables after a number of :code:`n_steps`
+            integration steps.
+        time : float
+            Value of the time after a number of :code:`n_steps` integration steps.
         """
-        def scan_fn(carry: StatesTime,_: type[None]) -> Tuple[StatesTime, type[None]]:
+        def scan_fn(carry: StatesTime, _: FloatJax) -> Tuple[StatesTime, None]:
             state, closure_state, time = carry
             state, closure_state, time = self.step(state, closure_state, time, closure_parameters)
             return (state, closure_state, time), None
         carry, _ = lax.scan(scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps))
         (state, closure_state, time) = carry
         return state, closure_state, time
-    
-    def _state_concat_to_traj(self, states: State, times: jnp.ndarray) -> Trajectory:
+
+    def _state_concat_to_traj(self, states: State, times: ArrNt) -> Trajectory:
         """
-        from the output of a scan function, to a Trajectory and add the first state
+        Convert the concatenations of :class:`~space.State` in a :class:`~space.Trajectory`.
+        
+        Use to get a trajectory from the output of the :func:`~jax.lax.scan` function which
+        computes the concatenation of several :class:`~space.State` instances.
+
+        Parameters
+        ----------
+        states : State
+            A concatenation of :class:`~space.State` instances. More specifically, every leafs of
+            the pytree is an array on the first axis of all the values of the the
+            :class:`~space.State` instances.
+        times : float :class:`~jax.Array` of shape (nt)
+            Values of the different times corresponding at each :class:`~space.State` instances.
+        
+        Returns
+        -------
+        trajectory : Trajectory
+            Trajectory corresponding to the concatenation of the states.
         """
         var_dict = {}
         for var in VARIABLE_NAMES:
@@ -185,12 +301,27 @@ class SingleColumnModel(eqx.Module):
 
     def run(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
         r"""
-        Run the whole model.
-        TO CHECK
+        Main run the model.
+
+        Computes the :attr:`nt` integration steps of lenght :attr:`dt` from the initial state
+        :attr:`init_state` with and doing an output of the state every :attr:`p_out` steps with the
+        physical case and forcings corresponding to :attr:`case_tracable`. The closure for eddy-
+        diffusivity used is :attr:`closure` with the values of the parameters described by the
+        parameter :code:`closure_parameters`.
+        
+        Parameters
+        ----------
+        closure_parameters : ClosureParametersAbstract
+            The set of parameters to use for the computation of the closure of eddy-diffusivity.
+        
+        Returns
+        -------
+        trajectory : Trajectory
+            The trajectory with all the output steps of the integration loop.
         """
         init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
 
-        def scan_fn(carry: StatesTime, _: type[None]) -> Tuple[StatesTime, StatesTime]:
+        def scan_fn(carry: StatesTime, _: FloatJax) -> Tuple[StatesTime, StatesTime]:
             state, closure_state, time = carry
             state, closure_state, time = self.run_partial(
                 state, closure_state, time, self.p_out, closure_parameters
@@ -201,48 +332,37 @@ class SingleColumnModel(eqx.Module):
         (_, _, _), (states, _, times) = lax.scan(
             scan_fn, (self.init_state, init_closure_state, self.start_time), jnp.arange(n_steps_out)
         )
-
-        return self._state_concat_to_traj(states, times)
-
-    def run_stop(self, closure_parameters: ClosureParametersAbstract, i_out_stop: int) -> Trajectory:
-        r"""
-        Run the whole model.
-        TO CHECK
-        """
-        init_closure_state = self.closure.state_class(self.init_state.grid, closure_parameters)
-
-        def run_partial_true(state0, closure_state0, time0):
-            return self.run_partial(state0, closure_state0, time0, self.p_out, closure_parameters)
-
-        def run_partial_false(state0, closure_state0, time0,):
-            """
-            just a copy
-            """
-            return state0, closure_state0, time0
-
-        def scan_fn(carry: StatesTime, i_out: int) -> Tuple[StatesTime, StatesTime]:
-            state, closure_state, time = carry
-            operands = (state, closure_state, time)
-            state, closure_state, time = lax.cond(i_out<=i_out_stop, run_partial_true, run_partial_false, *operands)
-            return (state, closure_state, time), (state, closure_state, time)
-
-        n_steps_out = self.nt//self.p_out
-        (_, _, _), (states, _, times) = lax.scan(
-            scan_fn, (self.init_state, init_closure_state, self.start_time), jnp.arange(n_steps_out)
-        )
-
-        return self._state_concat_to_traj(states, times)
+        return self._state_concat_to_traj(states, jnp.array(times))
 
     @jit
-    def jit_run(self, closure_parameters):
+    def jit_run(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
         r"""
-        Jitted version of model run, to use for the direct computations.
-        TO CHECK
+        Jitted version of :meth:`run`.
+
+        This method does exacly like :meth:`run` but :func:`~jax.jit` is applied on it, which
+        means that the first call of this method will be the compilation of the function, and the
+        next ones will be the compiled execution of the function which are supposed to be faster.
+        There will be a compilation each time that this method will be call for a new "shape" of the
+        :class:`SingleColumnModel` instance (which means that all the leafs of the pytree have the
+        same shape as :class:`~jax.Array`), but even if this method is call on different instances,
+        if they have the same shape, the compilation will be done only one time. Moreover, this
+        method should use only for direct methods, is one wants to apply a :func:`~jax.grad` over
+        the model, it's better to put the :func:`~jax.jit` outside.
+        
+        Parameters
+        ----------
+        closure_parameters : ClosureParametersAbstract
+            cf. :meth:`run`.
+        
+        Returns
+        -------
+        trajectory : Trajectory
+            cf. :meth:`run`.
         """
         return self.run(closure_parameters)
 
 
-def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
+def lmd_swfrac(hz: ArrNz) -> ArrNzp1:
     r"""
     Compute solar forcing.
 
@@ -251,12 +371,12 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
 
     Parameters
     ----------
-    hz : Float[~jax.Array, 'nz']
+    hz : float :class:`~jax.Array` of shape (nz)
         Thickness of cells from deepest to shallowest :math:`[\text m]`.
 
     Returns
     -------
-    swr_frac : Float[~jax.Array, 'nz+1']
+    swr_frac : float :class:`~jax.Array` of shape (nz+1)
         Fraction of solar penetration throught the water column :math:`[\text{dimensionless}]`.
     """
     nz, = hz.shape
@@ -278,34 +398,65 @@ def lmd_swfrac(hz: Float[Array, 'nz']) -> Float[Array, 'nz+1']:
     _, swr_frac = lax.scan(lax_step, (r1, 1.0 - r1), jnp.arange(1, nz+1))
     return jnp.concat((swr_frac[::-1], jnp.array([1.])))
 
+
 def tracer_flux(
         tracer: str,
         case_tracable: CaseTracable,
         grid: Grid,
         i_time: int
-    ) -> Float[Array, 'nz+1']:
+    ) -> ArrNz:
     r"""
-    Compute flux difference from forcings for tracers.
-    TO CHECK
+    Computes flux of the tracer forcing.
+    
+    This function get the flux of the forcing at a certain time depending on the type of the
+    forcing, the flux being the derivative of the forcing along the depth.
+    
+    Parameters
+    ----------
+    tracer : str
+        Name of the tracer variable of the concerned forcing. One of {:code:`'t'`, :code:`'s'`,
+        :code:`'b'`, :code:`'pt`'}.
+    case_tracable : CaseTracable
+        Physical case which contains the forcings type and values.
+    grid : Grid
+        Vertical grid of the water column.
+    i_time : int
+        Index of the time iteration corresponding to the index in the forcing.
+    
+    Returns
+    -------
+    df : float :class:`~jax.Array` of shape (nz)
+        Flux of the forcing of the tracer. At each cell it represents the difference between the
+        input and the ouput flux.
+    
+    Raises
+    ------
+    ValueError
+        If the forcing type is not one of {'borders', 'constant', 'variable'}.
     """
     forcing = getattr(case_tracable, f'{tracer}_forcing')
     forcing_type = getattr(case_tracable, f'{tracer}_forcing_type')
     match forcing_type:
-        case 'borders': # les valeurs du forcing en tra.m.s-1
-            df = add_boundaries(-forcing[0], jnp.zeros(grid.zr.shape[0]-2), forcing[1])
-        case 'constant':# les valeurs du forcing en tra.s-1
+        case 'borders':
+            df = add_boundaries(-forcing[0], jnp.zeros(grid.nz-2), forcing[1])
+        case 'constant':
             df = forcing
-        case 'variable':# les valeurs du forcing en tra.s-1
+        case 'variable':
             df = forcing[:, i_time]
+        case _:
+            mess = f'Forcing type of variable {tracer} should be one of' + \
+                "{'borders', 'constant', 'variable'}."
+            raise ValueError(mess)
     return df
+
 
 def advance_tra_ed(
         state: State,
-        akt: Float[Array, 'nz+1'],
+        akt: ArrNzp1,
         dt: float,
         case_tracable: CaseTracable,
         i_time: int,
-    ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
+    ) -> State:
     r"""
     Integrate vertical diffusion term for tracers.
 
@@ -315,8 +466,29 @@ def advance_tra_ed(
 
     :math:`\partial _z ( K_m \partial _z C) + \partial _t C + F = 0`
 
-    where :math:`F` is the representation of the forcings.
-    TO CHECK
+    where :math:`F` is the representation of the forcings. This equation is solved for every tracer
+    indicated in :attr:`~case.Case.eos_tracers` and the passive tracer if :attr:`~case.Case.do_pt`
+    is set.
+    
+    Parameters
+    ----------
+    state : State
+        State of the water column at the current iteration.
+    akt : float :class:`~jax.Array` of shape (nz)+1
+        Eddy-diffusivity on the interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    dt : float
+        Time-step of the integration step.
+    case_tracable : CaseTracable
+        Physical case which contains the forcings type and values.
+    i_time : int
+        Index of the time iteration corresponding to the index in the forcing.
+    
+    Returns
+    -------
+    state : State
+        The state of the water column with the values of the tracers after the integration and the
+        diffusion by the eddy-diffusivity.
     """
     hz = state.grid.hz
     tracers = [tra for tra in case_tracable.eos_tracers]
@@ -330,15 +502,15 @@ def advance_tra_ed(
         df = hz*tra + dt*df
         tra = diffusion_solver(akt, hz, df, dt)
         state = eqx.tree_at(get_pytree_fun(tracer), state, tra)
-
     return state
+
 
 def advance_dyn_cor_ed(
         state: State,
-        akv: Float[Array, 'nz+1'],
+        akv: ArrNzp1,
         dt: float,
         case_tracable: CaseTracable
-    ) -> Tuple[Float[Array, 'nz'], Float[Array, 'nz']]:
+    ) -> State:
     r"""
     Integrate vertical diffusion and Coriolis terms for momentum.
 
@@ -349,8 +521,25 @@ def advance_dyn_cor_ed(
     :math:`\partial_z (K_v \partial_z U) + F_{\text{cor}}(U) + F = 0`
 
     where :math:`F_{\text{cor}}` represent the Coriolis effect, and :math:`F` represent the effect
-    of the forcings.
-    TO CHECK
+    of the forcings on the momentum.
+    
+    Parameters
+    ----------
+    state : State
+        State of the water column at the current iteration.
+    akv : float :class:`~jax.Array` of shape (nz+1)
+        Eddy-viscosity on the interfaces of the cells
+        :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
+    dt : float
+        Time-step of the integration step.
+    case_tracable : CaseTracable
+        Physical case which contains the forcings type and values.
+    
+    Returns
+    -------
+    state : State
+        The state of the water column with the values of the momentum after the integration and the
+        diffusion by the eddy-viscosity.
     """
     gamma_cor = 0.55
     fcor = case_tracable.fcor
@@ -380,12 +569,13 @@ def advance_dyn_cor_ed(
 
     return state
 
+
 def diffusion_solver(
-        ak: Float[Array, 'nz+1'],
-        hz: Float[Array, 'nz'],
-        f: Float[Array, 'nz'],
+        ak: ArrNzp1,
+        hz: ArrNz,
+        f: ArrNz,
         dt: float
-    ) -> Float[Array, 'nz']:
+    ) -> ArrNz:
     r"""
     Solve a diffusion problem with finite volumes.
 
@@ -398,19 +588,19 @@ def diffusion_solver(
 
     Parameters
     ----------
-    ak : Float[~jax.Array, 'nz+1']
+    ak : float :class:`~jax.Array` of shape (nz+1)
         Diffusion at the cell interfaces :math:`K` in
         :math:`\left[\text m ^2 \cdot \text s ^{-1}\right]`.
-    hz : Float[~jax.Array, 'nz']
+    hz : float :class:`~jax.Array` of shape (nz)
         Thickness of cells from deepest to shallowest :math:`\left[\text m\right]`.
-    f : Float[~jax.Array, 'nz']
+    f : float :class:`~jax.Array` of shape (nz)
         Right-hand flux of the equation :math:`f` in :math:`[[X] \cdot \text m ]`.
     dt : float
         Time-step of discretisation :math:`[\text s]`.
     
     Returns
     -------
-    x : Float[~jax.Array, 'nz']
+    x : float :class:`~jax.Array` of shape (nz)
         Solution of the diffusion problem :math:`X` in :math:`\left[[X]\right]`.
     """
     # fill the coefficients for the tridiagonal matrix
@@ -427,9 +617,9 @@ def diffusion_solver(
     b_sfc = hz[-1] - a_sfc
 
     # concatenations
-    a = add_boundaries(0., a_in, a_sfc)
-    b = add_boundaries(b_btm, b_in, b_sfc)
-    c = add_boundaries(c_btm, c_in, 0.)
+    a = add_boundaries(0., a_in, float(a_sfc))
+    b = add_boundaries(float(b_btm), b_in, float(b_sfc))
+    c = add_boundaries(float(c_btm), c_in, 0.)
 
     x = tridiag_solve(a, b, c, f)
 
