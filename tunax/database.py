@@ -13,7 +13,7 @@ by :code:`tunax.`.
 
 from __future__ import annotations
 import warnings
-from typing import Union, Optional, Tuple, List, Dict
+from typing import Union, Optional, Tuple, List, Dict, TypeAlias
 
 import yaml
 import xarray as xr
@@ -30,7 +30,7 @@ from tunax.case import Case
 from tunax.functions import _format_to_single_line
 from tunax.model import SingleColumnModel
 
-type DimsType = Tuple[Optional[int]]
+DimsType: TypeAlias = Tuple[Optional[int]]
 """Type that represent the dimensions on which load the datas from a file."""
 
 

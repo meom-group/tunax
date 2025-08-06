@@ -21,7 +21,7 @@ References
 
 from __future__ import annotations
 import inspect
-from typing import Tuple, Dict
+from typing import Tuple, Dict, TypeAlias
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -33,7 +33,7 @@ from tunax.functions import FloatJax, tridiag_solve, add_boundaries
 from tunax.closure import ClosureParametersAbstract, ClosureStateAbstract, Closure
 from tunax.closures_registry import CLOSURES_REGISTRY
 
-type StatesTime = Tuple[State, ClosureStateAbstract, float]
+StatesTime: TypeAlias = Tuple[State, ClosureStateAbstract, float]
 """Type that represent the values that are transformed in an integration step of the model."""
 
 
