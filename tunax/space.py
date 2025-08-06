@@ -565,7 +565,7 @@ class Trajectory(eqx.Module):
 
         The first and last state of two consecutive trajectories are the same. :code:`out_nt_cut`
         is the number of output steps, it means that the time dimension of the sub-trajectories
-        have :code:`out_nt_cut`+1 elements.
+        have :code:`out_nt_cut+1` elements.
 
         Parameters
         ----------

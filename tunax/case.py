@@ -228,7 +228,7 @@ class CaseTracable(eqx.Module):
         Description of the type of temperature forcing : :code:`'borders'` for **border forcing**,
         :code:`'constant'` for **deep constant forcing** and :code:`'variable'` for **deep variable
         forcing**
-    t_forcing_type : str, optionnal, default=None
+    s_forcing_type : str, optionnal, default=None
         Same as :attr:`t_forcing_type` for salinity.
     b_forcing_type : str, optionnal, default=None
         Same as :attr:`t_forcing_type` for buoyancy.

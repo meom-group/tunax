@@ -248,7 +248,7 @@ class Data(eqx.Module):
     @classmethod
     def from_jld2(
             cls,
-            jl2d_path: str,
+            jld2_path: str,
             names_mapping: Dict[str, Dict[str, str]],
             nz: Optional[int] = None,
             dims: Union[DimsType, Dict[str, DimsType]] = (None,),
@@ -259,13 +259,13 @@ class Data(eqx.Module):
         Creates a :class:`Data` instance from a :code:`.jld2` file.
 
         For the scalar parameters, the values must be registered in the file simply with their path
-        in the file, separated with :code:`/ in the same string. For the timeseries and the time,
+        in the file, separated with :code:`/` in the same string. For the timeseries and the time,
         the arrays of each time step must be register with a path that ends with the reference of
         the time. For the other variables, just register the normal path.
 
         Parameters
         ----------
-        jl2d_path : str
+        jld2_path : str
             Path of the *netcdf* file that contains the time-series of the observation trajectory
             and the physical parameters and forcings.
         names_mapping: Dict[str, Dict[str, str]]
@@ -273,8 +273,8 @@ class Data(eqx.Module):
             the file. There are 3 first entries :
                 - :code:`variables`
                     For all the variables corresponding to the :class:`space.Grid` and the
-                    :class`space.Trajectory`. For the grid attributes (:att:`space.Grid.zr` and
-                    :att:`space.Grid.zw`) the path should correspond directly to the array in the
+                    :class:`space.Trajectory`. For the grid attributes (:attr:`space.Grid.zr` and
+                    :attr:`space.Grid.zw`) the path should correspond directly to the array in the
                     file. For the time and the time-series, the given path corresponds to a path
                     with all the reference (with a number in string) of the time, and then in these
                     path with the time, we have the array of the variable (or the float
@@ -283,7 +283,7 @@ class Data(eqx.Module):
                     with the path of the time data.
                 - :code:`parameters`
                     for all the scalar entries corresponding directly to the parameters of
-                    :classe:`case.Case`
+                    :class:`case.Case`
                 - :code:`metadatas`
                     for the scalar entries that we want to keep in the :attr:`metadatas` for later.
         nz : int, optionnal, default=None
@@ -310,7 +310,7 @@ class Data(eqx.Module):
         var_map = names_mapping['variables']
         par_map = names_mapping['parameters']
         metadata_map = names_mapping['metadatas']
-        jl = H5pyFile(jl2d_path, 'r')
+        jl = H5pyFile(jld2_path, 'r')
         # récupération de la bonne valeur de nz
         if nz is None:
             ds = H5pyDataset(jl[par_map['nz']])
