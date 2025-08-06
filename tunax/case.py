@@ -206,6 +206,7 @@ class CaseTracable(eqx.Module):
     t_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
         Description of the temperature forcing cf. :attr:`Case.t_forcing`, the type depends on the
         forcing type :
+        
         - **Border forcing** : tuple of 2 floats, the first one is the forcing at the bottom and the
           second one is the forcing at the top of the water column, the unit is in
           :math:`[\text{K} \cdot \text{m} \cdot \text{s}^{-1}]`.
