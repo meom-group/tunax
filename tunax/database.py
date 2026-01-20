@@ -13,7 +13,7 @@ by :code:`tunax.`.
 
 from __future__ import annotations
 import warnings
-from typing import Union, Optional, Tuple, List, Dict, TypeAlias
+from typing import Union, Optional, Tuple, List, Dict, TypeAlias, cast
 
 import yaml
 import xarray as xr
@@ -90,7 +90,7 @@ def _get_var_jl(
         If the number n hasn't the same parity as the lenght of the raw data array. Then the borders
         are not symetric.
     """
-    jl_var = H5pyDataset(jl_file[f'{var_names[var]}{suffix}'])
+    jl_var = cast(H5pyDataset, jl_file[f'{var_names[var]}{suffix}'])
     if isinstance(dims, dict):
         dims = dims[var]
     if len(jl_var.shape) != len(dims):
@@ -314,20 +314,20 @@ class Data(eqx.Module):
         jl = H5pyFile(jld2_path, 'r')
         # récupération de la bonne valeur de nz
         if nz is None:
-            ds = H5pyDataset(jl[par_map['nz']])
+            ds = cast(H5pyDataset, jl[par_map['nz']])
             nz = int(ds[()])
         # variables grid et time
         zr = jnp.array(_get_var_jl(jl, var_map, 'zr', nz, dims))
         zw = jnp.array(_get_var_jl(jl, var_map, 'zw', nz+1, dims))
         time_group = var_map['time']
-        gr = H5pyGroup(jl[time_group])
+        gr = cast(H5pyGroup, (jl[time_group]))
         time_str_list = list(gr.keys())
         time_str_list = [int(i) for i in time_str_list]
         time_str_list.sort()
         time_str_list = [str(i) for i in time_str_list]
         time_float_list = []
         for time_str in time_str_list:
-            ds = H5pyDataset(jl[f'{time_group}/{time_str}'])
+            ds = cast(H5pyDataset, jl[f'{time_group}/{time_str}'])
             time_val = ds[()]
             time_float_list.append(float(time_val))
         time = jnp.array(time_float_list)
@@ -349,14 +349,14 @@ class Data(eqx.Module):
         case_params_list = [nom for nom in vars(Case).keys()]
         for par_name, jl_name in par_map.items():
             if par_name in case_params_list:
-                ds = H5pyDataset(jl[jl_name])
+                ds = cast(H5pyDataset, jl[jl_name])
                 params[par_name] = float(ds[()])
         case = Case(eos_tracers=eos_tracers, do_pt=do_pt, **params)
 
         # metadatas
         metadatas = {}
         for metadata_name, jl_name in metadata_map.items():
-            ds = H5pyDataset(jl[jl_name])
+            ds = cast(H5pyDataset, jl[jl_name])
             jl_val = ds[()]
             if isinstance(jl_val, np.floating) or isinstance(jl_val, np.integer):
                 metadatas[metadata_name] = float(jl_val)

@@ -6,7 +6,7 @@ the prefix :code:`tunax.functions.` or directly by :code:`tunax.`.
 
 """
 
-from typing import Tuple, TypeAlias
+from typing import Tuple, TypeAlias, cast
 
 import jax.numpy as jnp
 from jax import lax
@@ -71,7 +71,7 @@ def tridiag_solve(
         q_rev, f_rev = x
         carry = f_rev + q_rev*carry
         return carry, carry
-    init = float(f[-1])
+    init = cast(float, f[-1])
     xs = jnp.stack([q[::-1], f[::-1]])[:, 1:].T
     _, x = lax.scan(reverse_scan_scal, init, xs)
     x = jnp.concat([jnp.array([init]), x])
