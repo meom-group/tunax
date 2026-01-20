@@ -24,6 +24,7 @@ import inspect
 from typing import Tuple, Dict, TypeAlias, cast
 
 import equinox as eqx
+import jax
 import jax.numpy as jnp
 from jax import lax, jit, vmap
 
@@ -85,6 +86,9 @@ class SingleColumnModel(eqx.Module):
         Abstraction representing the chosen closure.
     start_time : float, default=0.
         Value of the starting time in :math:`[\text s]`.
+    checkpoint : bool, default=False
+        Use the :func:`~jax.checkpoint` on the partial run method. Used for economize the memory
+        when computing the gradient, especially on GPUs.
 
     Note
     ----
@@ -99,7 +103,8 @@ class SingleColumnModel(eqx.Module):
     init_state: State
     case_tracable: CaseTracable
     closure: Closure = eqx.field(static=True)
-    start_time: float = 0.
+    start_time: float
+    checkpoint: bool = eqx.field(static=True)
 
     def __init__(
             self,
@@ -109,7 +114,8 @@ class SingleColumnModel(eqx.Module):
             init_state: State,
             case: Case,
             closure_name: str,
-            start_time: float=0.
+            start_time: float=0.,
+            checkpoint: bool=False
         ) -> None:
         self.nt = nt
         self.dt = dt
@@ -117,6 +123,7 @@ class SingleColumnModel(eqx.Module):
         self.init_state = init_state
         self.closure = CLOSURES_REGISTRY[closure_name]
         self.start_time = start_time
+        self.checkpoint = checkpoint
         # creation of the CaseTracable class
         grid = self.init_state.grid
         case_attributes = {k: v for k, v in vars(case).items() if not k.startswith('__')}
@@ -183,7 +190,6 @@ class SingleColumnModel(eqx.Module):
     ) -> StatesTime:
         r"""
         Runs one time-step of the model.
-        
 
         This functions first call the closure to compute the eddy-diffusivity and viscosity, and
         then integrate the equations of tracers and momentum. It modifies the :code:`state` with
@@ -223,6 +229,39 @@ class SingleColumnModel(eqx.Module):
         time += self.dt
         return state, closure_state, time
 
+    @jax.checkpoint
+    def step_check(
+        self,
+        state: State,
+        closure_state: ClosureStateAbstract,
+        time: float,
+        closure_parameters: ClosureParametersAbstract
+    ) -> StatesTime:
+        r"""
+        Checkpointed version of :meth:`run` to save memory during the gradient computation.
+        
+        Parameters
+        ----------
+        state : State
+            State of the water column at the current :code:`time`.
+        closure_state : ClosureStateAbstract
+            State of the water column for the closure variables at the current :code:`time`.
+        time : float
+            Time of the current iteration (the mehtod integrates from this time to the next one).
+        closure_parameters : ClosureParametersAbstract
+            A set of parameters of the used closure.
+        
+        Returns
+        -------
+        state : State
+            State of the water column after the integration.
+        closure_state : ClosureStateAbstract
+            State of the water column for the closure variables after the integration.
+        time : float
+            Value of the time after the integration.
+        """
+        return self.step(state, closure_state, time, closure_parameters)
+
     def run_partial(
             self,
             state0: State,
@@ -261,9 +300,13 @@ class SingleColumnModel(eqx.Module):
         time : float
             Value of the time after a number of :code:`n_steps` integration steps.
         """
+        if self.checkpoint:
+            step_fun = self.step_check
+        else:
+            step_fun = self.step
         def scan_fn(carry: StatesTime, _: FloatJax) -> Tuple[StatesTime, None]:
             state, closure_state, time = carry
-            state, closure_state, time = self.step(state, closure_state, time, closure_parameters)
+            state, closure_state, time = step_fun(state, closure_state, time, closure_parameters)
             return (state, closure_state, time), None
         carry, _ = lax.scan(scan_fn, (state0, closure_state0, time0), jnp.arange(n_steps))
         (state, closure_state, time) = carry
@@ -298,6 +341,7 @@ class SingleColumnModel(eqx.Module):
                 var_dict[var] = jnp.concat([var0, var_computed])
         times = jnp.concat([jnp.array([self.start_time]), times])
         return Trajectory(self.init_state.grid, times, **var_dict)
+
 
     def run(self, closure_parameters: ClosureParametersAbstract) -> Trajectory:
         r"""
@@ -346,8 +390,8 @@ class SingleColumnModel(eqx.Module):
         :class:`SingleColumnModel` instance (which means that all the leafs of the pytree have the
         same shape as :class:`~jax.Array`), but even if this method is call on different instances,
         if they have the same shape, the compilation will be done only one time. Moreover, this
-        method should use only for direct methods, is one wants to apply a :func:`~jax.grad` over
-        the model, it's better to put the :func:`~jax.jit` outside.
+        method should use only for direct methods, if one wants to apply a :func:`~jax.grad` over
+        it's better to put the :func:`~jax.jit` outside.
         
         Parameters
         ----------

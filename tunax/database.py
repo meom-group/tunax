@@ -261,7 +261,8 @@ class Data(eqx.Module):
         For the scalar parameters, the values must be registered in the file simply with their path
         in the file, separated with :code:`/` in the same string. For the timeseries and the time,
         the arrays of each time step must be register with a path that ends with the reference of
-        the time. For the other variables, just register the normal path.
+        the time. For the other variables, just register the normal path. The time is appriximated
+        to the order of the second.
 
         Parameters
         ----------
@@ -328,7 +329,7 @@ class Data(eqx.Module):
         time_float_list = []
         for time_str in time_str_list:
             ds = cast(H5pyDataset, jl[f'{time_group}/{time_str}'])
-            time_val = ds[()]
+            time_val = float(int(ds[()]))
             time_float_list.append(float(time_val))
         time = jnp.array(time_float_list)
         # variables
@@ -361,6 +362,7 @@ class Data(eqx.Module):
             if isinstance(jl_val, np.floating) or isinstance(jl_val, np.integer):
                 metadatas[metadata_name] = float(jl_val)
 
+        # return time
         return cls(trajectory, case, metadatas)
 
     def cut(self, out_nt_cut: int) -> List[Data]:
@@ -434,7 +436,7 @@ class Obs(eqx.Module):
     weights: Weights
 
     @classmethod
-    def from_data(cls, data: Data, dt: float, weights: Weights):
+    def from_data(cls, data: Data, dt: float, weights: Weights, checkpoint: bool=False):
         """
         Create a Obs instance from a Data one adding :class:`Weights` and a :code:`dt`.
 
@@ -449,6 +451,9 @@ class Obs(eqx.Module):
             The integration time-step that we want for our model.
         weights : Weights
             The weights to give to the loss function.
+        checkpoint : bool, default=False
+            Use the :func:`~jax.checkpoint` on the partial run method. Used for economize the memory
+            when computing the gradient, especially on GPUs.
         """
         time = data.trajectory.time
         nt = int((time[-1]-time[0])/dt)
@@ -456,7 +461,9 @@ class Obs(eqx.Module):
         p_out = int(out_dt/dt)
         init_state = data.trajectory.extract_state(0)
         start_time = float(time[0])
-        model = SingleColumnModel(nt, dt, p_out, init_state, data.case, 'k-epsilon', start_time)
+        model = SingleColumnModel(
+            nt, dt, p_out, init_state, data.case, 'k-epsilon', start_time, checkpoint
+        )
         return Obs(data.trajectory, model, weights)
 
 
