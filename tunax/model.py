@@ -177,7 +177,7 @@ class SingleColumnModel(eqx.Module):
                 initial_type = getattr(case_tracable, f'{tra}_forcing_type') == 'borders'
                 if initial_type == 'borders':
                     case_tracable = case_tracable.tra_promote_borders_variable(tra, grid, self.nt)
-                elif initial_type == 'borders':
+                elif initial_type == 'constant':
                     case_tracable = case_tracable.tra_promote_constant_variable(tra, self.nt)
         return eqx.tree_at(lambda t: t.case_tracable, self, case_tracable)
 

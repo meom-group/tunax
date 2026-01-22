@@ -26,8 +26,8 @@ ArrNzp1: TypeAlias = Float[Array, 'nz+1']
 """Type that describes a float :class:`~jax.Array` of shape (nz+1)."""
 ArrNt: TypeAlias = Float[Array, 'nt']
 """Type that describes a float :class:`~jax.Array` of shape (nt)."""
-ArrNzNt: TypeAlias = Float[Array, 'nz nt']
-"""Type that describes a float :class:`~jax.Array` of shape (nz, nt)."""
+ArrNtNz: TypeAlias = Float[Array, 'nz nt']
+"""Type that describes a float :class:`~jax.Array` of shape (nt, nz)."""
 
 TRACERS_NAMES: List[str] = ['t', 's', 'b', 'pt']
 """Names of the tracers, in the order of temperature, salinity, buoyancy and passive tracer."""
@@ -472,29 +472,29 @@ class Trajectory(eqx.Module):
         Geometry of the water column.
     time : float :class:`~jax.Array` of shape (nt)
         Time at each steps of observation from the begining of the simulation :math:`[\text s]`.
-    u : float :class:`~jax.Array` of shape (nz, nt)
+    u : float :class:`~jax.Array` of shape (nt, nz)
         Time-serie of zonal velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    v : float :class:`~jax.Array` of shape (nz, nt)
+    v : float :class:`~jax.Array` of shape (nt, nz)
         Time-serie of meridional velocity :math:`\left[\text m \cdot \text s^{-1}\right]`.
-    t : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
+    t : float :class:`~jax.Array` of shape (nt, nz), optionnal, default=None
         Time-serie of temperature :math:`[\text C°]`.
-    s : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
+    s : float :class:`~jax.Array` of shape (nt, nz), optionnal, default=None
         Time-serie of salinity :math:`[\text{psu}]`.
-    b : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
+    b : float :class:`~jax.Array` of shape (nt, nz), optionnal, default=None
         Time-serie of buoyancy :math:`[\text{dimensionless}]`.
-    pt : float :class:`~jax.Array` of shape (nz, nt), optionnal, default=None
+    pt : float :class:`~jax.Array` of shape (nt, nz), optionnal, default=None
         Time-serie a passive tracer :math:`[\text{dimensionless}]`.
         
     """
 
     grid: Grid
     time: Float[Array, 'nt']
-    u: ArrNzNt
-    v: ArrNzNt
-    t: Optional[ArrNzNt] = None
-    s: Optional[ArrNzNt] = None
-    b: Optional[ArrNzNt] = None
-    pt: Optional[ArrNzNt] = None
+    u: ArrNtNz
+    v: ArrNtNz
+    t: Optional[ArrNtNz] = None
+    s: Optional[ArrNtNz] = None
+    b: Optional[ArrNtNz] = None
+    pt: Optional[ArrNtNz] = None
 
     def to_ds(self) -> xr.Dataset:
         """

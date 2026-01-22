@@ -17,7 +17,7 @@ import jax.numpy as jnp
 from jax import device_get
 
 from tunax.functions import add_boundaries
-from tunax.space import Grid, ArrNz, ArrNzNt
+from tunax.space import Grid, ArrNz, ArrNtNz
 
 ForcingType: TypeAlias = Union[
     Tuple[float, float],
@@ -25,7 +25,7 @@ ForcingType: TypeAlias = Union[
     Callable[[float, float], float]
 ]
 """Type that represent the different possible types of the forcings in :class:`Case`."""
-ForcingArrayType: TypeAlias = Union[Tuple[float, float], ArrNz, ArrNzNt]
+ForcingArrayType: TypeAlias = Union[Tuple[float, float], ArrNz, ArrNtNz]
 """Type that represent the different possible types of the forcings in :class:`CaseTracable`."""
 
 _OMEGA = 7.292116e-05
@@ -203,7 +203,7 @@ class CaseTracable(eqx.Module):
         cf. :attr:`Case.vstr_sfc`
     vstr_btm : float, default=0.
         cf. :attr:`Case.vstr_btm`
-    t_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
+    t_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nt, nz), optionnal, default=None
         Description of the temperature forcing cf. :attr:`Case.t_forcing`, the type depends on the
         forcing type :
         
@@ -216,15 +216,15 @@ class CaseTracable(eqx.Module):
           for each cell the difference between the forcing at the top of the cell and the forcing at
           bottom.
         
-        - **Deep variable forcing** : array of shape (nz, nt) : the value of the forcing function on
+        - **Deep variable forcing** : array of shape (nt, nz) : the value of the forcing function on
           the geometrical :class:`Grid` and the different iteration times of the model. As for deep
           constant forcing, the values represent the flux of the forcing at every time.
 
-    s_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
+    s_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nt, nz), optionnal, default=None
         Same as :attr:`t_forcing` for Salinity.
-    b_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
+    b_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nt, nz), optionnal, default=None
         Same as :attr:`t_forcing` for buoyancy.
-    pt_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nz, nt), optionnal, default=None
+    pt_forcing : tuple of 2 floats or :class:`~jax.Array` (nz) or (nt, nz), optionnal, default=None
         Same as :attr:`t_forcing` for passive tracer.
     t_forcing_type : str, optionnal, default=None
         Description of the type of temperature forcing : :code:`'borders'` for **border forcing**,
@@ -323,7 +323,7 @@ class CaseTracable(eqx.Module):
         constant_forcing = add_boundaries(
             -border_forcing[0], jnp.zeros(grid.nz-2), border_forcing[1]
         )
-        variable_forcing = jnp.tile(constant_forcing[:, None], (1, nt))
+        variable_forcing = jnp.tile(constant_forcing[:, None], (0, nt))
         case_tracable = eqx.tree_at(lambda t: getattr(t, f'{tra}_forcing'), self, variable_forcing)
         dico = {f'{tra}_forcing_type': 'variable'}
         case_tracable = replace(case_tracable, **dico)
@@ -353,7 +353,7 @@ class CaseTracable(eqx.Module):
             The :code:`self` object with the promoted forcing.
         """
         constant_forcing = getattr(self, f'{tra}_forcing')
-        variable_forcing = jnp.tile(constant_forcing[:, None], (1, nt))
+        variable_forcing = jnp.tile(constant_forcing[:, None], (0, nt))
         case_tracable = eqx.tree_at(lambda t: getattr(t, f'{tra}_forcing'), self, variable_forcing)
         dico = {f'{tra}_forcing_type': 'variable'}
         case_tracable = replace(case_tracable, **dico)
