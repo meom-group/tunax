@@ -771,8 +771,8 @@ def advance_turb(
 
     # bottom boundary condition
     dir_btm = keps_params.dir_btm
-    b_btm = cast(float, jnp.where(dir_sfc, 1., -0.5*(ak_vec[0] + ak_vec[1])))
-    c_btm = cast(float, jnp.where(dir_sfc, 0., 0.5*(ak_vec[0] + ak_vec[1])))
+    b_btm = cast(float, jnp.where(dir_btm, 1., -0.5*(ak_vec[0] + ak_vec[1])))
+    c_btm = cast(float, jnp.where(dir_btm, 0., 0.5*(ak_vec[0] + ak_vec[1])))
     btm_bc = jnp.where(do_tke, tke_btm_bc, eps_btm_bc)
     f_btm = cast(float, jnp.where(dir_btm, btm_bc, hz[0]*btm_bc))
 
