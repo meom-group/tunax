@@ -86,20 +86,22 @@ class Data(eqx.Module):
         trans_axis : TransAxisType
             This object contains the information of the transformation of each axis. The number of
             element must be the same as the number of axis of `arr`. Each element has 3 components :
+
             - A boolean, indicates whether we keep this axis on the ouput (if True), or if we
-            project on a certain index of this axis.
+              project on a certain index of this axis.
             - An integer. If the boolean is True, it indicates the position of the axis in the
-            output array (there will be a transposition if these numbers are not in the order). I
-            the boolean is False, it indicates the index on which do the projection of `arr` for the
-            output array.
+              output array (there will be a transposition if these numbers are not in the order). I
+              the boolean is False, it indicates the index on which do the projection of `arr` for the
+              output array.
             - A tuple of integer indicating the slicing to do. There are 4 possibilities :
+
                 - If the tuple is empty, there is no slicing, all the data of the axis is kept.
                 - If the tuple has 1 integer, it indicates the expected size of the array, it will
-                keep the center of array by removing symetrically the bounds of the array on this
-                axis.
+                  keep the center of array by removing symetrically the bounds of the array on this
+                  axis.
                 - If the tuple has 2 or 3 integers, it behaves like a normal slice (start, stop) or
-                (start, stop, step).
-        
+                  (start, stop, step).
+
         Returns
         -------
         transformed_arr : :class:`~jax.Array`
@@ -270,14 +272,16 @@ class Data(eqx.Module):
         names_mapping : Dict[str, Dict[str, str]]
             Contains the link between the Tunax names of variables and the path of the variables in
             the file. There are 4 first entries :
+
             - :code:`variables` :for all the variables corresponding to the :class:`space.Grid` and
               the :class:`space.Trajectory`.
             - :code:`parameters` : for all the scalar entries corresponding directly to the
-              parameters of :class:`case.Case`
+              parameters of :class:`case.Case`.
             - :code:`metadatas` : for the entries that we want to keep in the :attr:`metadatas` for
-            later.
+              later.
             - :code:`adjust_params` : for the parameters entries that are used by the adjusting
-            function later.
+              function later.
+              
             For :code:`.nc` files these are strings, for :code:`.jld2` they can use '/' to describe
             the tree structure.
         trans_axis_mapping : dict[str, TransAxisParType], optionnal
@@ -291,10 +295,10 @@ class Data(eqx.Module):
             This is a adjusting function, taking the loaded data and some parameters in a
             dictionnary, it returns a modified version of the data. This function can be used to
             implement variable forcings or special transformations of parameters. The parameters are
-            the mix of :par:`adjust_fun_pars_out` and the parameters that are loaded from the file
-            with the :code:`adjust_params` of :par:`names_mapping`.
+            the mix of :code:`adjust_fun_pars_out` and the parameters that are loaded from the file
+            with the :code:`adjust_params` of :code`names_mapping`.
         adjust_fun_pars_out : Dict[str, Any], optionnal
-            Parameters to put in :par:`adjust_fun` in addition to those read in the file.
+            Parameters to put in :code`adjust_fun` in addition to those read in the file.
         time_sep : bool, default=False
             Works only for :code:`.jld2` files. If the timeseries of the variables are indexed as
             one 1D array by time-step, put this attribute to True. It will read the indexes of the

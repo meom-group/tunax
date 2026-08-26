@@ -52,10 +52,12 @@ class Case(eqx.Module):
     eos_tracers : str, default='t'
         Tracers used for the equation of state (the computation of the density). One of
         {:code:`'t'`, :code:`'s'`, :code:`'ts`', :code:`'b'`}.
-        - 't': temperature
-        - 's': salinity
-        - 'ts': temperature and salinity
-        - 'b': buoyancy
+
+            - 't': temperature
+            - 's': salinity
+            - 'ts': temperature and salinity
+            - 'b': buoyancy
+
     alpha : float, default=2e-4
         Thermal expansion coefficient :math:`[\text{K}^{-1}]`.
     beta : float, default=8e-4
@@ -85,6 +87,7 @@ class Case(eqx.Module):
         activated i.e. if :code:`'t'` is not in :code:`eos_tracers`). The unit is in
         :math:`[\text{K} \cdot \text{s}^{-1}]`. There are 4 cases depending on the
         object type :
+
         - **Surface forcing** : a float, forcing flux at the top of the water column.
         - **Border forcing** : tuple of 2 floats, the first one is the forcing at the bottom and the
           second ont is the forcing at the top of the water column.
@@ -190,10 +193,12 @@ class CaseTracable(eqx.Module):
     t_forcing : :class:`~jax.Array` of shape (nz) or (nt, nz), optionnal
         Description of the temperature forcing cf. :attr:`Case.t_forcing` as a forcing flux. The
         shape of the array depends on the forcing type :
+
         - **constant forcing** : array of shape (nz) : the value of the forcing function on the
           geometrical :class:`Grid` of the model.
         - **Variable forcing** : array of shape (nt, nz) : the value of the forcing function on
           the geometrical :class:`Grid` and the different iteration times of the model.
+
         The surface, borders and "deep constant forcing" from the class :class:`Case` are
         transformed in "constant forcing" array. And the space-time function forcing for the class
         :class:`Case` are transformed in "variable forcing".
