@@ -14,8 +14,8 @@ sys.path.append(os.path.join('..'))
 project = 'tunax'
 author = 'Gabriel Mouttapa'
 copyright = '2024, Gabriel Mouttapa, Julien Le Sommer'
-version = '0.1'
-release = '0.1.0'
+version = '0.2'
+release = '0.2.9'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
