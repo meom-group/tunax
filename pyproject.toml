@@ -14,15 +14,15 @@ classifiers = [
     'Operating System :: OS Independent',
 ]
 version = "0.2.11"
-requires-python = '>=3.10,<4.0'
+requires-python = '>=3.12,<4.0'
 dependencies = [
     'equinox>=0.11.7',
     'optax>=0.2.3',
     'xarray>=2024.9.0',
-    'netcdf4>=1.7.1.post2',
-    'jax>=0.4.34',
+    'netcdf4>=1.7.4',
+    'jax>=0.11.1',
     'jaxtyping>=0.2.34',
-    'h5py>=3.12.1',
+    'h5py>=3.16.0',
     "pyyaml (>=6.0.2,<7.0.0)"
 ]
 
@@ -39,11 +39,11 @@ packages = [
 [tool.poetry.group.dev.dependencies]
 tqdm = '^4.67.1'
 jupyter = '^1.1.1'
-matplotlib = '^3.9.2'
+matplotlib = '^3.11.1'
 pytest = '^8.3.3'
 coverage = '^7.6.4'
 ipykernel = '^6.29.5'
-pytest-cov = "^7.1.0"
+pytest-cov = '^7.1.0'
 
 [build-system]
 requires = ['poetry-core>=1.0.0']

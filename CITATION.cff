@@ -10,5 +10,6 @@ authors:
 title: "Tunax"
 version: 0.2.11
 date-released: 2026-08-28
+doi: "10.5281/zenodo.22143347"
 url: "https://github.com/IGE-OPERA/tunax"
 type: software
