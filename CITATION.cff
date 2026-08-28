@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Mouttapa
+    given-names: Gabriel
+    orcid: https://orcid.org/0009-0008-8036-1215
+  - family-names: Le Sommer
+    given-names: Julien
+    orcid: https://orcid.org/0000-0002-6882-2938
+title: "Tunax"
+version: 0.2.11
+date-released: 2026-08-28
+url: "https://github.com/IGE-OPERA/tunax"
+type: software
