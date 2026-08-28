@@ -145,7 +145,7 @@ def test_datatransform_arr_jld2():
     result = Data.transform_arr(arr, ((True, 0, (64,)), (False, 0, ()), (False, 0, ())))
     assert result.shape == (64,)
 
-def test_datatransform_arr_():
+def test_datatransform_arr_jld2_scal():
     """
     Smoke test and result test for a scalar from a .jld2 file for Data.transform_arr.
     """

@@ -403,8 +403,12 @@ class Data(eqx.Module):
         # check for constant time step
         time = data.trajectory.time
         steps = time[1:] - time[:-1]
-        if not jnp.all(steps == steps[0]):
-            raise ValueError('Tunax only handle constant output time-steps')
+        step0 = steps[0]
+        if not jnp.all(steps == step0):
+            if jnp.allclose(steps, step0, rtol=1e-10, atol=1e-12):
+                steps = jnp.full_like(steps, steps[0])
+            else:
+                raise ValueError('Tunax only handle constant output time-steps')
         # detection of passive tracer
         if data.trajectory.pt is not None:
             data = replace(data, case=replace(data.case, do_pt=True))
